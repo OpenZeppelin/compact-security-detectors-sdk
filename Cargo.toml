@@ -1,0 +1,24 @@
+[workspace]
+
+resolver = "2"
+
+members = [
+    "sdk",
+    "macro-lib"
+]
+
+[workspace.package]
+version = "0.0.1"
+edition = "2021"
+license = "MIT"
+homepage = "https://www.openzeppelin.com/"
+repository = "https://github.com/OpenZeppelin/midnight-security-rules-sdk"
+
+[workspace.dependencies]
+midnight-security-rules-sdk = { path = "./sdk", version = "0.0.1" }
+midnight-security-rules-macro-lib = { path = "./macro-lib", version = "0.0.1" }
+
+anyhow = "1.0.44"
+syn = { version = "2.0.98", features = ["full"] }
+quote = "1.0.38"
+proc-macro2 = { version = "1.0.93", features = ["span-locations"] }
