@@ -1,11 +1,14 @@
 #![warn(clippy::pedantic)]
-use crate::ast_nodes;
+use std::rc::Rc;
 
-#[derive(Clone, PartialEq, Eq, Debug, serde::Serialize, serde::Deserialize)]
-pub enum Literal {
-    Nat(Nat),
-    Str(Str),
-    Version(Version),
+use crate::{ast_enum, ast_nodes};
+
+ast_enum! {
+    pub enum Literal {
+        Nat(Rc<Nat>),
+        Str(Rc<Str>),
+        Version(Rc<Version>),
+    }
 }
 
 ast_nodes! {

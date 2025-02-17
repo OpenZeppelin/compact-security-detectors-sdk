@@ -1,10 +1,13 @@
 #![warn(clippy::pedantic)]
-use crate::ast_nodes;
+use std::rc::Rc;
 
-#[derive(Clone, PartialEq, Eq, Debug, serde::Serialize, serde::Deserialize)]
-pub enum Definition {
-    Module(Module),
-    Circuit(Circuit),
+use crate::{ast_enum, ast_nodes};
+
+ast_enum! {
+    pub enum Definition {
+        Module(Rc<Module>),
+        Circuit(Rc<Circuit>),
+    }
 }
 
 ast_nodes! {

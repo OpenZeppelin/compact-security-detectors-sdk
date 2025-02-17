@@ -1,10 +1,13 @@
 #![warn(clippy::pedantic)]
-use crate::ast_nodes;
+use std::rc::Rc;
 
-#[derive(Clone, PartialEq, Eq, Debug, serde::Serialize, serde::Deserialize)]
-pub enum Directive {
-    Pragma(Pragma),
-    Include(Include),
+use crate::{ast_enum, ast_nodes};
+
+ast_enum! {
+    pub enum Directive {
+        Pragma(Rc<Pragma>),
+        Include(Rc<Include>),
+    }
 }
 
 ast_nodes! {

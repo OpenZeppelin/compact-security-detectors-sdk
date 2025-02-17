@@ -9,19 +9,47 @@ pub struct Location {
 }
 
 #[macro_export]
-macro_rules! ast_node {
+macro_rules! ast_enum {
     (
         $(#[$outer:meta])*
-        $vis:vis struct $name:ident {
-            $($body:tt)*
+        $enum_vis:vis enum $name:ident {
+            $(
+                $(#[$arm_attr:meta])*
+                $arm:ident $( ( $($tuple:tt)* ) )? $( { $($struct:tt)* } )? ,
+            )*
         }
     ) => {
         $(#[$outer])*
-        #[derive(Clone, PartialEq, Eq, Debug, Default, serde::Serialize, serde::Deserialize)]
-        pub struct $name {
-            pub id: u32,
+        #[derive(Clone, PartialEq, Eq, Debug, serde::Serialize, serde::Deserialize)]
+        $enum_vis enum $name {
+            $(
+                $(#[$arm_attr])*
+                $arm $( ( $($tuple)* ) )? $( { $($struct)* } )? ,
+            )*
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! ast_node {
+    (
+        $(#[$outer:meta])*
+        $struct_vis:vis struct $name:ident {
+            $(
+                $(#[$field_attr:meta])*
+                $field_vis:vis $field_name:ident : $field_ty:ty
+            ),* $(,)?
+        }
+    ) => {
+        $(#[$outer])*
+        #[derive(Clone, PartialEq, Eq, Debug, serde::Serialize, serde::Deserialize)]
+        $struct_vis struct $name {
+            pub id: u128,
             pub location: $crate::ast::node::Location,
-            $($body)*
+            $(
+                $(#[$field_attr])*
+                $field_vis $field_name : $field_ty,
+            )*
         }
     };
 }
@@ -31,13 +59,13 @@ macro_rules! ast_nodes {
     (
         $(
             $(#[$outer:meta])*
-            $vis:vis struct $name:ident { $($body:tt)* }
+            $struct_vis:vis struct $name:ident { $($fields:tt)* }
         )+
     ) => {
         $(
             $crate::ast_node! {
                 $(#[$outer])*
-                $vis struct $name { $($body)* }
+                $struct_vis struct $name { $($fields)* }
             }
         )+
     };

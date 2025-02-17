@@ -1,8 +1,6 @@
 #![warn(clippy::pedantic)]
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, marker::PhantomData, rc::Rc};
-
-use crate::ast::declaration::Contract;
+use std::{collections::HashMap, marker::PhantomData};
 
 #[allow(dead_code)]
 trait CodebaseOpen {}

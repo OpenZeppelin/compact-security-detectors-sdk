@@ -1,22 +1,24 @@
 #![warn(clippy::pedantic)]
-use crate::ast_nodes;
+use std::rc::Rc;
+
+use crate::{ast_enum, ast_nodes};
 
 use super::definition::Definition;
 
-#[derive(Clone, PartialEq, Eq, Debug, serde::Serialize, serde::Deserialize)]
-pub enum Declaration {
-    Import(Import),
-    Export(Export),
-    External(External),
-    Witness(Witness),
-    Ledger(Ledger),
-    Ctor(Ctor),
-    Contract(Contract),
-    Struct(Struct),
-    Enum(Enum),
-    Definition(Definition),
+ast_enum! {
+    pub enum Declaration {
+        Import(Rc<Import>),
+        Export(Rc<Export>),
+        External(Rc<External>),
+        Witness(Rc<Witness>),
+        Ledger(Rc<Ledger>),
+        Ctor(Rc<Ctor>),
+        Contract(Rc<Contract>),
+        Struct(Rc<Struct>),
+        Enum(Rc<Enum>),
+        Definition(Rc<Definition>),
+    }
 }
-
 ast_nodes! {
     pub struct Import {}
 

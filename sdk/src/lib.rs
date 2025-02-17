@@ -1,7 +1,7 @@
 #![warn(clippy::pedantic)]
 pub mod ast;
 pub mod codebase;
-mod type_inference;
+mod passes;
 
 // fn parse_content(fname: &str, source_code: &str) -> anyhow::Result<codebase::SourceCodeFile> {
 //     let compact_language = tree_sitter_compact::language();
