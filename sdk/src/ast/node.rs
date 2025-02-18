@@ -70,7 +70,3 @@ macro_rules! ast_nodes {
         )+
     };
 }
-
-ast_node! {
-    pub struct Identifier {}
-}
