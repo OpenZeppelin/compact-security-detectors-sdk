@@ -1,7 +1,8 @@
 #![allow(clippy::all)]
 #![allow(warnings)]
+#![feature(trait_upcasting)]
 use anyhow::{anyhow, Result};
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{any::Any, cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::ast::{
     expression::{BinaryExpressionOperator, Expression},
@@ -30,21 +31,60 @@ pub enum NodeKind {
     NewScope(Rc<dyn Node>),
 }
 
-pub trait NodeSymbolNode: Node + SymbolNode {}
+pub trait NodeSymbolNode: Node + SymbolNode + Any {}
 
-impl<T> NodeSymbolNode for T where T: Node + SymbolNode {}
+impl<T> NodeSymbolNode for T where T: Node + SymbolNode + Any {}
+
+impl<'a> From<&'a Rc<dyn NodeSymbolNode>> for &'a dyn Node {
+    fn from(node: &'a Rc<dyn NodeSymbolNode>) -> Self {
+        node as &'a dyn Node
+    }
+}
+
+impl Node for Rc<dyn NodeSymbolNode> {
+    fn children(&self) -> Vec<Rc<NodeKind>> {
+        match self.as_any().downcast_ref::<SameScopeNode>() {
+            Some(SameScopeNode::Composite(comp_node)) => comp_node.children(),
+            _ => vec![],
+        }
+    }
+}
+
+impl dyn NodeSymbolNode {
+    pub fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
 
 pub enum SameScopeNode {
     Symbol(Rc<dyn NodeSymbolNode>),
     Composite(Rc<dyn Node>),
 }
 
-pub trait Node {
+pub trait Node: Any {
     fn children(&self) -> Vec<Rc<NodeKind>>;
+}
+
+impl dyn Node {
+    pub fn as_any(&self) -> &dyn Any {
+        self
+    }
 }
 
 pub trait SymbolNode {
     fn name(&self) -> String;
+    fn type_expr(&self) -> Option<&Expression> {
+        None
+    }
+}
+
+impl SymbolNode for crate::ast::statement::Var {
+    fn name(&self) -> String {
+        self.name.name.clone()
+    }
+    fn type_expr(&self) -> Option<&Expression> {
+        self.ty_.as_ref().or(Some(&self.value))
+    }
 }
 
 #[derive(Default, Clone)]
@@ -96,33 +136,47 @@ pub fn build_symbol_table(
     parent: Option<Rc<SymbolTable>>,
 ) -> anyhow::Result<Rc<SymbolTable>> {
     let symbol_table = Rc::new(SymbolTable::new(parent));
-    let mut nodes = if let NodeKind::NewScope(node) = node_kind.as_ref() {
+    let nodes: Vec<Rc<NodeKind>> = if let NodeKind::NewScope(node) = node_kind.as_ref() {
         node.children()
     } else {
         vec![node_kind]
     };
-    while let Some(node) = nodes.pop() {
-        match node.as_ref() {
-            NodeKind::SameScopeNode(node) => match node {
-                SameScopeNode::Symbol(node) => {
-                    let symbol_name = node.name();
+    for node in &nodes {
+        if let NodeKind::SameScopeNode(same) = node.as_ref() {
+            if let SameScopeNode::Symbol(sym_node) = same {
+                if let Some(var) = sym_node
+                    .as_any()
+                    .downcast_ref::<crate::ast::statement::Var>()
+                {
+                    let symbol_name = var.name();
                     if symbol_table.symbols.borrow().contains_key(&symbol_name) {
                         return Err(anyhow!("Symbol {symbol_name} already exists"));
                     }
+                    let ty = if let Some(type_expr) = sym_node.type_expr() {
+                        infer_expr(type_expr, &symbol_table)?
+                    } else {
+                        Type::Unknown
+                    };
                     symbol_table.symbols.borrow_mut().insert(
                         symbol_name.clone(),
                         Symbol {
                             name: symbol_name,
-                            ty: Type::Unknown,
+                            ty,
                         },
                     );
                 }
-                SameScopeNode::Composite(node) => {
-                    for child in node.children() {
-                        nodes.push(child.clone());
+            }
+        }
+    }
+    for node in nodes {
+        match node.as_ref() {
+            NodeKind::SameScopeNode(same) => {
+                if let SameScopeNode::Composite(comp_node) = same {
+                    for child in comp_node.children() {
+                        let _ = build_symbol_table(child, Some(symbol_table.clone()))?;
                     }
                 }
-            },
+            }
             NodeKind::NewScope(node) => {
                 let child_scope = build_symbol_table(
                     Rc::new(NodeKind::NewScope(node.clone())),
@@ -239,7 +293,11 @@ mod test {
                 Statement::Var(Rc::new(Var {
                     id: 0,
                     location: Default::default(),
-                    name: "a".to_string(),
+                    name: Rc::new(Identifier {
+                        id: 6,
+                        location: Default::default(),
+                        name: String::from("a"),
+                    }),
                     value: Expression::Literal(Literal::Nat(Rc::new(Nat {
                         id: 1,
                         location: Default::default(),
@@ -249,7 +307,11 @@ mod test {
                 Statement::Var(Rc::new(Var {
                     id: 2,
                     location: Default::default(),
-                    name: "b".to_string(),
+                    name: Rc::new(Identifier {
+                        id: 6,
+                        location: Default::default(),
+                        name: String::from("b"),
+                    }),
                     value: Expression::Literal(Literal::Nat(Rc::new(Nat {
                         id: 3,
                         location: Default::default(),
@@ -298,7 +360,11 @@ mod test {
                 Statement::Var(Rc::new(Var {
                     id: 0,
                     location: Default::default(),
-                    name: "a".to_string(),
+                    name: Rc::new(Identifier {
+                        id: 6,
+                        location: Default::default(),
+                        name: String::from("a"),
+                    }),
                     value: Expression::Literal(Literal::Nat(Rc::new(Nat {
                         id: 1,
                         location: Default::default(),
@@ -308,7 +374,11 @@ mod test {
                 Statement::Var(Rc::new(Var {
                     id: 2,
                     location: Default::default(),
-                    name: "b".to_string(),
+                    name: Rc::new(Identifier {
+                        id: 6,
+                        location: Default::default(),
+                        name: String::from("b"),
+                    }),
                     value: Expression::Literal(Literal::Nat(Rc::new(Nat {
                         id: 3,
                         location: Default::default(),

@@ -5,7 +5,7 @@ use crate::{
     passes::{Node, NodeKind, SameScopeNode},
 };
 
-use super::expression::Expression;
+use super::expression::{Expression, Identifier};
 
 ast_enum! {
     pub enum Statement {
@@ -32,7 +32,8 @@ impl From<&Statement> for NodeKind {
             }
             Statement::Block(block) => NodeKind::NewScope(block.clone()),
             Statement::If(r#if) => NodeKind::SameScopeNode(SameScopeNode::Composite(r#if.clone())),
-            Statement::Var(var) => NodeKind::SameScopeNode(SameScopeNode::Composite(var.clone())),
+            // <-- Fix: treat Var as a symbol so its type_expr() is used.
+            Statement::Var(var) => NodeKind::SameScopeNode(SameScopeNode::Symbol(var.clone())),
         }
     }
 }
@@ -66,7 +67,7 @@ ast_nodes! {
     }
 
     pub struct Var {
-        pub name: String,
+        pub name: Rc<Identifier>,
         pub value: Expression,
         pub ty_: Option<Expression>,
     }

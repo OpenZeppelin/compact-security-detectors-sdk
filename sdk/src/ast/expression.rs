@@ -49,6 +49,40 @@ impl From<&Expression> for NodeKind {
     }
 }
 
+impl From<&NodeKind> for Expression {
+    fn from(node: &NodeKind) -> Self {
+        match node {
+            NodeKind::SameScopeNode(SameScopeNode::Composite(cond)) => {
+                if let Some(cond) = cond.as_any().downcast_ref::<Rc<Conditional>>() {
+                    Expression::Conditional(cond.clone())
+                } else if let Some(binary) = cond.as_any().downcast_ref::<Rc<Binary>>() {
+                    Expression::Binary(binary.clone())
+                } else if let Some(cast) = cond.as_any().downcast_ref::<Rc<Cast>>() {
+                    Expression::Cast(cast.clone())
+                } else if let Some(index_access) = cond.as_any().downcast_ref::<Rc<IndexAccess>>() {
+                    Expression::IndexAccess(index_access.clone())
+                } else if let Some(member_access) = cond.as_any().downcast_ref::<Rc<MemberAccess>>()
+                {
+                    Expression::MemberAccess(member_access.clone())
+                } else if let Some(function_call) = cond.as_any().downcast_ref::<Rc<FunctionCall>>()
+                {
+                    Expression::FunctionCall(function_call.clone())
+                } else {
+                    unreachable!()
+                }
+            }
+            NodeKind::SameScopeNode(SameScopeNode::Symbol(identifier)) => {
+                if let Some(identifier) = identifier.as_any().downcast_ref::<Rc<Identifier>>() {
+                    Expression::Identifier(identifier.clone())
+                } else {
+                    unreachable!()
+                }
+            }
+            _ => unreachable!(),
+        }
+    }
+}
+
 ast_nodes! {
     /// E.g. `const a = bool ? 1 : 2`
     pub struct Conditional {
@@ -177,5 +211,9 @@ impl Node for Identifier {
 impl SymbolNode for Identifier {
     fn name(&self) -> String {
         self.name.clone()
+    }
+
+    fn type_expr(&self) -> Option<&Expression> {
+        None
     }
 }
