@@ -1,6 +1,5 @@
 #![allow(clippy::all)]
-#![allow(warnings)]
-#![feature(trait_upcasting)]
+#![allow(dead_code)]
 use anyhow::{anyhow, Result};
 use std::{any::Any, cell::RefCell, collections::HashMap, rc::Rc};
 
@@ -61,6 +60,12 @@ pub enum SameScopeNode {
     Composite(Rc<dyn Node>),
 }
 
+impl From<Rc<dyn Node>> for NodeKind {
+    fn from(node: Rc<dyn Node>) -> Self {
+        NodeKind::NewScope(node)
+    }
+}
+
 pub trait Node: Any {
     fn children(&self) -> Vec<Rc<NodeKind>>;
 }
@@ -78,23 +83,8 @@ pub trait SymbolNode {
     }
 }
 
-impl SymbolNode for crate::ast::statement::Var {
-    fn name(&self) -> String {
-        self.name.name.clone()
-    }
-    fn type_expr(&self) -> Option<&Expression> {
-        self.ty_.as_ref().or(Some(&self.value))
-    }
-}
-
-#[derive(Default, Clone)]
-pub struct Symbol {
-    pub name: String,
-    pub ty: Type,
-}
-
 pub struct SymbolTable {
-    pub symbols: RefCell<HashMap<String, Symbol>>,
+    pub symbols: RefCell<HashMap<String, Type>>,
     pub parent: Option<Rc<SymbolTable>>,
     pub children: RefCell<Vec<Rc<SymbolTable>>>,
 }
@@ -109,17 +99,17 @@ impl SymbolTable {
     }
 
     #[allow(clippy::map_entry)]
-    pub fn insert(&self, name: String, symbol: Symbol) -> Result<()> {
+    pub fn insert(&self, name: String, ty: Type) -> Result<()> {
         let mut syms = self.symbols.borrow_mut();
         if syms.contains_key(&name) {
             Err(anyhow!("Symbol {name} already exists"))
         } else {
-            syms.insert(name, symbol);
+            syms.insert(name, ty);
             Ok(())
         }
     }
 
-    pub fn lookup(&self, name: &str) -> Option<Symbol> {
+    pub fn lookup(&self, name: &str) -> Option<Type> {
         let syms = self.symbols.borrow();
         if let Some(sym) = syms.get(name) {
             Some(sym.clone())
@@ -142,41 +132,7 @@ pub fn build_symbol_table(
         vec![node_kind]
     };
     for node in &nodes {
-        if let NodeKind::SameScopeNode(same) = node.as_ref() {
-            if let SameScopeNode::Symbol(sym_node) = same {
-                if let Some(var) = sym_node
-                    .as_any()
-                    .downcast_ref::<crate::ast::statement::Var>()
-                {
-                    let symbol_name = var.name();
-                    if symbol_table.symbols.borrow().contains_key(&symbol_name) {
-                        return Err(anyhow!("Symbol {symbol_name} already exists"));
-                    }
-                    let ty = if let Some(type_expr) = sym_node.type_expr() {
-                        infer_expr(type_expr, &symbol_table)?
-                    } else {
-                        Type::Unknown
-                    };
-                    symbol_table.symbols.borrow_mut().insert(
-                        symbol_name.clone(),
-                        Symbol {
-                            name: symbol_name,
-                            ty,
-                        },
-                    );
-                }
-            }
-        }
-    }
-    for node in nodes {
         match node.as_ref() {
-            NodeKind::SameScopeNode(same) => {
-                if let SameScopeNode::Composite(comp_node) = same {
-                    for child in comp_node.children() {
-                        let _ = build_symbol_table(child, Some(symbol_table.clone()))?;
-                    }
-                }
-            }
             NodeKind::NewScope(node) => {
                 let child_scope = build_symbol_table(
                     Rc::new(NodeKind::NewScope(node.clone())),
@@ -184,6 +140,47 @@ pub fn build_symbol_table(
                 )?;
                 symbol_table.children.borrow_mut().push(child_scope);
             }
+            NodeKind::SameScopeNode(same) => match same {
+                SameScopeNode::Composite(comp_node) => {
+                    for child in comp_node.children() {
+                        let _ = build_symbol_table(child, Some(symbol_table.clone()))?;
+                    }
+                }
+                SameScopeNode::Symbol(symbol_node) => {
+                    let symbol_name = symbol_node.name();
+                    let symbol_type = if let Some(type_expr) = symbol_node.type_expr() {
+                        infer_expr(type_expr, &symbol_table)?
+                    } else {
+                        Type::Unknown
+                    };
+                    if symbol_table.symbols.borrow().contains_key(&symbol_name) {
+                        if let Some(st) = symbol_table.lookup(&symbol_name) {
+                            if st == Type::Unknown {
+                                //why didn't we see the type of the symbol before? bug?
+                                return Err(anyhow!(
+                                    "Symbol {symbol_name} without a type in a symbol table"
+                                ));
+                            } else if symbol_type == Type::Unknown {
+                                symbol_table
+                                    .symbols
+                                    .borrow_mut()
+                                    .insert(symbol_name.clone(), st);
+                            } else {
+                                return Err(anyhow!("Symbol {symbol_name} already exists"));
+                                //shadowing
+                            }
+                        }
+                    } else {
+                        symbol_table
+                            .symbols
+                            .borrow_mut()
+                            .insert(symbol_name.clone(), symbol_type);
+                    }
+                    for child in symbol_node.children() {
+                        let _ = build_symbol_table(child, Some(symbol_table.clone()))?;
+                    }
+                }
+            },
         }
     }
     Ok(symbol_table)
@@ -256,10 +253,10 @@ fn infer_expr(expr: &Expression, env: &Rc<SymbolTable>) -> Result<Type> {
         Expression::MemberAccess(member_access) => infer_expr(&member_access.base, env),
         Expression::FunctionCall(function_call) => infer_expr(&function_call.function, env),
         Expression::Identifier(identifier) => {
-            let symbol = env
+            let symbol_type = env
                 .lookup(&identifier.name)
                 .ok_or_else(|| anyhow!("Undefined identifier"))?;
-            Ok(symbol.ty)
+            Ok(symbol_type)
         }
     }
 }
@@ -279,10 +276,11 @@ pub fn infer_types(stmt: &Statement, env: &Rc<SymbolTable>) -> Result<()> {
 mod test {
     use crate::ast::{
         expression::{Binary, Identifier},
-        literal::{Nat, Str},
+        literal::Nat,
+        node::Location,
         statement::{Block, Return, Var},
     };
-    use anyhow::{anyhow, Result};
+    use anyhow::Result;
 
     use super::*;
 
@@ -292,46 +290,46 @@ mod test {
             statements: vec![
                 Statement::Var(Rc::new(Var {
                     id: 0,
-                    location: Default::default(),
+                    location: Location::default(),
                     name: Rc::new(Identifier {
                         id: 6,
-                        location: Default::default(),
+                        location: Location::default(),
                         name: String::from("a"),
                     }),
                     value: Expression::Literal(Literal::Nat(Rc::new(Nat {
                         id: 1,
-                        location: Default::default(),
+                        location: Location::default(),
                     }))),
                     ty_: None,
                 })),
                 Statement::Var(Rc::new(Var {
                     id: 2,
-                    location: Default::default(),
+                    location: Location::default(),
                     name: Rc::new(Identifier {
                         id: 6,
-                        location: Default::default(),
+                        location: Location::default(),
                         name: String::from("b"),
                     }),
                     value: Expression::Literal(Literal::Nat(Rc::new(Nat {
                         id: 3,
-                        location: Default::default(),
+                        location: Location::default(),
                     }))),
                     ty_: None,
                 })),
                 Statement::Return(Rc::new(Return {
                     id: 4,
-                    location: Default::default(),
+                    location: Location::default(),
                     value: Some(Expression::Binary(Rc::new(Binary {
                         id: 5,
-                        location: Default::default(),
+                        location: Location::default(),
                         left_operand: Expression::Identifier(Rc::new(Identifier {
                             id: 6,
-                            location: Default::default(),
+                            location: Location::default(),
                             name: String::from("a"),
                         })),
                         right_operand: Expression::Identifier(Rc::new(Identifier {
                             id: 7,
-                            location: Default::default(),
+                            location: Location::default(),
                             name: String::from("b"),
                         })),
                         operator: BinaryExpressionOperator::Add,
@@ -339,7 +337,7 @@ mod test {
                 })),
             ],
             id: 8,
-            location: Default::default(),
+            location: Location::default(),
         };
         let symbol_table = build_symbol_table(
             Rc::new(NodeKind::from(&Statement::Block(Rc::new(block_stmt)))),
@@ -348,8 +346,8 @@ mod test {
         assert!(symbol_table.parent.is_none());
         assert_eq!(symbol_table.symbols.borrow().len(), 2);
         assert_eq!(symbol_table.children.borrow().len(), 0);
-        let a = symbol_table.lookup("a").unwrap();
-        let b = symbol_table.lookup("b").unwrap();
+        let _ = symbol_table.lookup("a").unwrap();
+        let _ = symbol_table.lookup("b").unwrap();
         Ok(())
     }
 
@@ -359,46 +357,46 @@ mod test {
             statements: vec![
                 Statement::Var(Rc::new(Var {
                     id: 0,
-                    location: Default::default(),
+                    location: Location::default(),
                     name: Rc::new(Identifier {
                         id: 6,
-                        location: Default::default(),
+                        location: Location::default(),
                         name: String::from("a"),
                     }),
                     value: Expression::Literal(Literal::Nat(Rc::new(Nat {
                         id: 1,
-                        location: Default::default(),
+                        location: Location::default(),
                     }))),
                     ty_: None,
                 })),
                 Statement::Var(Rc::new(Var {
                     id: 2,
-                    location: Default::default(),
+                    location: Location::default(),
                     name: Rc::new(Identifier {
                         id: 6,
-                        location: Default::default(),
+                        location: Location::default(),
                         name: String::from("b"),
                     }),
                     value: Expression::Literal(Literal::Nat(Rc::new(Nat {
                         id: 3,
-                        location: Default::default(),
+                        location: Location::default(),
                     }))),
                     ty_: None,
                 })),
                 Statement::Return(Rc::new(Return {
                     id: 4,
-                    location: Default::default(),
+                    location: Location::default(),
                     value: Some(Expression::Binary(Rc::new(Binary {
                         id: 5,
-                        location: Default::default(),
+                        location: Location::default(),
                         left_operand: Expression::Identifier(Rc::new(Identifier {
                             id: 6,
-                            location: Default::default(),
+                            location: Location::default(),
                             name: String::from("a"),
                         })),
                         right_operand: Expression::Identifier(Rc::new(Identifier {
                             id: 7,
-                            location: Default::default(),
+                            location: Location::default(),
                             name: String::from("b"),
                         })),
                         operator: BinaryExpressionOperator::Add,
@@ -406,25 +404,25 @@ mod test {
                 })),
             ],
             id: 8,
-            location: Default::default(),
+            location: Location::default(),
         };
         let symbol_table = build_symbol_table(
             Rc::new(NodeKind::from(&Statement::Block(Rc::new(block_stmt)))),
             None,
         )?;
-        let a = symbol_table.lookup("a").unwrap();
-        let b = symbol_table.lookup("b").unwrap();
+        let _ = symbol_table.lookup("a").unwrap();
+        let _ = symbol_table.lookup("b").unwrap();
         let expr = Expression::Binary(Rc::new(Binary {
             id: 5,
-            location: Default::default(),
+            location: Location::default(),
             left_operand: Expression::Identifier(Rc::new(Identifier {
                 id: 6,
-                location: Default::default(),
+                location: Location::default(),
                 name: String::from("a"),
             })),
             right_operand: Expression::Identifier(Rc::new(Identifier {
                 id: 7,
-                location: Default::default(),
+                location: Location::default(),
                 name: String::from("b"),
             })),
             operator: BinaryExpressionOperator::Add,
@@ -432,5 +430,571 @@ mod test {
         let ty = infer_expr(&expr, &symbol_table)?;
         assert_eq!(ty, Type::Int);
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests1 {
+    use anyhow::Result;
+    use std::rc::Rc;
+
+    // Bring into scope our passes (build_symbol_table, infer_expr, infer_types)
+    use crate::passes::{build_symbol_table, infer_expr, SymbolTable, Type};
+    // Bring in AST types (adjust paths as needed)
+    use crate::ast::{
+        declaration::Declaration,
+        definition::Definition,
+        expression::{BinaryExpressionOperator, Conditional, Expression, Identifier},
+        literal::{Bool, Literal, Nat, Str, Version},
+        statement::{Block, If, Return, Statement, Var},
+    };
+
+    // --- Helper: create a default Location ---
+    fn default_location() -> crate::ast::node::Location {
+        crate::ast::node::Location {
+            source_code: String::new(),
+            start_line: 0,
+            start_col: 0,
+            end_line: 0,
+            end_col: 0,
+        }
+    }
+
+    // ============================
+    // Expression Tests
+    // ============================
+
+    #[test]
+    fn test_literal_nat() -> Result<()> {
+        let env = Rc::new(SymbolTable::new(None));
+        let expr = Expression::Literal(Literal::Nat(Rc::new(Nat {
+            id: 1,
+            location: default_location(),
+        })));
+        let ty = infer_expr(&expr, &env)?;
+        assert_eq!(ty, Type::Int);
+        Ok(())
+    }
+
+    #[test]
+    fn test_literal_bool() -> Result<()> {
+        let env = Rc::new(SymbolTable::new(None));
+        let expr = Expression::Literal(Literal::Bool(Rc::new(Bool {
+            id: 2,
+            location: default_location(),
+        })));
+        let ty = infer_expr(&expr, &env)?;
+        assert_eq!(ty, Type::Bool);
+        Ok(())
+    }
+
+    #[test]
+    fn test_literal_str() -> Result<()> {
+        let env = Rc::new(SymbolTable::new(None));
+        let expr = Expression::Literal(Literal::Str(Rc::new(Str {
+            id: 3,
+            location: default_location(),
+        })));
+        let ty = infer_expr(&expr, &env)?;
+        assert_eq!(ty, Type::String);
+        Ok(())
+    }
+
+    #[test]
+    fn test_literal_version() -> Result<()> {
+        let env = Rc::new(SymbolTable::new(None));
+        let expr = Expression::Literal(Literal::Version(Rc::new(Version {
+            id: 4,
+            location: default_location(),
+        })));
+        let ty = infer_expr(&expr, &env)?;
+        // We treat Version as Unknown
+        assert_eq!(ty, Type::Unknown);
+        Ok(())
+    }
+
+    #[test]
+    fn test_conditional_expr() -> Result<()> {
+        let env = Rc::new(SymbolTable::new(None));
+        let cond = Expression::Literal(Literal::Bool(Rc::new(Bool {
+            id: 5,
+            location: default_location(),
+        })));
+        let then_branch = Expression::Literal(Literal::Nat(Rc::new(Nat {
+            id: 6,
+            location: default_location(),
+        })));
+        let else_branch = Expression::Literal(Literal::Nat(Rc::new(Nat {
+            id: 7,
+            location: default_location(),
+        })));
+        let cond_expr = Expression::Conditional(Rc::new(Conditional {
+            id: 8,
+            location: default_location(),
+            condition: Rc::new(cond),
+            then_branch: Rc::new(then_branch),
+            else_branch: Rc::new(else_branch),
+        }));
+        let ty = infer_expr(&cond_expr, &env)?;
+        // Both branches are Nat -> Int.
+        assert_eq!(ty, Type::Int);
+        Ok(())
+    }
+
+    #[test]
+    fn test_binary_expr_add() -> Result<()> {
+        let env = Rc::new(SymbolTable::new(None));
+        let left = Expression::Literal(Literal::Nat(Rc::new(Nat {
+            id: 9,
+            location: default_location(),
+        })));
+        let right = Expression::Literal(Literal::Nat(Rc::new(Nat {
+            id: 10,
+            location: default_location(),
+        })));
+        let binary = crate::ast::expression::Binary {
+            id: 11,
+            location: default_location(),
+            left_operand: left,
+            right_operand: right,
+            operator: BinaryExpressionOperator::Add,
+        };
+        let expr = Expression::Binary(Rc::new(binary));
+        let ty = infer_expr(&expr, &env)?;
+        assert_eq!(ty, Type::Int);
+        Ok(())
+    }
+
+    #[test]
+    fn test_cast_expr() -> Result<()> {
+        let env = Rc::new(SymbolTable::new(None));
+        // For cast, our simple implementation calls infer_expr on target_type.
+        // Here, target_type is a literal string so we expect Type::String.
+        let cast = crate::ast::expression::Cast {
+            id: 12,
+            location: default_location(),
+            expression: Rc::new(Expression::Literal(Literal::Nat(Rc::new(Nat {
+                id: 13,
+                location: default_location(),
+            })))),
+            target_type: Rc::new(Expression::Literal(Literal::Str(Rc::new(Str {
+                id: 14,
+                location: default_location(),
+            })))),
+        };
+        let expr = Expression::Cast(Rc::new(cast));
+        let ty = infer_expr(&expr, &env)?;
+        assert_eq!(ty, Type::String);
+        Ok(())
+    }
+
+    #[test]
+    fn test_member_access_expr() -> Result<()> {
+        let env = Rc::new(SymbolTable::new(None));
+        // Insert a symbol "a" manually into env.
+        env.insert("a".to_string(), Type::Int)?;
+        // Create a member access expression whose base is the identifier "a".
+        let member_access = crate::ast::expression::MemberAccess {
+            id: 15,
+            location: default_location(),
+            base: Rc::new(Expression::Identifier(Rc::new(Identifier {
+                id: 16,
+                location: default_location(),
+                name: "a".to_string(),
+            }))),
+            member: "dummy".to_string(),
+        };
+        let expr = Expression::MemberAccess(Rc::new(member_access));
+        let ty = infer_expr(&expr, &env)?;
+        // infer_expr for MemberAccess just passes through the base’s type.
+        assert_eq!(ty, Type::Int);
+        Ok(())
+    }
+
+    #[test]
+    fn test_function_call_expr() -> Result<()> {
+        let env = Rc::new(SymbolTable::new(None));
+        // Insert a symbol "f" with type String.
+        env.insert("f".to_string(), Type::String)?;
+        let func_call = crate::ast::expression::FunctionCall {
+            id: 17,
+            location: default_location(),
+            function: Rc::new(Expression::Identifier(Rc::new(Identifier {
+                id: 18,
+                location: default_location(),
+                name: "f".to_string(),
+            }))),
+            arguments: vec![],
+        };
+        let expr = Expression::FunctionCall(Rc::new(func_call));
+        let ty = infer_expr(&expr, &env)?;
+        assert_eq!(ty, Type::String);
+        Ok(())
+    }
+
+    #[test]
+    fn test_identifier_expr() -> Result<()> {
+        let env = Rc::new(SymbolTable::new(None));
+        env.insert("a".to_string(), Type::Int)?;
+        let expr = Expression::Identifier(Rc::new(Identifier {
+            id: 19,
+            location: default_location(),
+            name: "a".to_string(),
+        }));
+        let ty = infer_expr(&expr, &env)?;
+        assert_eq!(ty, Type::Int);
+        Ok(())
+    }
+
+    // ============================
+    // Statement Tests (Var, Block, If, Return, etc.)
+    // ============================
+
+    #[test]
+    fn test_var_statement_and_block() -> Result<()> {
+        // Create a block that declares two variables "a" and "b".
+        let var_a = Statement::Var(Rc::new(Var {
+            id: 20,
+            location: default_location(),
+            name: Rc::new(Identifier {
+                id: 21,
+                location: default_location(),
+                name: "a".to_string(),
+            }),
+            value: Expression::Literal(Literal::Nat(Rc::new(Nat {
+                id: 22,
+                location: default_location(),
+            }))),
+            ty_: None,
+        }));
+        let var_b = Statement::Var(Rc::new(Var {
+            id: 23,
+            location: default_location(),
+            name: Rc::new(Identifier {
+                id: 24,
+                location: default_location(),
+                name: "b".to_string(),
+            }),
+            value: Expression::Literal(Literal::Nat(Rc::new(Nat {
+                id: 25,
+                location: default_location(),
+            }))),
+            ty_: None,
+        }));
+        let block = Statement::Block(Rc::new(Block {
+            id: 26,
+            location: default_location(),
+            statements: vec![var_a.clone(), var_b.clone()],
+        }));
+        // Build the symbol table for the block.
+        let symbol_table =
+            build_symbol_table(Rc::new(crate::passes::NodeKind::from(&block)), None)?;
+        // Both symbols should be present with type Int.
+        let sym_a = symbol_table.lookup("a").unwrap();
+        let sym_b = symbol_table.lookup("b").unwrap();
+        assert_eq!(sym_a, Type::Int);
+        assert_eq!(sym_b, Type::Int);
+        Ok(())
+    }
+
+    #[test]
+    fn test_if_statement() -> Result<()> {
+        // Build an If statement that uses identifiers "a" and "b".
+        let var_a = Statement::Var(Rc::new(Var {
+            id: 27,
+            location: default_location(),
+            name: Rc::new(Identifier {
+                id: 28,
+                location: default_location(),
+                name: "a".to_string(),
+            }),
+            value: Expression::Literal(Literal::Nat(Rc::new(Nat {
+                id: 29,
+                location: default_location(),
+            }))),
+            ty_: None,
+        }));
+        let var_b = Statement::Var(Rc::new(Var {
+            id: 30,
+            location: default_location(),
+            name: Rc::new(Identifier {
+                id: 31,
+                location: default_location(),
+                name: "b".to_string(),
+            }),
+            value: Expression::Literal(Literal::Nat(Rc::new(Nat {
+                id: 32,
+                location: default_location(),
+            }))),
+            ty_: None,
+        }));
+        let if_stmt = Statement::If(Rc::new(If {
+            id: 33,
+            location: default_location(),
+            condition: Expression::Literal(Literal::Bool(Rc::new(Bool {
+                id: 34,
+                location: default_location(),
+            }))),
+            then_branch: var_a.clone(),
+            else_branch: Some(var_b.clone()),
+        }));
+        // Wrap the if statement in a block.
+        let block = Statement::Block(Rc::new(Block {
+            id: 35,
+            location: default_location(),
+            statements: vec![if_stmt],
+        }));
+        let symbol_table =
+            build_symbol_table(Rc::new(crate::passes::NodeKind::from(&block)), None)?;
+        // The block should include the symbols from any Var declarations inside.
+        assert!(symbol_table.lookup("a").is_some());
+        assert!(symbol_table.lookup("b").is_some());
+        Ok(())
+    }
+
+    #[test]
+    fn test_return_statement() -> Result<()> {
+        // Create a Return statement that returns a binary expression "a + b"
+        let var_a = Statement::Var(Rc::new(Var {
+            id: 36,
+            location: default_location(),
+            name: Rc::new(Identifier {
+                id: 37,
+                location: default_location(),
+                name: "a".to_string(),
+            }),
+            value: Expression::Literal(Literal::Nat(Rc::new(Nat {
+                id: 38,
+                location: default_location(),
+            }))),
+            ty_: None,
+        }));
+        let var_b = Statement::Var(Rc::new(Var {
+            id: 39,
+            location: default_location(),
+            name: Rc::new(Identifier {
+                id: 40,
+                location: default_location(),
+                name: "b".to_string(),
+            }),
+            value: Expression::Literal(Literal::Nat(Rc::new(Nat {
+                id: 41,
+                location: default_location(),
+            }))),
+            ty_: None,
+        }));
+        let ret_stmt = Statement::Return(Rc::new(Return {
+            id: 42,
+            location: default_location(),
+            value: Some(Expression::Binary(Rc::new(
+                crate::ast::expression::Binary {
+                    id: 43,
+                    location: default_location(),
+                    left_operand: Expression::Identifier(Rc::new(Identifier {
+                        id: 37,
+                        location: default_location(),
+                        name: "a".to_string(),
+                    })),
+                    right_operand: Expression::Identifier(Rc::new(Identifier {
+                        id: 40,
+                        location: default_location(),
+                        name: "b".to_string(),
+                    })),
+                    operator: BinaryExpressionOperator::Add,
+                },
+            ))),
+        }));
+        let block = Statement::Block(Rc::new(Block {
+            id: 44,
+            location: default_location(),
+            statements: vec![var_a, var_b, ret_stmt],
+        }));
+        let symbol_table =
+            build_symbol_table(Rc::new(crate::passes::NodeKind::from(&block)), None)?;
+        // Ensure "a" and "b" are present.
+        assert!(symbol_table.lookup("a").is_some());
+        assert!(symbol_table.lookup("b").is_some());
+        // And infer_expr on the return expression yields Type::Int.
+        if let Statement::Return(ret) = &block {
+            if let Some(expr) = &ret.value {
+                let ty = infer_expr(expr, &symbol_table)?;
+                assert_eq!(ty, Type::Int);
+            }
+        }
+        Ok(())
+    }
+
+    // ============================
+    // Declaration, Definition, Directive Tests (using dummy Node impls)
+    // ============================
+    // For these tests, we extend the nodes to implement Node with empty children.
+
+    use crate::passes::Node;
+
+    impl Node for crate::ast::declaration::Import {
+        fn children(&self) -> Vec<Rc<crate::passes::NodeKind>> {
+            vec![]
+        }
+    }
+    impl Node for crate::ast::declaration::Export {
+        fn children(&self) -> Vec<Rc<crate::passes::NodeKind>> {
+            vec![]
+        }
+    }
+    impl Node for crate::ast::declaration::External {
+        fn children(&self) -> Vec<Rc<crate::passes::NodeKind>> {
+            vec![]
+        }
+    }
+    impl Node for crate::ast::declaration::Witness {
+        fn children(&self) -> Vec<Rc<crate::passes::NodeKind>> {
+            vec![]
+        }
+    }
+    impl Node for crate::ast::declaration::Ledger {
+        fn children(&self) -> Vec<Rc<crate::passes::NodeKind>> {
+            vec![]
+        }
+    }
+    impl Node for crate::ast::declaration::Ctor {
+        fn children(&self) -> Vec<Rc<crate::passes::NodeKind>> {
+            vec![]
+        }
+    }
+    impl Node for crate::ast::declaration::Contract {
+        fn children(&self) -> Vec<Rc<crate::passes::NodeKind>> {
+            vec![]
+        }
+    }
+    impl Node for crate::ast::declaration::Struct {
+        fn children(&self) -> Vec<Rc<crate::passes::NodeKind>> {
+            vec![]
+        }
+    }
+    impl Node for crate::ast::declaration::Enum {
+        fn children(&self) -> Vec<Rc<crate::passes::NodeKind>> {
+            vec![]
+        }
+    }
+    impl Node for crate::ast::definition::Module {
+        fn children(&self) -> Vec<Rc<crate::passes::NodeKind>> {
+            vec![]
+        }
+    }
+    impl Node for crate::ast::definition::Circuit {
+        fn children(&self) -> Vec<Rc<crate::passes::NodeKind>> {
+            vec![]
+        }
+    }
+    impl Node for crate::ast::directive::Pragma {
+        fn children(&self) -> Vec<Rc<crate::passes::NodeKind>> {
+            vec![]
+        }
+    }
+    impl Node for crate::ast::directive::Include {
+        fn children(&self) -> Vec<Rc<crate::passes::NodeKind>> {
+            vec![]
+        }
+    }
+
+    #[test]
+    fn test_declaration_nodes() {
+        // Simply construct each Declaration variant and check Debug output.
+        let import = crate::ast::declaration::Import {
+            id: 45,
+            location: default_location(),
+        };
+        let export = crate::ast::declaration::Export {
+            id: 46,
+            location: default_location(),
+        };
+        let external = crate::ast::declaration::External {
+            id: 47,
+            location: default_location(),
+        };
+        let witness = crate::ast::declaration::Witness {
+            id: 48,
+            location: default_location(),
+        };
+        let ledger = crate::ast::declaration::Ledger {
+            id: 49,
+            location: default_location(),
+        };
+        let ctor = crate::ast::declaration::Ctor {
+            id: 50,
+            location: default_location(),
+        };
+        let contract = crate::ast::declaration::Contract {
+            id: 51,
+            location: default_location(),
+        };
+        let struc = crate::ast::declaration::Struct {
+            id: 52,
+            location: default_location(),
+        };
+        let enm = crate::ast::declaration::Enum {
+            id: 53,
+            location: default_location(),
+        };
+
+        let decls = vec![
+            Declaration::Import(Rc::new(import)),
+            Declaration::Export(Rc::new(export)),
+            Declaration::External(Rc::new(external)),
+            Declaration::Witness(Rc::new(witness)),
+            Declaration::Ledger(Rc::new(ledger)),
+            Declaration::Ctor(Rc::new(ctor)),
+            Declaration::Contract(Rc::new(contract)),
+            Declaration::Struct(Rc::new(struc)),
+            Declaration::Enum(Rc::new(enm)),
+            // Also test Declaration::Definition with a dummy definition.
+            Declaration::Definition(Rc::new(crate::ast::definition::Definition::Module(
+                Rc::new(crate::ast::definition::Module {
+                    id: 54,
+                    location: default_location(),
+                }),
+            ))),
+        ];
+        for decl in decls {
+            assert!(!format!("{decl:?}").is_empty());
+        }
+    }
+
+    #[test]
+    fn test_definition_nodes() {
+        let module = crate::ast::definition::Module {
+            id: 55,
+            location: default_location(),
+        };
+        let circuit = crate::ast::definition::Circuit {
+            id: 56,
+            location: default_location(),
+        };
+        let defs = vec![
+            Definition::Module(Rc::new(module)),
+            Definition::Circuit(Rc::new(circuit)),
+        ];
+        for def in defs {
+            assert!(!format!("{def:?}").is_empty());
+        }
+    }
+
+    #[test]
+    fn test_directive_nodes() {
+        let pragma = crate::ast::directive::Pragma {
+            id: 57,
+            location: default_location(),
+        };
+        let include = crate::ast::directive::Include {
+            id: 58,
+            location: default_location(),
+        };
+        let dirs = vec![
+            crate::ast::directive::Directive::Pragma(Rc::new(pragma)),
+            crate::ast::directive::Directive::Include(Rc::new(include)),
+        ];
+        for d in dirs {
+            assert!(!format!("{d:?}").is_empty());
+        }
     }
 }

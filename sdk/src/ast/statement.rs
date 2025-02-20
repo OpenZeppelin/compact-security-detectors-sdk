@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use crate::{
     ast_enum, ast_nodes,
-    passes::{Node, NodeKind, SameScopeNode},
+    passes::{Node, NodeKind, SameScopeNode, SymbolNode},
 };
 
 use super::expression::{Expression, Identifier};
@@ -32,7 +32,6 @@ impl From<&Statement> for NodeKind {
             }
             Statement::Block(block) => NodeKind::NewScope(block.clone()),
             Statement::If(r#if) => NodeKind::SameScopeNode(SameScopeNode::Composite(r#if.clone())),
-            // <-- Fix: treat Var as a symbol so its type_expr() is used.
             Statement::Var(var) => NodeKind::SameScopeNode(SameScopeNode::Symbol(var.clone())),
         }
     }
@@ -125,6 +124,15 @@ impl Node for Assert {
 impl Node for Var {
     fn children(&self) -> Vec<Rc<NodeKind>> {
         vec![Rc::new(NodeKind::from(&self.value))]
+    }
+}
+
+impl SymbolNode for crate::ast::statement::Var {
+    fn name(&self) -> String {
+        self.name.name.clone()
+    }
+    fn type_expr(&self) -> Option<&Expression> {
+        self.ty_.as_ref().or(Some(&self.value))
     }
 }
 
