@@ -12,8 +12,5 @@ serde = { version = "1.0.217", features = ["derive", "rc"] }
 serde_json = "1.0.135"
 uuid = { version = "1.1", features = ["v4"] }
 tree-sitter = "0.25.1"
-syn.workspace = true
-quote.workspace = true
-proc-macro2.workspace = true
-midnight-security-rules-macro-lib.workspace = true
+
 anyhow.workspace = true
