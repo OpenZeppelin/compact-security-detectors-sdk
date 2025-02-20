@@ -257,6 +257,7 @@ fn infer_expr(expr: &Expression, env: &Rc<SymbolTable>) -> Result<Type> {
 
 #[cfg(test)]
 mod test {
+    use super::*;
     use crate::ast::{
         declaration::Declaration,
         definition::Definition,
@@ -267,7 +268,26 @@ mod test {
     };
     use anyhow::Result;
 
-    use super::*;
+    // ============================
+    // --- Helpers: create a default structs ---
+    // ============================
+    fn default_location() -> crate::ast::node::Location {
+        crate::ast::node::Location {
+            source_code: String::new(),
+            start_line: 0,
+            start_col: 0,
+            end_line: 0,
+            end_col: 0,
+        }
+    }
+
+    fn mock_identifier(id: u128, name: &str) -> Rc<Identifier> {
+        Rc::new(Identifier {
+            id,
+            location: default_location(),
+            name: name.to_string(),
+        })
+    }
 
     #[test]
     fn test_build_symbol_table() -> anyhow::Result<()> {
@@ -376,30 +396,6 @@ mod test {
         assert_eq!(ty, Type::Int);
         Ok(())
     }
-
-    // ============================
-    // --- Helpers: create a default structs ---
-    // ============================
-    fn default_location() -> crate::ast::node::Location {
-        crate::ast::node::Location {
-            source_code: String::new(),
-            start_line: 0,
-            start_col: 0,
-            end_line: 0,
-            end_col: 0,
-        }
-    }
-
-    fn mock_identifier(id: u128, name: &str) -> Rc<Identifier> {
-        Rc::new(Identifier {
-            id,
-            location: default_location(),
-            name: name.to_string(),
-        })
-    }
-    // ============================
-    // Expression Tests
-    // ============================
 
     #[test]
     fn test_literal_nat() -> Result<()> {
@@ -534,11 +530,7 @@ mod test {
         let member_access = crate::ast::expression::MemberAccess {
             id: 15,
             location: default_location(),
-            base: Rc::new(Expression::Identifier(Rc::new(Identifier {
-                id: 16,
-                location: default_location(),
-                name: "a".to_string(),
-            }))),
+            base: Rc::new(Expression::Identifier(mock_identifier(16, "a"))),
             member: "dummy".to_string(),
         };
         let expr = Expression::MemberAccess(Rc::new(member_access));
@@ -556,11 +548,7 @@ mod test {
         let func_call = crate::ast::expression::FunctionCall {
             id: 17,
             location: default_location(),
-            function: Rc::new(Expression::Identifier(Rc::new(Identifier {
-                id: 18,
-                location: default_location(),
-                name: "f".to_string(),
-            }))),
+            function: Rc::new(Expression::Identifier(mock_identifier(18, "f"))),
             arguments: vec![],
         };
         let expr = Expression::FunctionCall(Rc::new(func_call));
@@ -573,19 +561,11 @@ mod test {
     fn test_identifier_expr() -> Result<()> {
         let env = Rc::new(SymbolTable::new(None));
         env.insert("a".to_string(), Type::Int)?;
-        let expr = Expression::Identifier(Rc::new(Identifier {
-            id: 19,
-            location: default_location(),
-            name: "a".to_string(),
-        }));
+        let expr = Expression::Identifier(mock_identifier(19, "a"));
         let ty = infer_expr(&expr, &env)?;
         assert_eq!(ty, Type::Int);
         Ok(())
     }
-
-    // ============================
-    // Statement Tests (Var, Block, If, Return, etc.)
-    // ============================
 
     #[test]
     fn test_var_statement_and_block() -> Result<()> {
@@ -593,11 +573,7 @@ mod test {
         let var_a = Statement::Var(Rc::new(Var {
             id: 20,
             location: default_location(),
-            name: Rc::new(Identifier {
-                id: 21,
-                location: default_location(),
-                name: "a".to_string(),
-            }),
+            name: mock_identifier(21, "a"),
             value: Expression::Literal(Literal::Nat(Rc::new(Nat {
                 id: 22,
                 location: default_location(),
@@ -607,11 +583,7 @@ mod test {
         let var_b = Statement::Var(Rc::new(Var {
             id: 23,
             location: default_location(),
-            name: Rc::new(Identifier {
-                id: 24,
-                location: default_location(),
-                name: "b".to_string(),
-            }),
+            name: mock_identifier(24, "b"),
             value: Expression::Literal(Literal::Nat(Rc::new(Nat {
                 id: 25,
                 location: default_location(),
@@ -687,11 +659,7 @@ mod test {
         let var_a = Statement::Var(Rc::new(Var {
             id: 36,
             location: default_location(),
-            name: Rc::new(Identifier {
-                id: 37,
-                location: default_location(),
-                name: "a".to_string(),
-            }),
+            name: mock_identifier(37, "a"),
             value: Expression::Literal(Literal::Nat(Rc::new(Nat {
                 id: 38,
                 location: default_location(),
@@ -701,11 +669,7 @@ mod test {
         let var_b = Statement::Var(Rc::new(Var {
             id: 39,
             location: default_location(),
-            name: Rc::new(Identifier {
-                id: 40,
-                location: default_location(),
-                name: "b".to_string(),
-            }),
+            name: mock_identifier(40, "b"),
             value: Expression::Literal(Literal::Nat(Rc::new(Nat {
                 id: 41,
                 location: default_location(),
@@ -719,16 +683,8 @@ mod test {
                 crate::ast::expression::Binary {
                     id: 43,
                     location: default_location(),
-                    left_operand: Expression::Identifier(Rc::new(Identifier {
-                        id: 37,
-                        location: default_location(),
-                        name: "a".to_string(),
-                    })),
-                    right_operand: Expression::Identifier(Rc::new(Identifier {
-                        id: 40,
-                        location: default_location(),
-                        name: "b".to_string(),
-                    })),
+                    left_operand: Expression::Identifier(mock_identifier(37, "a")),
+                    right_operand: Expression::Identifier(mock_identifier(40, "b")),
                     operator: BinaryExpressionOperator::Add,
                 },
             ))),
@@ -753,82 +709,8 @@ mod test {
         Ok(())
     }
 
-    // ============================
-    // Declaration, Definition, Directive Tests (using dummy Node impls)
-    // ============================
-    // For these tests, we extend the nodes to implement Node with empty children.
-
-    use crate::passes::Node;
-
-    impl Node for crate::ast::declaration::Import {
-        fn children(&self) -> Vec<Rc<crate::passes::NodeKind>> {
-            vec![]
-        }
-    }
-    impl Node for crate::ast::declaration::Export {
-        fn children(&self) -> Vec<Rc<crate::passes::NodeKind>> {
-            vec![]
-        }
-    }
-    impl Node for crate::ast::declaration::External {
-        fn children(&self) -> Vec<Rc<crate::passes::NodeKind>> {
-            vec![]
-        }
-    }
-    impl Node for crate::ast::declaration::Witness {
-        fn children(&self) -> Vec<Rc<crate::passes::NodeKind>> {
-            vec![]
-        }
-    }
-    impl Node for crate::ast::declaration::Ledger {
-        fn children(&self) -> Vec<Rc<crate::passes::NodeKind>> {
-            vec![]
-        }
-    }
-    impl Node for crate::ast::declaration::Ctor {
-        fn children(&self) -> Vec<Rc<crate::passes::NodeKind>> {
-            vec![]
-        }
-    }
-    impl Node for crate::ast::declaration::Contract {
-        fn children(&self) -> Vec<Rc<crate::passes::NodeKind>> {
-            vec![]
-        }
-    }
-    impl Node for crate::ast::declaration::Struct {
-        fn children(&self) -> Vec<Rc<crate::passes::NodeKind>> {
-            vec![]
-        }
-    }
-    impl Node for crate::ast::declaration::Enum {
-        fn children(&self) -> Vec<Rc<crate::passes::NodeKind>> {
-            vec![]
-        }
-    }
-    impl Node for crate::ast::definition::Module {
-        fn children(&self) -> Vec<Rc<crate::passes::NodeKind>> {
-            vec![]
-        }
-    }
-    impl Node for crate::ast::definition::Circuit {
-        fn children(&self) -> Vec<Rc<crate::passes::NodeKind>> {
-            vec![]
-        }
-    }
-    impl Node for crate::ast::directive::Pragma {
-        fn children(&self) -> Vec<Rc<crate::passes::NodeKind>> {
-            vec![]
-        }
-    }
-    impl Node for crate::ast::directive::Include {
-        fn children(&self) -> Vec<Rc<crate::passes::NodeKind>> {
-            vec![]
-        }
-    }
-
     #[test]
     fn test_declaration_nodes() {
-        // Simply construct each Declaration variant and check Debug output.
         let import = crate::ast::declaration::Import {
             id: 45,
             location: default_location(),
@@ -876,12 +758,11 @@ mod test {
             Declaration::Contract(Rc::new(contract)),
             Declaration::Struct(Rc::new(struc)),
             Declaration::Enum(Rc::new(enm)),
-            // Also test Declaration::Definition with a dummy definition.
-            Declaration::Definition(Rc::new(crate::ast::definition::Definition::Module(
-                Rc::new(crate::ast::definition::Module {
+            Declaration::Definition(Definition::Module(Rc::new(
+                crate::ast::definition::Module {
                     id: 54,
                     location: default_location(),
-                }),
+                },
             ))),
         ];
         for decl in decls {

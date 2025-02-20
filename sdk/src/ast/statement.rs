@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use crate::{
     ast_enum, ast_nodes,
-    passes::{Node, NodeKind, SameScopeNode, SymbolNode},
+    passes::{Node, NodeKind, SymbolNode},
 };
 
 use super::expression::{Expression, Identifier};
@@ -12,28 +12,9 @@ ast_enum! {
         Assign(Rc<Assign>),
         Assert(Rc<Assert>),
         Return(Rc<Return>),
-        Block(Rc<Block>),
+        @scope Block(Rc<Block>),
         If(Rc<If>),
-        Var(Rc<Var>),
-    }
-}
-
-impl From<&Statement> for NodeKind {
-    fn from(stmt: &Statement) -> Self {
-        match stmt {
-            Statement::Assign(assign) => {
-                NodeKind::SameScopeNode(SameScopeNode::Composite(assign.clone()))
-            }
-            Statement::Assert(assert) => {
-                NodeKind::SameScopeNode(SameScopeNode::Composite(assert.clone()))
-            }
-            Statement::Return(r#return) => {
-                NodeKind::SameScopeNode(SameScopeNode::Composite(r#return.clone()))
-            }
-            Statement::Block(block) => NodeKind::NewScope(block.clone()),
-            Statement::If(r#if) => NodeKind::SameScopeNode(SameScopeNode::Composite(r#if.clone())),
-            Statement::Var(var) => NodeKind::SameScopeNode(SameScopeNode::Symbol(var.clone())),
-        }
+        @symbol Var(Rc<Var>),
     }
 }
 
@@ -76,12 +57,11 @@ ast_nodes! {
     }
 }
 
-ast_enum! {
-    pub enum AssignOperator {
-        Simple,
-        Add,
-        Sub,
-    }
+#[derive(Clone, PartialEq, Eq, Debug, serde::Serialize, serde::Deserialize)]
+pub enum AssignOperator {
+    Simple,
+    Add,
+    Sub,
 }
 
 impl Node for Assign {
@@ -127,7 +107,7 @@ impl Node for Var {
     }
 }
 
-impl SymbolNode for crate::ast::statement::Var {
+impl SymbolNode for Var {
     fn name(&self) -> String {
         self.name.name.clone()
     }

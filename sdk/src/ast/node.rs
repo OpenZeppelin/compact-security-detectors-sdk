@@ -15,7 +15,7 @@ macro_rules! ast_enum {
         $enum_vis:vis enum $name:ident {
             $(
                 $(#[$arm_attr:meta])*
-                $arm:ident $( ( $($tuple:tt)* ) )? $( { $($struct:tt)* } )? ,
+                $(@$conv:ident)? $arm:ident $( ( $($tuple:tt)* ) )? $( { $($struct:tt)* } )? ,
             )*
         }
     ) => {
@@ -27,7 +27,36 @@ macro_rules! ast_enum {
                 $arm $( ( $($tuple)* ) )? $( { $($struct)* } )? ,
             )*
         }
+
+        impl From<&$name> for $crate::passes::NodeKind {
+            fn from(n: &$name) -> Self {
+                match n {
+                    $(
+                        $name::$arm(a) => {
+                            ast_enum!(@convert a, $( $conv )?)
+                        }
+                    )*
+                }
+            }
+        }
     };
+
+    (@convert $inner:ident, raw) => {
+        $inner.into()
+    };
+
+    (@convert $inner:ident, symbol) => {
+        $crate::passes::NodeKind::SameScopeNode($crate::passes::SameScopeNode::Symbol($inner.clone()))
+    };
+
+    (@convert $inner:ident, scope) => {
+        $crate::passes::NodeKind::NewScope($inner.clone())
+    };
+
+    (@convert $inner:ident, ) => {
+        $crate::passes::NodeKind::SameScopeNode($crate::passes::SameScopeNode::Composite($inner.clone()))
+    };
+
 }
 
 #[macro_export]

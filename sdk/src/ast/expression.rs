@@ -15,37 +15,8 @@ ast_enum! {
         IndexAccess(Rc<IndexAccess>),
         MemberAccess(Rc<MemberAccess>),
         FunctionCall(Rc<FunctionCall>),
-        Literal(Literal),
-        Identifier(Rc<Identifier>),
-    }
-}
-
-impl From<&Expression> for NodeKind {
-    fn from(expr: &Expression) -> Self {
-        match expr {
-            Expression::Conditional(cond) => {
-                NodeKind::SameScopeNode(SameScopeNode::Composite(cond.clone()))
-            }
-            Expression::Binary(binary) => {
-                NodeKind::SameScopeNode(SameScopeNode::Composite(binary.clone()))
-            }
-            Expression::Cast(cast) => {
-                NodeKind::SameScopeNode(SameScopeNode::Composite(cast.clone()))
-            }
-            Expression::IndexAccess(index_access) => {
-                NodeKind::SameScopeNode(SameScopeNode::Composite(index_access.clone()))
-            }
-            Expression::MemberAccess(member_access) => {
-                NodeKind::SameScopeNode(SameScopeNode::Composite(member_access.clone()))
-            }
-            Expression::FunctionCall(function_call) => {
-                NodeKind::SameScopeNode(SameScopeNode::Composite(function_call.clone()))
-            }
-            Expression::Literal(literal) => literal.into(),
-            Expression::Identifier(identifier) => {
-                NodeKind::SameScopeNode(SameScopeNode::Symbol(identifier.clone()))
-            }
-        }
+        @raw Literal(Literal),
+        @symbol Identifier(Rc<Identifier>),
     }
 }
 
@@ -99,7 +70,7 @@ ast_nodes! {
 
     pub struct Cast {
         pub expression: Rc<Expression>,
-        pub target_type: Rc<Expression>, //TODO what type?
+        pub target_type: Rc<Expression>,
     }
 
     pub struct IndexAccess {
@@ -122,29 +93,28 @@ ast_nodes! {
     }
 }
 
-ast_enum! {
-    pub enum BinaryExpressionOperator {
-        Add,
-        Sub,
-        Mul,
-        Div,
-        Mod,
-        Pow,
-        Eq,
-        Ne,
-        Lt,
-        Le,
-        Gt,
-        Ge,
-        And,
-        Or,
-        BitAnd,
-        BitOr,
-        BitXor,
-        BitNot,
-        Shl,
-        Shr,
-    }
+#[derive(Clone, PartialEq, Eq, Debug, serde::Serialize, serde::Deserialize)]
+pub enum BinaryExpressionOperator {
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Mod,
+    Pow,
+    Eq,
+    Ne,
+    Lt,
+    Le,
+    Gt,
+    Ge,
+    And,
+    Or,
+    BitAnd,
+    BitOr,
+    BitXor,
+    BitNot,
+    Shl,
+    Shr,
 }
 
 impl Node for Conditional {
