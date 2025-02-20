@@ -126,12 +126,8 @@ pub fn build_symbol_table(
     parent: Option<Rc<SymbolTable>>,
 ) -> anyhow::Result<Rc<SymbolTable>> {
     let symbol_table = Rc::new(SymbolTable::new(parent));
-    let nodes: Vec<Rc<NodeKind>> = if let NodeKind::NewScope(node) = node_kind.as_ref() {
-        node.children()
-    } else {
-        vec![node_kind]
-    };
-    for node in &nodes {
+    let mut nodes: Vec<Rc<NodeKind>> = vec![node_kind];
+    while let Some(node) = nodes.pop() {
         match node.as_ref() {
             NodeKind::NewScope(node) => {
                 let child_scope = build_symbol_table(
@@ -143,7 +139,7 @@ pub fn build_symbol_table(
             NodeKind::SameScopeNode(same) => match same {
                 SameScopeNode::Composite(comp_node) => {
                     for child in comp_node.children() {
-                        let _ = build_symbol_table(child, Some(symbol_table.clone()))?;
+                        nodes.push(child);
                     }
                 }
                 SameScopeNode::Symbol(symbol_node) => {
@@ -166,8 +162,8 @@ pub fn build_symbol_table(
                                     .borrow_mut()
                                     .insert(symbol_name.clone(), st);
                             } else {
+                                //shadowing is not allowed
                                 return Err(anyhow!("Symbol {symbol_name} already exists"));
-                                //shadowing
                             }
                         }
                     } else {
@@ -177,7 +173,7 @@ pub fn build_symbol_table(
                             .insert(symbol_name.clone(), symbol_type);
                     }
                     for child in symbol_node.children() {
-                        let _ = build_symbol_table(child, Some(symbol_table.clone()))?;
+                        nodes.push(child);
                     }
                 }
             },
@@ -275,10 +271,12 @@ pub fn infer_types(stmt: &Statement, env: &Rc<SymbolTable>) -> Result<()> {
 #[cfg(test)]
 mod test {
     use crate::ast::{
-        expression::{Binary, Identifier},
-        literal::Nat,
+        declaration::Declaration,
+        definition::Definition,
+        expression::{Binary, Conditional, Identifier},
+        literal::{Bool, Nat, Str, Version},
         node::Location,
-        statement::{Block, Return, Var},
+        statement::{Block, If, Return, Var},
     };
     use anyhow::Result;
 
@@ -290,54 +288,38 @@ mod test {
             statements: vec![
                 Statement::Var(Rc::new(Var {
                     id: 0,
-                    location: Location::default(),
-                    name: Rc::new(Identifier {
-                        id: 6,
-                        location: Location::default(),
-                        name: String::from("a"),
-                    }),
+                    location: default_location(),
+                    name: mock_identifier(1, "a"),
                     value: Expression::Literal(Literal::Nat(Rc::new(Nat {
                         id: 1,
-                        location: Location::default(),
+                        location: default_location(),
                     }))),
                     ty_: None,
                 })),
                 Statement::Var(Rc::new(Var {
                     id: 2,
-                    location: Location::default(),
-                    name: Rc::new(Identifier {
-                        id: 6,
-                        location: Location::default(),
-                        name: String::from("b"),
-                    }),
+                    location: default_location(),
+                    name: mock_identifier(2, "b"),
                     value: Expression::Literal(Literal::Nat(Rc::new(Nat {
                         id: 3,
-                        location: Location::default(),
+                        location: default_location(),
                     }))),
                     ty_: None,
                 })),
                 Statement::Return(Rc::new(Return {
                     id: 4,
-                    location: Location::default(),
+                    location: default_location(),
                     value: Some(Expression::Binary(Rc::new(Binary {
                         id: 5,
-                        location: Location::default(),
-                        left_operand: Expression::Identifier(Rc::new(Identifier {
-                            id: 6,
-                            location: Location::default(),
-                            name: String::from("a"),
-                        })),
-                        right_operand: Expression::Identifier(Rc::new(Identifier {
-                            id: 7,
-                            location: Location::default(),
-                            name: String::from("b"),
-                        })),
+                        location: default_location(),
+                        left_operand: Expression::Identifier(mock_identifier(1, "a")),
+                        right_operand: Expression::Identifier(mock_identifier(2, "b")),
                         operator: BinaryExpressionOperator::Add,
                     }))),
                 })),
             ],
             id: 8,
-            location: Location::default(),
+            location: default_location(),
         };
         let symbol_table = build_symbol_table(
             Rc::new(NodeKind::from(&Statement::Block(Rc::new(block_stmt)))),
@@ -357,48 +339,32 @@ mod test {
             statements: vec![
                 Statement::Var(Rc::new(Var {
                     id: 0,
-                    location: Location::default(),
-                    name: Rc::new(Identifier {
-                        id: 6,
-                        location: Location::default(),
-                        name: String::from("a"),
-                    }),
+                    location: default_location(),
+                    name: mock_identifier(6, "a"),
                     value: Expression::Literal(Literal::Nat(Rc::new(Nat {
                         id: 1,
-                        location: Location::default(),
+                        location: default_location(),
                     }))),
                     ty_: None,
                 })),
                 Statement::Var(Rc::new(Var {
                     id: 2,
-                    location: Location::default(),
-                    name: Rc::new(Identifier {
-                        id: 6,
-                        location: Location::default(),
-                        name: String::from("b"),
-                    }),
+                    location: default_location(),
+                    name: mock_identifier(7, "b"),
                     value: Expression::Literal(Literal::Nat(Rc::new(Nat {
                         id: 3,
-                        location: Location::default(),
+                        location: default_location(),
                     }))),
                     ty_: None,
                 })),
                 Statement::Return(Rc::new(Return {
                     id: 4,
-                    location: Location::default(),
+                    location: default_location(),
                     value: Some(Expression::Binary(Rc::new(Binary {
                         id: 5,
-                        location: Location::default(),
-                        left_operand: Expression::Identifier(Rc::new(Identifier {
-                            id: 6,
-                            location: Location::default(),
-                            name: String::from("a"),
-                        })),
-                        right_operand: Expression::Identifier(Rc::new(Identifier {
-                            id: 7,
-                            location: Location::default(),
-                            name: String::from("b"),
-                        })),
+                        location: default_location(),
+                        left_operand: Expression::Identifier(mock_identifier(6, "a")),
+                        right_operand: Expression::Identifier(mock_identifier(7, "b")),
                         operator: BinaryExpressionOperator::Add,
                     }))),
                 })),
@@ -415,41 +381,18 @@ mod test {
         let expr = Expression::Binary(Rc::new(Binary {
             id: 5,
             location: Location::default(),
-            left_operand: Expression::Identifier(Rc::new(Identifier {
-                id: 6,
-                location: Location::default(),
-                name: String::from("a"),
-            })),
-            right_operand: Expression::Identifier(Rc::new(Identifier {
-                id: 7,
-                location: Location::default(),
-                name: String::from("b"),
-            })),
+            left_operand: Expression::Identifier(mock_identifier(6, "a")),
+            right_operand: Expression::Identifier(mock_identifier(7, "b")),
             operator: BinaryExpressionOperator::Add,
         }));
         let ty = infer_expr(&expr, &symbol_table)?;
         assert_eq!(ty, Type::Int);
         Ok(())
     }
-}
 
-#[cfg(test)]
-mod tests1 {
-    use anyhow::Result;
-    use std::rc::Rc;
-
-    // Bring into scope our passes (build_symbol_table, infer_expr, infer_types)
-    use crate::passes::{build_symbol_table, infer_expr, SymbolTable, Type};
-    // Bring in AST types (adjust paths as needed)
-    use crate::ast::{
-        declaration::Declaration,
-        definition::Definition,
-        expression::{BinaryExpressionOperator, Conditional, Expression, Identifier},
-        literal::{Bool, Literal, Nat, Str, Version},
-        statement::{Block, If, Return, Statement, Var},
-    };
-
-    // --- Helper: create a default Location ---
+    // ============================
+    // --- Helpers: create a default structs ---
+    // ============================
     fn default_location() -> crate::ast::node::Location {
         crate::ast::node::Location {
             source_code: String::new(),
@@ -460,6 +403,13 @@ mod tests1 {
         }
     }
 
+    fn mock_identifier(id: u128, name: &str) -> Rc<Identifier> {
+        Rc::new(Identifier {
+            id,
+            location: default_location(),
+            name: name.to_string(),
+        })
+    }
     // ============================
     // Expression Tests
     // ============================
@@ -703,11 +653,7 @@ mod tests1 {
         let var_a = Statement::Var(Rc::new(Var {
             id: 27,
             location: default_location(),
-            name: Rc::new(Identifier {
-                id: 28,
-                location: default_location(),
-                name: "a".to_string(),
-            }),
+            name: mock_identifier(28, "a"),
             value: Expression::Literal(Literal::Nat(Rc::new(Nat {
                 id: 29,
                 location: default_location(),
@@ -717,11 +663,7 @@ mod tests1 {
         let var_b = Statement::Var(Rc::new(Var {
             id: 30,
             location: default_location(),
-            name: Rc::new(Identifier {
-                id: 31,
-                location: default_location(),
-                name: "b".to_string(),
-            }),
+            name: mock_identifier(31, "b"),
             value: Expression::Literal(Literal::Nat(Rc::new(Nat {
                 id: 32,
                 location: default_location(),
