@@ -1,6 +1,6 @@
 #![allow(clippy::all)]
 #![allow(dead_code)]
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Ok, Result};
 use std::{any::Any, cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::ast::{
@@ -254,17 +254,6 @@ fn infer_expr(expr: &Expression, env: &Rc<SymbolTable>) -> Result<Type> {
                 .ok_or_else(|| anyhow!("Undefined identifier"))?;
             Ok(symbol_type)
         }
-    }
-}
-
-pub fn infer_types(stmt: &Statement, env: &Rc<SymbolTable>) -> Result<()> {
-    match stmt {
-        Statement::Assign(assign) => todo!(),
-        Statement::Assert(assert) => todo!(),
-        Statement::Return(_) => todo!(),
-        Statement::Block(block) => todo!(),
-        Statement::If(_) => todo!(),
-        Statement::Var(var) => todo!(),
     }
 }
 
