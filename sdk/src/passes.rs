@@ -1,4 +1,3 @@
-#![allow(clippy::all)]
 #![allow(dead_code)]
 use anyhow::{anyhow, Ok, Result};
 use std::{any::Any, cell::RefCell, collections::HashMap, rc::Rc};
@@ -6,7 +5,6 @@ use std::{any::Any, cell::RefCell, collections::HashMap, rc::Rc};
 use crate::ast::{
     expression::{BinaryExpressionOperator, Expression},
     literal::Literal,
-    statement::Statement,
 };
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
@@ -265,7 +263,7 @@ mod test {
         expression::{Binary, Conditional, Identifier},
         literal::{Bool, Nat, Str, Version},
         node::Location,
-        statement::{Block, If, Return, Var},
+        statement::{Block, If, Return, Statement, Var},
     };
     use anyhow::Result;
 
