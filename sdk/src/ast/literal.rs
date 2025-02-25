@@ -16,10 +16,16 @@ ast_enum! {
 }
 
 ast_nodes! {
-    pub struct Nat {}
+    pub struct Nat {
+        pub value: u64,
+    }
     pub struct Bool {}
     pub struct Str {}
-    pub struct Version {}
+    pub struct Version {
+        pub major: Nat,
+        pub minor: Nat,
+        pub bugfix: Option<Nat>,
+    }
 }
 
 impl Node for Nat {

@@ -124,7 +124,10 @@ pub fn build_symbol_table(
     parent: Option<Rc<SymbolTable>>,
 ) -> anyhow::Result<Rc<SymbolTable>> {
     let symbol_table = Rc::new(SymbolTable::new(parent));
-    let mut nodes: Vec<Rc<NodeKind>> = vec![node_kind];
+    let mut nodes: Vec<Rc<NodeKind>> = match node_kind.as_ref() {
+        NodeKind::NewScope(node) => node.children(),
+        NodeKind::SameScopeNode(_) => vec![node_kind],
+    };
     while let Some(node) = nodes.pop() {
         match node.as_ref() {
             NodeKind::NewScope(node) => {
@@ -300,6 +303,7 @@ mod test {
                     value: Expression::Literal(Literal::Nat(Rc::new(Nat {
                         id: 1,
                         location: default_location(),
+                        value: 0,
                     }))),
                     ty_: None,
                 })),
@@ -310,6 +314,7 @@ mod test {
                     value: Expression::Literal(Literal::Nat(Rc::new(Nat {
                         id: 3,
                         location: default_location(),
+                        value: 0,
                     }))),
                     ty_: None,
                 })),
@@ -351,6 +356,7 @@ mod test {
                     value: Expression::Literal(Literal::Nat(Rc::new(Nat {
                         id: 1,
                         location: default_location(),
+                        value: 0,
                     }))),
                     ty_: None,
                 })),
@@ -361,6 +367,7 @@ mod test {
                     value: Expression::Literal(Literal::Nat(Rc::new(Nat {
                         id: 3,
                         location: default_location(),
+                        value: 0,
                     }))),
                     ty_: None,
                 })),
@@ -403,6 +410,7 @@ mod test {
         let expr = Expression::Literal(Literal::Nat(Rc::new(Nat {
             id: 1,
             location: default_location(),
+            value: 0,
         })));
         let ty = infer_expr(&expr, &env)?;
         assert_eq!(ty, Type::Int);
@@ -439,6 +447,17 @@ mod test {
         let expr = Expression::Literal(Literal::Version(Rc::new(Version {
             id: 4,
             location: default_location(),
+            major: Nat {
+                id: 5,
+                location: default_location(),
+                value: 0,
+            },
+            minor: Nat {
+                id: 6,
+                location: default_location(),
+                value: 0,
+            },
+            bugfix: None,
         })));
         let ty = infer_expr(&expr, &env)?;
         // We treat Version as Unknown
@@ -456,10 +475,12 @@ mod test {
         let then_branch = Expression::Literal(Literal::Nat(Rc::new(Nat {
             id: 6,
             location: default_location(),
+            value: 0,
         })));
         let else_branch = Expression::Literal(Literal::Nat(Rc::new(Nat {
             id: 7,
             location: default_location(),
+            value: 0,
         })));
         let cond_expr = Expression::Conditional(Rc::new(Conditional {
             id: 8,
@@ -480,10 +501,12 @@ mod test {
         let left = Expression::Literal(Literal::Nat(Rc::new(Nat {
             id: 9,
             location: default_location(),
+            value: 0,
         })));
         let right = Expression::Literal(Literal::Nat(Rc::new(Nat {
             id: 10,
             location: default_location(),
+            value: 0,
         })));
         let binary = crate::ast::expression::Binary {
             id: 11,
@@ -509,6 +532,7 @@ mod test {
             expression: Rc::new(Expression::Literal(Literal::Nat(Rc::new(Nat {
                 id: 13,
                 location: default_location(),
+                value: 0,
             })))),
             target_type: Rc::new(Expression::Literal(Literal::Str(Rc::new(Str {
                 id: 14,
@@ -577,6 +601,7 @@ mod test {
             value: Expression::Literal(Literal::Nat(Rc::new(Nat {
                 id: 22,
                 location: default_location(),
+                value: 0,
             }))),
             ty_: None,
         }));
@@ -587,6 +612,7 @@ mod test {
             value: Expression::Literal(Literal::Nat(Rc::new(Nat {
                 id: 25,
                 location: default_location(),
+                value: 0,
             }))),
             ty_: None,
         }));
@@ -609,26 +635,6 @@ mod test {
     #[test]
     fn test_if_statement() -> Result<()> {
         // Build an If statement that uses identifiers "a" and "b".
-        let var_a = Statement::Var(Rc::new(Var {
-            id: 27,
-            location: default_location(),
-            name: mock_identifier(28, "a"),
-            value: Expression::Literal(Literal::Nat(Rc::new(Nat {
-                id: 29,
-                location: default_location(),
-            }))),
-            ty_: None,
-        }));
-        let var_b = Statement::Var(Rc::new(Var {
-            id: 30,
-            location: default_location(),
-            name: mock_identifier(31, "b"),
-            value: Expression::Literal(Literal::Nat(Rc::new(Nat {
-                id: 32,
-                location: default_location(),
-            }))),
-            ty_: None,
-        }));
         let if_stmt = Statement::If(Rc::new(If {
             id: 33,
             location: default_location(),
@@ -636,10 +642,29 @@ mod test {
                 id: 34,
                 location: default_location(),
             }))),
-            then_branch: var_a.clone(),
-            else_branch: Some(var_b.clone()),
+            then_branch: Statement::Var(Rc::new(Var {
+                id: 27,
+                location: default_location(),
+                name: mock_identifier(28, "a"),
+                value: Expression::Literal(Literal::Nat(Rc::new(Nat {
+                    id: 29,
+                    location: default_location(),
+                    value: 0,
+                }))),
+                ty_: None,
+            })),
+            else_branch: Some(Statement::Var(Rc::new(Var {
+                id: 30,
+                location: default_location(),
+                name: mock_identifier(31, "b"),
+                value: Expression::Literal(Literal::Nat(Rc::new(Nat {
+                    id: 32,
+                    location: default_location(),
+                    value: 0,
+                }))),
+                ty_: None,
+            }))),
         }));
-        // Wrap the if statement in a block.
         let block = Statement::Block(Rc::new(Block {
             id: 35,
             location: default_location(),
@@ -647,7 +672,6 @@ mod test {
         }));
         let symbol_table =
             build_symbol_table(Rc::new(crate::passes::NodeKind::from(&block)), None)?;
-        // The block should include the symbols from any Var declarations inside.
         assert!(symbol_table.lookup("a").is_some());
         assert!(symbol_table.lookup("b").is_some());
         Ok(())
@@ -663,6 +687,7 @@ mod test {
             value: Expression::Literal(Literal::Nat(Rc::new(Nat {
                 id: 38,
                 location: default_location(),
+                value: 0,
             }))),
             ty_: None,
         }));
@@ -673,6 +698,7 @@ mod test {
             value: Expression::Literal(Literal::Nat(Rc::new(Nat {
                 id: 41,
                 location: default_location(),
+                value: 0,
             }))),
             ty_: None,
         }));

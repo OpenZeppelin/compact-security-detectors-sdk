@@ -1,0 +1,46 @@
+use std::str::FromStr;
+use midnight_security_rules_sdk::ast::node::Location;
+use midnight_security_rules_sdk::ast::literal::{ Nat, Version };
+
+grammar;
+
+match {
+
+    // Skip whitespace and comments
+    r"\s*" => { },
+    r"//[^\n\r]*[\n\r]*" => { }, // `// comment`
+    r"/\*([^\*]*\*+[^\*/])*([^\*]*\*+|[^\*])*\*/" => { }, // `/* comment */`
+} else {
+    _
+}
+
+pub Term: Nat = {
+    <n:Nat> => n,
+    "(" <t:Term> ")" => t,
+};
+
+Nat : Nat = {
+    r"0|[1-9]\d*" => Nat 
+    {
+        id: 0,
+        location: Location::default(),
+        value: u64::from_str(<>).unwrap()
+    },
+};
+
+Version : Version = {
+    <major:Nat> "." <minor:Nat> "." <bugfix:Nat> => Version {
+        id : 0,
+        location: Location::default(),
+        major,
+        minor,
+        bugfix: Some(bugfix)
+    },
+    <major:Nat> "." <minor:Nat> => Version {
+        id : 0,
+        location: Location::default(),
+        major, 
+        minor,
+        bugfix: None
+    },
+};
