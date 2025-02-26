@@ -47,7 +47,7 @@ ast_nodes! {
     }
 
     pub struct Var {
-        pub name: Rc<Identifier>,
+        pub ident: Rc<Identifier>,
         pub value: Expression,
         pub ty_: Option<Expression>,
     }
@@ -109,7 +109,7 @@ impl Node for Var {
 
 impl SymbolNode for Var {
     fn name(&self) -> String {
-        self.name.name.clone()
+        self.ident.name.clone()
     }
     fn type_expr(&self) -> Option<&Expression> {
         self.ty_.as_ref().or(Some(&self.value))

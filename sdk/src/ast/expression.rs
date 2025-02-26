@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use crate::{
     ast_enum, ast_nodes,
-    passes::{Node, NodeKind, SameScopeNode, SymbolNode},
+    passes::{Node, NodeKind, SameScopeNode, SymbolNode, Type},
 };
 
 use super::literal::Literal;
@@ -15,6 +15,7 @@ ast_enum! {
         IndexAccess(Rc<IndexAccess>),
         MemberAccess(Rc<MemberAccess>),
         FunctionCall(Rc<FunctionCall>),
+        TypeExpressoin(Rc<Type>),
         @raw Literal(Literal),
         @symbol Identifier(Rc<Identifier>),
     }
@@ -38,6 +39,8 @@ impl From<&NodeKind> for Expression {
                 } else if let Some(function_call) = cond.as_any().downcast_ref::<Rc<FunctionCall>>()
                 {
                     Expression::FunctionCall(function_call.clone())
+                } else if let Some(type_expr) = cond.as_any().downcast_ref::<Rc<Type>>() {
+                    Expression::TypeExpressoin(type_expr.clone())
                 } else {
                     unreachable!()
                 }

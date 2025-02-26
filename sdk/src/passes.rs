@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 use anyhow::{anyhow, Ok, Result};
+use serde::{Deserialize, Serialize};
 use std::{any::Any, cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::ast::{
@@ -7,14 +8,20 @@ use crate::ast::{
     literal::Literal,
 };
 
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Type {
-    Int,
+    Nat,
     Bool,
     String,
     Vector(u128, Box<Type>),
     #[default]
     Unknown,
+}
+
+impl Node for Type {
+    fn children(&self) -> Vec<Rc<NodeKind>> {
+        vec![]
+    }
 }
 
 #[derive(Debug)]
@@ -23,6 +30,7 @@ enum TypeError {
     Mismatch(Type, Type),
 }
 
+#[derive(Debug)]
 pub enum NodeKind {
     SameScopeNode(SameScopeNode),
     NewScope(Rc<dyn Node>),
@@ -53,6 +61,7 @@ impl dyn NodeSymbolNode {
     }
 }
 
+#[derive(Debug)]
 pub enum SameScopeNode {
     Symbol(Rc<dyn NodeSymbolNode>),
     Composite(Rc<dyn Node>),
@@ -64,7 +73,7 @@ impl From<Rc<dyn Node>> for NodeKind {
     }
 }
 
-pub trait Node: Any {
+pub trait Node: Any + std::fmt::Debug {
     fn children(&self) -> Vec<Rc<NodeKind>>;
 }
 
@@ -81,6 +90,7 @@ pub trait SymbolNode {
     }
 }
 
+#[derive(Debug)]
 pub struct SymbolTable {
     pub symbols: RefCell<HashMap<String, Type>>,
     pub parent: Option<Rc<SymbolTable>>,
@@ -124,6 +134,7 @@ pub fn build_symbol_table(
     parent: Option<Rc<SymbolTable>>,
 ) -> anyhow::Result<Rc<SymbolTable>> {
     let symbol_table = Rc::new(SymbolTable::new(parent));
+    // println!("Symbol table: {symbol_table:?}\n");
     let mut nodes: Vec<Rc<NodeKind>> = match node_kind.as_ref() {
         NodeKind::NewScope(node) => node.children(),
         NodeKind::SameScopeNode(_) => vec![node_kind],
@@ -136,6 +147,7 @@ pub fn build_symbol_table(
                     Some(symbol_table.clone()),
                 )?;
                 symbol_table.children.borrow_mut().push(child_scope);
+                // println!("Symbol table: {symbol_table:?}\n");
             }
             NodeKind::SameScopeNode(same) => match same {
                 SameScopeNode::Composite(comp_node) => {
@@ -153,15 +165,21 @@ pub fn build_symbol_table(
                     if symbol_table.symbols.borrow().contains_key(&symbol_name) {
                         if let Some(st) = symbol_table.lookup(&symbol_name) {
                             if st == Type::Unknown {
+                                symbol_table
+                                    .symbols
+                                    .borrow_mut()
+                                    .insert(symbol_name.clone(), symbol_type);
+                                // println!("Symbol table: {symbol_table:?}\n");
                                 //why didn't we see the type of the symbol before? bug?
-                                return Err(anyhow!(
-                                    "Symbol {symbol_name} without a type in a symbol table"
-                                ));
+                                // return Err(anyhow!(
+                                //     "Symbol {symbol_name} without a type in a symbol table"
+                                // ));
                             } else if symbol_type == Type::Unknown {
                                 symbol_table
                                     .symbols
                                     .borrow_mut()
                                     .insert(symbol_name.clone(), st);
+                                // println!("Symbol table: {symbol_table:?}\n");
                             } else {
                                 //shadowing is not allowed
                                 return Err(anyhow!("Symbol {symbol_name} already exists"));
@@ -172,6 +190,7 @@ pub fn build_symbol_table(
                             .symbols
                             .borrow_mut()
                             .insert(symbol_name.clone(), symbol_type);
+                        // println!("Symbol table: {symbol_table:?}\n");
                     }
                     for child in symbol_node.children() {
                         nodes.push(child);
@@ -186,7 +205,7 @@ pub fn build_symbol_table(
 fn infer_expr(expr: &Expression, env: &Rc<SymbolTable>) -> Result<Type> {
     match expr {
         Expression::Literal(lit) => match lit {
-            Literal::Nat(_) => Ok(Type::Int),
+            Literal::Nat(_) => Ok(Type::Nat),
             Literal::Bool(_) => Ok(Type::Bool),
             Literal::Str(_) => Ok(Type::String),
             Literal::Version(_) => Ok(Type::Unknown),
@@ -255,6 +274,7 @@ fn infer_expr(expr: &Expression, env: &Rc<SymbolTable>) -> Result<Type> {
                 .ok_or_else(|| anyhow!("Undefined identifier"))?;
             Ok(symbol_type)
         }
+        Expression::TypeExpressoin(te) => Ok(te.as_ref().clone()),
     }
 }
 
@@ -299,7 +319,7 @@ mod test {
                 Statement::Var(Rc::new(Var {
                     id: 0,
                     location: default_location(),
-                    name: mock_identifier(1, "a"),
+                    ident: mock_identifier(1, "a"),
                     value: Expression::Literal(Literal::Nat(Rc::new(Nat {
                         id: 1,
                         location: default_location(),
@@ -310,7 +330,7 @@ mod test {
                 Statement::Var(Rc::new(Var {
                     id: 2,
                     location: default_location(),
-                    name: mock_identifier(2, "b"),
+                    ident: mock_identifier(2, "b"),
                     value: Expression::Literal(Literal::Nat(Rc::new(Nat {
                         id: 3,
                         location: default_location(),
@@ -352,24 +372,24 @@ mod test {
                 Statement::Var(Rc::new(Var {
                     id: 0,
                     location: default_location(),
-                    name: mock_identifier(6, "a"),
+                    ident: mock_identifier(6, "a"),
                     value: Expression::Literal(Literal::Nat(Rc::new(Nat {
                         id: 1,
                         location: default_location(),
                         value: 0,
                     }))),
-                    ty_: None,
+                    ty_: Some(Expression::TypeExpressoin(Rc::new(Type::Nat))),
                 })),
                 Statement::Var(Rc::new(Var {
                     id: 2,
                     location: default_location(),
-                    name: mock_identifier(7, "b"),
+                    ident: mock_identifier(7, "b"),
                     value: Expression::Literal(Literal::Nat(Rc::new(Nat {
                         id: 3,
                         location: default_location(),
                         value: 0,
                     }))),
-                    ty_: None,
+                    ty_: Some(Expression::TypeExpressoin(Rc::new(Type::Nat))),
                 })),
                 Statement::Return(Rc::new(Return {
                     id: 4,
@@ -400,7 +420,7 @@ mod test {
             operator: BinaryExpressionOperator::Add,
         }));
         let ty = infer_expr(&expr, &symbol_table)?;
-        assert_eq!(ty, Type::Int);
+        assert_eq!(ty, Type::Nat);
         Ok(())
     }
 
@@ -413,7 +433,7 @@ mod test {
             value: 0,
         })));
         let ty = infer_expr(&expr, &env)?;
-        assert_eq!(ty, Type::Int);
+        assert_eq!(ty, Type::Nat);
         Ok(())
     }
 
@@ -491,7 +511,7 @@ mod test {
         }));
         let ty = infer_expr(&cond_expr, &env)?;
         // Both branches are Nat -> Int.
-        assert_eq!(ty, Type::Int);
+        assert_eq!(ty, Type::Nat);
         Ok(())
     }
 
@@ -517,7 +537,7 @@ mod test {
         };
         let expr = Expression::Binary(Rc::new(binary));
         let ty = infer_expr(&expr, &env)?;
-        assert_eq!(ty, Type::Int);
+        assert_eq!(ty, Type::Nat);
         Ok(())
     }
 
@@ -549,7 +569,7 @@ mod test {
     fn test_member_access_expr() -> Result<()> {
         let env = Rc::new(SymbolTable::new(None));
         // Insert a symbol "a" manually into env.
-        env.insert("a".to_string(), Type::Int)?;
+        env.insert("a".to_string(), Type::Nat)?;
         // Create a member access expression whose base is the identifier "a".
         let member_access = crate::ast::expression::MemberAccess {
             id: 15,
@@ -560,7 +580,7 @@ mod test {
         let expr = Expression::MemberAccess(Rc::new(member_access));
         let ty = infer_expr(&expr, &env)?;
         // infer_expr for MemberAccess just passes through the base’s type.
-        assert_eq!(ty, Type::Int);
+        assert_eq!(ty, Type::Nat);
         Ok(())
     }
 
@@ -584,10 +604,10 @@ mod test {
     #[test]
     fn test_identifier_expr() -> Result<()> {
         let env = Rc::new(SymbolTable::new(None));
-        env.insert("a".to_string(), Type::Int)?;
+        env.insert("a".to_string(), Type::Nat)?;
         let expr = Expression::Identifier(mock_identifier(19, "a"));
         let ty = infer_expr(&expr, &env)?;
-        assert_eq!(ty, Type::Int);
+        assert_eq!(ty, Type::Nat);
         Ok(())
     }
 
@@ -597,7 +617,7 @@ mod test {
         let var_a = Statement::Var(Rc::new(Var {
             id: 20,
             location: default_location(),
-            name: mock_identifier(21, "a"),
+            ident: mock_identifier(21, "a"),
             value: Expression::Literal(Literal::Nat(Rc::new(Nat {
                 id: 22,
                 location: default_location(),
@@ -608,7 +628,7 @@ mod test {
         let var_b = Statement::Var(Rc::new(Var {
             id: 23,
             location: default_location(),
-            name: mock_identifier(24, "b"),
+            ident: mock_identifier(24, "b"),
             value: Expression::Literal(Literal::Nat(Rc::new(Nat {
                 id: 25,
                 location: default_location(),
@@ -627,8 +647,8 @@ mod test {
         // Both symbols should be present with type Int.
         let sym_a = symbol_table.lookup("a").unwrap();
         let sym_b = symbol_table.lookup("b").unwrap();
-        assert_eq!(sym_a, Type::Int);
-        assert_eq!(sym_b, Type::Int);
+        assert_eq!(sym_a, Type::Nat);
+        assert_eq!(sym_b, Type::Nat);
         Ok(())
     }
 
@@ -645,7 +665,7 @@ mod test {
             then_branch: Statement::Var(Rc::new(Var {
                 id: 27,
                 location: default_location(),
-                name: mock_identifier(28, "a"),
+                ident: mock_identifier(28, "a"),
                 value: Expression::Literal(Literal::Nat(Rc::new(Nat {
                     id: 29,
                     location: default_location(),
@@ -656,7 +676,7 @@ mod test {
             else_branch: Some(Statement::Var(Rc::new(Var {
                 id: 30,
                 location: default_location(),
-                name: mock_identifier(31, "b"),
+                ident: mock_identifier(31, "b"),
                 value: Expression::Literal(Literal::Nat(Rc::new(Nat {
                     id: 32,
                     location: default_location(),
@@ -683,7 +703,7 @@ mod test {
         let var_a = Statement::Var(Rc::new(Var {
             id: 36,
             location: default_location(),
-            name: mock_identifier(37, "a"),
+            ident: mock_identifier(37, "a"),
             value: Expression::Literal(Literal::Nat(Rc::new(Nat {
                 id: 38,
                 location: default_location(),
@@ -694,7 +714,7 @@ mod test {
         let var_b = Statement::Var(Rc::new(Var {
             id: 39,
             location: default_location(),
-            name: mock_identifier(40, "b"),
+            ident: mock_identifier(40, "b"),
             value: Expression::Literal(Literal::Nat(Rc::new(Nat {
                 id: 41,
                 location: default_location(),
@@ -729,7 +749,7 @@ mod test {
         if let Statement::Return(ret) = &block {
             if let Some(expr) = &ret.value {
                 let ty = infer_expr(expr, &symbol_table)?;
-                assert_eq!(ty, Type::Int);
+                assert_eq!(ty, Type::Nat);
             }
         }
         Ok(())
