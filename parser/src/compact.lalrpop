@@ -1,46 +1,136 @@
 use std::str::FromStr;
+use std::rc::Rc;
+use lalrpop_util::ParseError;
 use midnight_security_rules_sdk::ast::node::Location;
-use midnight_security_rules_sdk::ast::literal::{ Nat, Version };
+use midnight_security_rules_sdk::ast::literal::{ Literal, Nat, Bool, Version, Str };
+use midnight_security_rules_sdk::ast::directive::{ Directive, Pragma };
+use midnight_security_rules_sdk::ast::expression::{ Expression, Identifier, BinaryExpressionOperator };
 
 grammar;
 
 match {
-
     // Skip whitespace and comments
     r"\s*" => { },
     r"//[^\n\r]*[\n\r]*" => { }, // `// comment`
     r"/\*([^\*]*\*+[^\*/])*([^\*]*\*+|[^\*])*\*/" => { }, // `/* comment */`
+    _,
 } else {
-    _
+    "true" => TRUE,
+    "false" => FALSE,
+    r#""[^\\"\n\r]*(\\[tnfbrx'"\\0-9][^\\"\n\r]*)*""# => STR,
+    r"[a-zA-Z_][a-zA-Z0-9_]*" => ID,
 }
 
-pub Term: Nat = {
-    <n:Nat> => n,
-    "(" <t:Term> ")" => t,
+pub Term: Expression = {
+    <e:Expression> => e
 };
 
-Nat : Nat = {
-    r"0|[1-9]\d*" => Nat 
+pub Directive: Directive = {
+    <p:Pragma> => Directive::Pragma(p)
+};
+
+pub Expression : Expression = {
+    <i:Identifier> => Expression::Identifier(i),
+    <l:Literal> => Expression::Literal(l),
+};
+
+pub Literal : Literal = {
+    <v:Version> => Literal::Version(v),
+    <n:Nat> => Literal::Nat(n),
+    <b:Bool> => Literal::Bool(b),
+    <s:Str> => Literal::Str(s),
+};
+
+Nat : Rc<Nat> = {
+    <start: @L> <n:r"0|[1-9]\d*"> <end: @R> => Rc::new(Nat 
     {
         id: 0,
-        location: Location::default(),
-        value: u64::from_str(<>).unwrap()
-    },
+        location: Location::new(start, end),
+        value: u64::from_str(n).unwrap()
+    }),
 };
 
-Version : Version = {
-    <major:Nat> "." <minor:Nat> "." <bugfix:Nat> => Version {
+Bool : Rc<Bool> = {
+    <start: @L> <b:TRUE> <end: @R> => Rc::new(Bool {
+        id: 0,
+        location: Location::new(start, end),
+        value: true
+    }),
+    <start: @L> <b:FALSE> <end: @R> => Rc::new(Bool {
+        id: 0,
+        location: Location::new(start, end),
+        value: false
+    })
+}
+
+Version : Rc<Version> = {
+    <start: @L> <major:Nat> "." <minor:Nat> "." <bugfix:Nat> <end: @R> => Rc::new(Version {
         id : 0,
-        location: Location::default(),
+        location: Location::new(start, end),
         major,
         minor,
         bugfix: Some(bugfix)
-    },
-    <major:Nat> "." <minor:Nat> => Version {
+    }),
+    <start: @L> <major:Nat> "." <minor:Nat> <end: @R> => Rc::new(Version {
         id : 0,
-        location: Location::default(),
+        location: Location::new(start, end),
         major, 
         minor,
         bugfix: None
-    },
+    })
+};
+
+Str : Rc<Str> = {
+    <start: @L> <s:STR> <end: @R>  => Rc::new(Str {
+        id: 0,
+        location: Location::new(start, end),
+        value: String::from(s)
+    })
+};
+
+Identifier: Rc<Identifier> = {
+    <start: @L> <i: ID> <end: @R> =>? {
+         if i.to_lowercase() == "true" || i.to_lowercase() == "false" {
+             Err(ParseError::User { error: "Invalid identifier" })
+         } else {
+             Ok(Rc::new(Identifier {
+                 id: 0,
+                 location: Location::new(start, end),
+                 name: i.to_owned(),
+             }))
+         }
+    }
+};
+
+BinaryExpressionOperator : BinaryExpressionOperator = {
+    "+" => BinaryExpressionOperator::Add,
+    "-" => BinaryExpressionOperator::Sub,
+    "*" => BinaryExpressionOperator::Mul,
+    "/" => BinaryExpressionOperator::Div,
+    "%" => BinaryExpressionOperator::Mod,
+    "**" => BinaryExpressionOperator::Pow,
+    "==" => BinaryExpressionOperator::Eq,
+    "!=" => BinaryExpressionOperator::Ne,
+    "<" => BinaryExpressionOperator::Lt,
+    "<=" => BinaryExpressionOperator::Le,
+    ">" => BinaryExpressionOperator::Gt,
+    ">=" => BinaryExpressionOperator::Ge,
+    "&&" => BinaryExpressionOperator::And,
+    "||" => BinaryExpressionOperator::Or,
+    "&" => BinaryExpressionOperator::BitAnd,
+    "|" => BinaryExpressionOperator::BitOr,
+    "^" => BinaryExpressionOperator::BitXor,
+    "!" => BinaryExpressionOperator::BitNot,
+    "<<" => BinaryExpressionOperator::Shl,
+    ">>" => BinaryExpressionOperator::Shr,
+};
+
+Pragma : Rc<Pragma> = {
+    <start: @L> "pragma" <value:Identifier> <op:BinaryExpressionOperator> <version:Version> <end: @R> => Rc::new(Pragma {
+        id: 0,
+        location: Location::new(start, end),
+        value: value.clone(),
+        version: version.clone(),
+        operator: op.clone()
+    })
 };

@@ -19,12 +19,16 @@ ast_nodes! {
     pub struct Nat {
         pub value: u64,
     }
-    pub struct Bool {}
-    pub struct Str {}
+    pub struct Bool {
+        pub value: bool,
+    }
+    pub struct Str {
+        pub value: String,
+    }
     pub struct Version {
-        pub major: Nat,
-        pub minor: Nat,
-        pub bugfix: Option<Nat>,
+        pub major: Rc<Nat>,
+        pub minor: Rc<Nat>,
+        pub bugfix: Option<Rc<Nat>>,
     }
 }
 

@@ -1,11 +1,15 @@
 #![warn(clippy::pedantic)]
 #[derive(Clone, PartialEq, Eq, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct Location {
-    pub source_code: String,
-    pub start_line: usize,
-    pub start_col: usize,
-    pub end_line: usize,
-    pub end_col: usize,
+    pub start: usize,
+    pub end: usize,
+}
+
+impl Location {
+    #[must_use]
+    pub fn new(start: usize, end: usize) -> Self {
+        Self { start, end }
+    }
 }
 
 #[macro_export]

@@ -295,13 +295,7 @@ mod test {
     // --- Helpers: create a default structs ---
     // ============================
     fn default_location() -> crate::ast::node::Location {
-        crate::ast::node::Location {
-            source_code: String::new(),
-            start_line: 0,
-            start_col: 0,
-            end_line: 0,
-            end_col: 0,
-        }
+        crate::ast::node::Location { start: 0, end: 0 }
     }
 
     fn mock_identifier(id: u128, name: &str) -> Rc<Identifier> {
@@ -443,6 +437,7 @@ mod test {
         let expr = Expression::Literal(Literal::Bool(Rc::new(Bool {
             id: 2,
             location: default_location(),
+            value: false,
         })));
         let ty = infer_expr(&expr, &env)?;
         assert_eq!(ty, Type::Bool);
@@ -455,6 +450,7 @@ mod test {
         let expr = Expression::Literal(Literal::Str(Rc::new(Str {
             id: 3,
             location: default_location(),
+            value: String::default(),
         })));
         let ty = infer_expr(&expr, &env)?;
         assert_eq!(ty, Type::String);
@@ -467,16 +463,16 @@ mod test {
         let expr = Expression::Literal(Literal::Version(Rc::new(Version {
             id: 4,
             location: default_location(),
-            major: Nat {
+            major: Rc::new(Nat {
                 id: 5,
                 location: default_location(),
                 value: 0,
-            },
-            minor: Nat {
+            }),
+            minor: Rc::new(Nat {
                 id: 6,
                 location: default_location(),
                 value: 0,
-            },
+            }),
             bugfix: None,
         })));
         let ty = infer_expr(&expr, &env)?;
@@ -491,6 +487,7 @@ mod test {
         let cond = Expression::Literal(Literal::Bool(Rc::new(Bool {
             id: 5,
             location: default_location(),
+            value: false,
         })));
         let then_branch = Expression::Literal(Literal::Nat(Rc::new(Nat {
             id: 6,
@@ -557,6 +554,7 @@ mod test {
             target_type: Rc::new(Expression::Literal(Literal::Str(Rc::new(Str {
                 id: 14,
                 location: default_location(),
+                value: String::default(),
             })))),
         };
         let expr = Expression::Cast(Rc::new(cast));
@@ -661,6 +659,7 @@ mod test {
             condition: Expression::Literal(Literal::Bool(Rc::new(Bool {
                 id: 34,
                 location: default_location(),
+                value: false,
             }))),
             then_branch: Statement::Var(Rc::new(Var {
                 id: 27,
@@ -840,6 +839,27 @@ mod test {
         let pragma = crate::ast::directive::Pragma {
             id: 57,
             location: default_location(),
+            value: Rc::new(Identifier {
+                id: 58,
+                location: default_location(),
+                name: "pragma".to_string(),
+            }),
+            version: Rc::new(Version {
+                id: 59,
+                location: default_location(),
+                major: Rc::new(Nat {
+                    id: 60,
+                    location: default_location(),
+                    value: 0,
+                }),
+                minor: Rc::new(Nat {
+                    id: 61,
+                    location: default_location(),
+                    value: 0,
+                }),
+                bugfix: None,
+            }),
+            operator: BinaryExpressionOperator::Add,
         };
         let include = crate::ast::directive::Include {
             id: 58,
