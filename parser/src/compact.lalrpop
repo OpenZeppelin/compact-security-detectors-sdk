@@ -3,8 +3,10 @@ use std::rc::Rc;
 use lalrpop_util::ParseError;
 use midnight_security_rules_sdk::ast::node::Location;
 use midnight_security_rules_sdk::ast::literal::{ Literal, Nat, Bool, Version, Str };
-use midnight_security_rules_sdk::ast::directive::{ Directive, Pragma };
+use midnight_security_rules_sdk::ast::directive::{ Directive, Pragma, PragmaOperator};
+use midnight_security_rules_sdk::ast::declaration::{ Declaration, Import, Export };
 use midnight_security_rules_sdk::ast::expression::{ Expression, Identifier, BinaryExpressionOperator };
+use midnight_security_rules_sdk::ast::program::CompactNode;
 
 grammar;
 
@@ -21,25 +23,32 @@ match {
     r"[a-zA-Z_][a-zA-Z0-9_]*" => ID,
 }
 
-pub Term: Expression = {
-    <e:Expression> => e
-};
+pub Term: CompactNode = {
+    <d:Directive> => CompactNode::Directive(d),
+    <d:Declaration> => CompactNode::Declaration(d),
+    <e:Expression> => CompactNode::Expression(e),
+}
 
 pub Directive: Directive = {
-    <p:Pragma> => Directive::Pragma(p)
-};
+    <p:Pragma> => Directive::Pragma(p),
+}
+
+pub Declaration: Declaration = {
+    <i:Import> => Declaration::Import(i),
+    <e:Export> => Declaration::Export(e),
+}
 
 pub Expression : Expression = {
     <i:Identifier> => Expression::Identifier(i),
     <l:Literal> => Expression::Literal(l),
-};
+}
 
 pub Literal : Literal = {
     <v:Version> => Literal::Version(v),
     <n:Nat> => Literal::Nat(n),
     <b:Bool> => Literal::Bool(b),
     <s:Str> => Literal::Str(s),
-};
+}
 
 Nat : Rc<Nat> = {
     <start: @L> <n:r"0|[1-9]\d*"> <end: @R> => Rc::new(Nat 
@@ -48,7 +57,7 @@ Nat : Rc<Nat> = {
         location: Location::new(start, end),
         value: u64::from_str(n).unwrap()
     }),
-};
+}
 
 Bool : Rc<Bool> = {
     <start: @L> <b:TRUE> <end: @R> => Rc::new(Bool {
@@ -78,7 +87,7 @@ Version : Rc<Version> = {
         minor,
         bugfix: None
     })
-};
+}
 
 Str : Rc<Str> = {
     <start: @L> <s:STR> <end: @R>  => Rc::new(Str {
@@ -86,7 +95,7 @@ Str : Rc<Str> = {
         location: Location::new(start, end),
         value: String::from(s)
     })
-};
+}
 
 Identifier: Rc<Identifier> = {
     <start: @L> <i: ID> <end: @R> =>? {
@@ -100,7 +109,13 @@ Identifier: Rc<Identifier> = {
              }))
          }
     }
-};
+}
+
+CBIndentifiersList: Vec<Rc<Identifier>> = {
+    "{" "}" => Vec::new(),
+    "{" <i:Identifier> "}" => vec![i],
+    "{" <CommaTwo<Identifier>> "}" => <>
+}
 
 BinaryExpressionOperator : BinaryExpressionOperator = {
     "+" => BinaryExpressionOperator::Add,
@@ -112,7 +127,7 @@ BinaryExpressionOperator : BinaryExpressionOperator = {
     "==" => BinaryExpressionOperator::Eq,
     "!=" => BinaryExpressionOperator::Ne,
     "<" => BinaryExpressionOperator::Lt,
-    "<=" => BinaryExpressionOperator::Le,
+    "=<" => BinaryExpressionOperator::Le,
     ">" => BinaryExpressionOperator::Gt,
     ">=" => BinaryExpressionOperator::Ge,
     "&&" => BinaryExpressionOperator::And,
@@ -123,14 +138,53 @@ BinaryExpressionOperator : BinaryExpressionOperator = {
     "!" => BinaryExpressionOperator::BitNot,
     "<<" => BinaryExpressionOperator::Shl,
     ">>" => BinaryExpressionOperator::Shr,
-};
+}
+
+PragmaOperator: PragmaOperator = {
+    "=" => PragmaOperator::Eq,
+    ">" => PragmaOperator::Gt,
+    ">=" => PragmaOperator::Ge,
+}
 
 Pragma : Rc<Pragma> = {
-    <start: @L> "pragma" <value:Identifier> <op:BinaryExpressionOperator> <version:Version> <end: @R> => Rc::new(Pragma {
+    <start: @L> "pragma" <value:Identifier> <op:PragmaOperator> <version:Version> ";" <end: @R> => Rc::new(Pragma {
         id: 0,
         location: Location::new(start, end),
         value: value.clone(),
         version: version.clone(),
         operator: op.clone()
     })
+}
+
+Import : Rc<Import> = {
+    <start: @L> "import" <value:Identifier> ";" <end: @R> => Rc::new(Import {
+        id: 0,
+        location: Location::new(start, end),
+        value: value.clone()
+    }),
+    <start: @L> "import" <path:STR> ";" <end: @R> => Rc::new(Import {
+        id: 0,
+        location: Location::new(start, end),
+        value: Rc::new(Identifier {
+                 id: 0,
+                 location: Location::new(start, end),
+                 name: path.to_owned(),
+             })
+    })
+}
+
+Export: Rc<Export> = {
+    <start: @L> "export" <v:CBIndentifiersList> <t:";"?>  <end: @R> => Rc::new(Export {
+        id: 0,
+        location: Location::new(start, end),
+        values: v.clone()
+    }),
+}
+
+CommaTwo<T>: Vec<T> = {
+    <e:T> <v:("," <T>)+> => {
+        let mut v = v;
+        v.insert(0, e);
+        v
+    }
 };

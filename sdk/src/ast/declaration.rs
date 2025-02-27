@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use crate::{ast_enum, ast_nodes, passes::Node};
 
-use super::definition::Definition;
+use super::{definition::Definition, expression::Identifier};
 
 ast_enum! {
     pub enum Declaration {
@@ -21,9 +21,13 @@ ast_enum! {
 }
 
 ast_nodes! {
-    pub struct Import {}
+    pub struct Import {
+        pub value: Rc<Identifier>,
+    }
 
-    pub struct Export {}
+    pub struct Export {
+        pub values: Vec<Rc<Identifier>>,
+    }
 
     pub struct External {}
 

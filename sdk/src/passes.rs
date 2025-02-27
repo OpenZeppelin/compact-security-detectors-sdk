@@ -284,6 +284,7 @@ mod test {
     use crate::ast::{
         declaration::Declaration,
         definition::Definition,
+        directive::PragmaOperator,
         expression::{Binary, Conditional, Identifier},
         literal::{Bool, Nat, Str, Version},
         node::Location,
@@ -759,10 +760,16 @@ mod test {
         let import = crate::ast::declaration::Import {
             id: 45,
             location: default_location(),
+            value: Rc::new(Identifier {
+                id: 46,
+                location: default_location(),
+                name: "import".to_string(),
+            }),
         };
         let export = crate::ast::declaration::Export {
             id: 46,
             location: default_location(),
+            values: vec![],
         };
         let external = crate::ast::declaration::External {
             id: 47,
@@ -859,16 +866,10 @@ mod test {
                 }),
                 bugfix: None,
             }),
-            operator: BinaryExpressionOperator::Add,
+            operator: PragmaOperator::Ge,
         };
-        let include = crate::ast::directive::Include {
-            id: 58,
-            location: default_location(),
-        };
-        let dirs = vec![
-            crate::ast::directive::Directive::Pragma(Rc::new(pragma)),
-            crate::ast::directive::Directive::Include(Rc::new(include)),
-        ];
+
+        let dirs = vec![crate::ast::directive::Directive::Pragma(Rc::new(pragma))];
         for d in dirs {
             assert!(!format!("{d:?}").is_empty());
         }

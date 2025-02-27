@@ -4,12 +4,13 @@ macro_rules! lalrpop_mod_doc {
             #[allow(clippy::ptr_arg)]
             #[allow(clippy::vec_box)]
             $vis $name);
+        }
     }
-}
 
 lalrpop_mod_doc!(pub compact);
 
 #[cfg(test)]
+#[rustfmt::skip]
 mod tests {
     use midnight_security_rules_sdk::ast::{expression::Expression, literal::Literal};
 
@@ -18,7 +19,10 @@ mod tests {
     #[test]
     fn test_parse_nat() {
         let l = compact::TermParser::new().parse("1").unwrap();
-        if let Expression::Literal(Literal::Nat(n)) = l {
+        if let midnight_security_rules_sdk::ast::program::CompactNode::Expression(
+            Expression::Literal(Literal::Nat(n)),
+        ) = l
+        {
             assert_eq!(n.value, 1);
             assert_eq!(n.location.start, 0);
             assert_eq!(n.location.end, 1);
@@ -27,7 +31,10 @@ mod tests {
         }
 
         let l = compact::TermParser::new().parse("0").unwrap();
-        if let Expression::Literal(Literal::Nat(n)) = l {
+        if let midnight_security_rules_sdk::ast::program::CompactNode::Expression(
+            Expression::Literal(Literal::Nat(n)),
+        ) = l
+        {
             assert_eq!(n.value, 0);
             assert_eq!(n.location.start, 0);
             assert_eq!(n.location.end, 1);
@@ -36,7 +43,10 @@ mod tests {
         }
 
         let l = compact::TermParser::new().parse("123").unwrap();
-        if let Expression::Literal(Literal::Nat(n)) = l {
+        if let midnight_security_rules_sdk::ast::program::CompactNode::Expression(
+            Expression::Literal(Literal::Nat(n)),
+        ) = l
+        {
             assert_eq!(n.value, 123);
             assert_eq!(n.location.start, 0);
             assert_eq!(n.location.end, 3);
@@ -45,7 +55,10 @@ mod tests {
         }
 
         let l = compact::TermParser::new().parse("12345").unwrap();
-        if let Expression::Literal(Literal::Nat(n)) = l {
+        if let midnight_security_rules_sdk::ast::program::CompactNode::Expression(
+            Expression::Literal(Literal::Nat(n)),
+        ) = l
+        {
             assert_eq!(n.value, 12345);
             assert_eq!(n.location.start, 0);
             assert_eq!(n.location.end, 5);
@@ -138,5 +151,54 @@ mod tests {
             a_1_2_3_4_5_6_7_8_9"
             )
             .is_ok());
+    }
+
+    #[test]
+    fn test_pragma() {
+        assert!(compact::TermParser::new().parse("pragma language_version >= 1.2.3;").is_ok());
+        assert!(compact::TermParser::new().parse("pragma language_version > 1.2.3;").is_ok());
+        assert!(compact::TermParser::new().parse("pragma language_version = 1.2.3;").is_ok());
+        assert!(compact::TermParser::new().parse("pragma language_version >= ;").is_err());
+        assert!(compact::TermParser::new().parse("pragma language_version > ;").is_err());
+        assert!(compact::TermParser::new().parse("pragma language_version == ;").is_err());
+        assert!(compact::TermParser::new().parse("pragma language_version < ;").is_err());
+        assert!(compact::TermParser::new().parse("pragma language_version =< ;").is_err());
+        assert!(compact::TermParser::new().parse("pragma language_version >= 1.2.3").is_err());
+        assert!(compact::TermParser::new().parse("pragma language_version > 1.2.3").is_err());
+        assert!(compact::TermParser::new().parse("pragma language_version == 1.2.3").is_err());
+        assert!(compact::TermParser::new().parse("pragma language_version < 1.2.3").is_err());
+        assert!(compact::TermParser::new().parse("pragma language_version =< 1.2.3").is_err());
+        assert!(compact::TermParser::new().parse("pragma language_version 1.2.3;").is_err());
+        assert!(compact::TermParser::new().parse("pragma language_version >= 1.2.3.4;").is_err());
+        assert!(compact::TermParser::new().parse("pragma language_version >= 1..2.3;").is_err());
+        assert!(compact::TermParser::new().parse("pragma language_version >= 1.2..3;").is_err());
+        assert!(compact::TermParser::new().parse("pragma language_version >= 1.2.3.;").is_err());
+    }
+
+    #[test]
+    fn test_import() {
+        assert!(compact::TermParser::new().parse("import a;").is_ok());
+        assert!(compact::TermParser::new().parse("import a_1;").is_ok());
+        assert!(compact::TermParser::new().parse("import \"../../Test\";").is_ok());
+        assert!(compact::TermParser::new().parse("import ;").is_err());
+        assert!(compact::TermParser::new().parse("import 1;").is_err());
+        assert!(compact::TermParser::new().parse("import a b;").is_err());
+        assert!(compact::TermParser::new().parse("import \"../../Test").is_err());
+        assert!(compact::TermParser::new().parse("import ../../Test\";").is_err());
+    }
+
+    #[test]
+    fn test_export() {
+        assert!(compact::TermParser::new().parse("export { a }").is_ok());
+        assert!(compact::TermParser::new().parse("export { a, b }").is_ok());
+        assert!(compact::TermParser::new().parse("export { a, b, c }").is_ok());
+        assert!(compact::TermParser::new().parse("export { a };").is_ok());
+        assert!(compact::TermParser::new().parse("export { a, b };").is_ok());
+        assert!(compact::TermParser::new().parse("export { a, b, c };").is_ok());
+        assert!(compact::TermParser::new().parse("export { ;").is_err());
+        assert!(compact::TermParser::new().parse("export { a, ;").is_err());
+        assert!(compact::TermParser::new().parse("export { a b }").is_err());
+        assert!(compact::TermParser::new().parse("export { a, b c }").is_err());
+        assert!(compact::TermParser::new().parse("export { a, b, c, }").is_err());
     }
 }
