@@ -1,11 +1,11 @@
 use std::rc::Rc;
 
-use crate::{
-    ast_enum, ast_nodes,
-    passes::{Node, NodeKind, SameScopeNode, SymbolNode, Type},
-};
+use crate::{ast_enum, ast_nodes};
 
-use super::literal::Literal;
+use super::{
+    literal::Literal,
+    node::{Node, NodeKind, SameScopeNode, SymbolNode, Type},
+};
 
 ast_enum! {
     pub enum Expression {

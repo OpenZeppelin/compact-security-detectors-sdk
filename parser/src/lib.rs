@@ -201,4 +201,9 @@ mod tests {
         assert!(compact::TermParser::new().parse("export { a, b c }").is_err());
         assert!(compact::TermParser::new().parse("export { a, b, c, }").is_err());
     }
+
+    #[test]
+    fn test_ledger() {
+        assert!(compact::TermParser::new().parse("ledger test : Boolean;").is_ok());
+    }
 }

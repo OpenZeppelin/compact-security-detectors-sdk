@@ -1,10 +1,9 @@
 #![warn(clippy::pedantic)]
 use std::rc::Rc;
 
-use crate::{
-    ast_enum, ast_nodes,
-    passes::{Node, NodeKind},
-};
+use crate::{ast_enum, ast_nodes};
+
+use super::node::{Node, NodeKind};
 
 ast_enum! {
     pub enum Literal {

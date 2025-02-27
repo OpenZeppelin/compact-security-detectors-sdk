@@ -1,10 +1,10 @@
 use std::str::FromStr;
 use std::rc::Rc;
 use lalrpop_util::ParseError;
-use midnight_security_rules_sdk::ast::node::Location;
+use midnight_security_rules_sdk::ast::node::{ Type, Location };
 use midnight_security_rules_sdk::ast::literal::{ Literal, Nat, Bool, Version, Str };
 use midnight_security_rules_sdk::ast::directive::{ Directive, Pragma, PragmaOperator};
-use midnight_security_rules_sdk::ast::declaration::{ Declaration, Import, Export };
+use midnight_security_rules_sdk::ast::declaration::{ Declaration, Import, Export, Ledger };
 use midnight_security_rules_sdk::ast::expression::{ Expression, Identifier, BinaryExpressionOperator };
 use midnight_security_rules_sdk::ast::program::CompactNode;
 
@@ -36,6 +36,7 @@ pub Directive: Directive = {
 pub Declaration: Declaration = {
     <i:Import> => Declaration::Import(i),
     <e:Export> => Declaration::Export(e),
+    <l:Ledger> => Declaration::Ledger(l),
 }
 
 pub Expression : Expression = {
@@ -48,6 +49,12 @@ pub Literal : Literal = {
     <n:Nat> => Literal::Nat(n),
     <b:Bool> => Literal::Bool(b),
     <s:Str> => Literal::Str(s),
+}
+
+Type: Type = {
+    "Boolean" => Type::Bool,
+    "Field" => Type::Field,
+    "Vector" "<" <s:Nat> "," <t:Type> ">" => Type::Vector(s, Box::new(t)),
 }
 
 Nat : Rc<Nat> = {
@@ -178,6 +185,17 @@ Export: Rc<Export> = {
         id: 0,
         location: Location::new(start, end),
         values: v.clone()
+    }),
+}
+
+Ledger: Rc<Ledger> = {
+    <start: @L> "ledger" <i:Identifier> ":" <t:Type> ";" <end: @R> => Rc::new(Ledger {
+        id: 0,
+        location: Location::new(start, end),
+        is_exported: false,
+        is_sealed: false,
+        name: i.clone(),
+        ty: t
     }),
 }
 

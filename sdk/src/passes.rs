@@ -1,94 +1,12 @@
 #![allow(dead_code)]
 use anyhow::{anyhow, Ok, Result};
-use serde::{Deserialize, Serialize};
-use std::{any::Any, cell::RefCell, collections::HashMap, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::ast::{
     expression::{BinaryExpressionOperator, Expression},
     literal::Literal,
+    node::{NodeKind, SameScopeNode, Type},
 };
-
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Type {
-    Nat,
-    Bool,
-    String,
-    Vector(u128, Box<Type>),
-    #[default]
-    Unknown,
-}
-
-impl Node for Type {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        vec![]
-    }
-}
-
-#[derive(Debug)]
-enum TypeError {
-    Undefined(String),
-    Mismatch(Type, Type),
-}
-
-#[derive(Debug)]
-pub enum NodeKind {
-    SameScopeNode(SameScopeNode),
-    NewScope(Rc<dyn Node>),
-}
-
-pub trait NodeSymbolNode: Node + SymbolNode + Any {}
-
-impl<T> NodeSymbolNode for T where T: Node + SymbolNode + Any {}
-
-impl<'a> From<&'a Rc<dyn NodeSymbolNode>> for &'a dyn Node {
-    fn from(node: &'a Rc<dyn NodeSymbolNode>) -> Self {
-        node as &'a dyn Node
-    }
-}
-
-impl Node for Rc<dyn NodeSymbolNode> {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        match self.as_any().downcast_ref::<SameScopeNode>() {
-            Some(SameScopeNode::Composite(comp_node)) => comp_node.children(),
-            _ => vec![],
-        }
-    }
-}
-
-impl dyn NodeSymbolNode {
-    pub fn as_any(&self) -> &dyn Any {
-        self
-    }
-}
-
-#[derive(Debug)]
-pub enum SameScopeNode {
-    Symbol(Rc<dyn NodeSymbolNode>),
-    Composite(Rc<dyn Node>),
-}
-
-impl From<Rc<dyn Node>> for NodeKind {
-    fn from(node: Rc<dyn Node>) -> Self {
-        NodeKind::NewScope(node)
-    }
-}
-
-pub trait Node: Any + std::fmt::Debug {
-    fn children(&self) -> Vec<Rc<NodeKind>>;
-}
-
-impl dyn Node {
-    pub fn as_any(&self) -> &dyn Any {
-        self
-    }
-}
-
-pub trait SymbolNode {
-    fn name(&self) -> String;
-    fn type_expr(&self) -> Option<&Expression> {
-        None
-    }
-}
 
 #[derive(Debug)]
 pub struct SymbolTable {
@@ -782,6 +700,14 @@ mod test {
         let ledger = crate::ast::declaration::Ledger {
             id: 49,
             location: default_location(),
+            is_exported: false,
+            is_sealed: false,
+            name: Rc::new(Identifier {
+                id: 50,
+                location: default_location(),
+                name: "ledger".to_string(),
+            }),
+            ty: Type::Nat,
         };
         let ctor = crate::ast::declaration::Ctor {
             id: 50,

@@ -1,9 +1,13 @@
 #![warn(clippy::pedantic)]
 use std::rc::Rc;
 
-use crate::{ast_enum, ast_nodes, passes::Node};
+use crate::{ast_enum, ast_nodes};
 
-use super::{definition::Definition, expression::Identifier};
+use super::{
+    definition::Definition,
+    expression::Identifier,
+    node::{Node, NodeKind, Type},
+};
 
 ast_enum! {
     pub enum Declaration {
@@ -33,7 +37,12 @@ ast_nodes! {
 
     pub struct Witness {}
 
-    pub struct Ledger {}
+    pub struct Ledger {
+        pub is_exported: bool,
+        pub is_sealed: bool,
+        pub name: Rc<Identifier>,
+        pub ty: Type,
+    }
 
     pub struct Ctor {}
 
@@ -45,48 +54,48 @@ ast_nodes! {
 }
 
 impl Node for Import {
-    fn children(&self) -> Vec<Rc<crate::passes::NodeKind>> {
+    fn children(&self) -> Vec<Rc<NodeKind>> {
         vec![]
     }
 }
 
 impl Node for Export {
-    fn children(&self) -> Vec<Rc<crate::passes::NodeKind>> {
+    fn children(&self) -> Vec<Rc<NodeKind>> {
         vec![]
     }
 }
 impl Node for External {
-    fn children(&self) -> Vec<Rc<crate::passes::NodeKind>> {
+    fn children(&self) -> Vec<Rc<NodeKind>> {
         vec![]
     }
 }
 impl Node for Witness {
-    fn children(&self) -> Vec<Rc<crate::passes::NodeKind>> {
+    fn children(&self) -> Vec<Rc<NodeKind>> {
         vec![]
     }
 }
 impl Node for Ledger {
-    fn children(&self) -> Vec<Rc<crate::passes::NodeKind>> {
+    fn children(&self) -> Vec<Rc<NodeKind>> {
         vec![]
     }
 }
 impl Node for Ctor {
-    fn children(&self) -> Vec<Rc<crate::passes::NodeKind>> {
+    fn children(&self) -> Vec<Rc<NodeKind>> {
         vec![]
     }
 }
 impl Node for Contract {
-    fn children(&self) -> Vec<Rc<crate::passes::NodeKind>> {
+    fn children(&self) -> Vec<Rc<NodeKind>> {
         vec![]
     }
 }
 impl Node for Struct {
-    fn children(&self) -> Vec<Rc<crate::passes::NodeKind>> {
+    fn children(&self) -> Vec<Rc<NodeKind>> {
         vec![]
     }
 }
 impl Node for Enum {
-    fn children(&self) -> Vec<Rc<crate::passes::NodeKind>> {
+    fn children(&self) -> Vec<Rc<NodeKind>> {
         vec![]
     }
 }

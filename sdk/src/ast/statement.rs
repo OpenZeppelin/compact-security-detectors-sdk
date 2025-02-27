@@ -1,11 +1,11 @@
 use std::rc::Rc;
 
-use crate::{
-    ast_enum, ast_nodes,
-    passes::{Node, NodeKind, SymbolNode},
-};
+use crate::{ast_enum, ast_nodes};
 
-use super::expression::{Expression, Identifier};
+use super::{
+    expression::{Expression, Identifier},
+    node::{Node, NodeKind, SymbolNode},
+};
 
 ast_enum! {
     pub enum Statement {
