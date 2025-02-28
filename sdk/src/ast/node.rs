@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     expression::{Expression, Identifier},
-    literal::Nat,
+    literal::{Nat, Str},
 };
 #[derive(Clone, PartialEq, Eq, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct Location {
@@ -27,11 +27,12 @@ pub enum Type {
     Bool,
     String,
     Field,
-    Uint(u128, Option<u128>),
+    Uint(Rc<Nat>, Option<Rc<Nat>>),
     Vector(Rc<Nat>, Box<Type>),
-    Opaque(String),
-    Bytes(u128),
-    Custom(String, Option<Vec<Rc<Identifier>>>),
+    Opaque(Rc<Str>),
+    Bytes(Rc<Nat>),
+    Ref(Rc<Identifier>, Option<Vec<Rc<Identifier>>>),
+    Sum(Vec<Type>),
     #[default]
     Unknown,
 }

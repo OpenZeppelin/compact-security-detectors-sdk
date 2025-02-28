@@ -54,7 +54,14 @@ pub Literal : Literal = {
 Type: Type = {
     "Boolean" => Type::Bool,
     "Field" => Type::Field,
+    "Uint" "<" <s:Nat> ">" => Type::Uint(s, None),
+    "Uint" "<" <s:Nat> ".." <e:Nat> ">" => Type::Uint(s, Some(e)),
     "Vector" "<" <s:Nat> "," <t:Type> ">" => Type::Vector(s, Box::new(t)),
+    "Bytes" "<" <s:Nat> ">" => Type::Bytes(s),
+    "Opaque" "<" <s:Str> ">" => Type::Opaque(s),
+    "[" <i:Identifier> "]" => Type::Ref(i, None),
+    "[" <i:Identifier> <v:CBIndentifiersList> "]" => Type::Ref(i, Some(v)),
+    "[" <CommaTwo<Type>> "]" => Type::Sum(<>),
 }
 
 Nat : Rc<Nat> = {
@@ -194,6 +201,30 @@ Ledger: Rc<Ledger> = {
         location: Location::new(start, end),
         is_exported: false,
         is_sealed: false,
+        name: i.clone(),
+        ty: t
+    }),
+    <start: @L> "export" "ledger" <i:Identifier> ":" <t:Type> ";" <end: @R> => Rc::new(Ledger {
+        id: 0,
+        location: Location::new(start, end),
+        is_exported: true,
+        is_sealed: false,
+        name: i.clone(),
+        ty: t
+    }),
+    <start: @L> "sealed" "ledger" <i:Identifier> ":" <t:Type> ";" <end: @R> => Rc::new(Ledger {
+        id: 0,
+        location: Location::new(start, end),
+        is_exported: false,
+        is_sealed: true,
+        name: i.clone(),
+        ty: t
+    }),
+    <start: @L> "export" "sealed" "ledger" <i:Identifier> ":" <t:Type> ";" <end: @R> => Rc::new(Ledger {
+        id: 0,
+        location: Location::new(start, end),
+        is_exported: true,
+        is_sealed: true,
         name: i.clone(),
         ty: t
     }),

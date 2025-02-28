@@ -203,7 +203,25 @@ mod tests {
     }
 
     #[test]
+    fn test_type() {
+        assert!(compact::TermParser::new().parse("ledger test: Boolean;").is_ok());
+        assert!(compact::TermParser::new().parse("ledger test: Field;").is_ok());
+        assert!(compact::TermParser::new().parse("ledger test: Vector<1, Boolean>;").is_ok());
+        assert!(compact::TermParser::new().parse("ledger test: Uint<1234>;").is_ok());
+        assert!(compact::TermParser::new().parse("ledger test: Uint<1234..5678>;").is_ok());
+        assert!(compact::TermParser::new().parse("ledger test: Bytes<1234>;").is_ok());
+        assert!(compact::TermParser::new().parse("ledger test: Opaque<\"abc asd 234\">;").is_ok());
+        assert!(compact::TermParser::new().parse("ledger test: [ ref_type ];").is_ok());
+        assert!(compact::TermParser::new().parse("ledger test: [ ref_type { a, b, c, d } ];").is_ok());
+        assert!(compact::TermParser::new().parse("ledger test: [ Boolean, Field, Vector<1, Boolean>, Uint<1234> ];").is_ok());
+        assert!(compact::TermParser::new().parse("ledger test: [ [ref_type { a, b, c, d }], [ref_type { a, b, c, d }] ];").is_ok());
+    }
+
+    #[test]
     fn test_ledger() {
-        assert!(compact::TermParser::new().parse("ledger test : Boolean;").is_ok());
+        assert!(compact::TermParser::new().parse("ledger test : Boolean;").is_ok());        
+        assert!(compact::TermParser::new().parse("export ledger test : Boolean;").is_ok());        
+        assert!(compact::TermParser::new().parse("sealed ledger test : Boolean;").is_ok());        
+        assert!(compact::TermParser::new().parse("export sealed ledger test : Boolean;").is_ok());        
     }
 }
