@@ -709,9 +709,15 @@ mod test {
             }),
             ty: Type::Nat,
         };
-        let ctor = crate::ast::declaration::Ctor {
+        let ctor = crate::ast::declaration::Constructor {
             id: 50,
             location: default_location(),
+            arguments: vec![],
+            body: Rc::new(crate::ast::statement::Block {
+                id: 50,
+                location: default_location(),
+                statements: vec![],
+            }),
         };
         let contract = crate::ast::declaration::Contract {
             id: 51,

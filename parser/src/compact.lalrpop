@@ -3,8 +3,9 @@ use std::rc::Rc;
 use lalrpop_util::ParseError;
 use midnight_security_rules_sdk::ast::node::{ Type, Location };
 use midnight_security_rules_sdk::ast::literal::{ Literal, Nat, Bool, Version, Str };
-use midnight_security_rules_sdk::ast::directive::{ Directive, Pragma, PragmaOperator};
-use midnight_security_rules_sdk::ast::declaration::{ Declaration, Import, Export, Ledger };
+use midnight_security_rules_sdk::ast::directive::{ Directive, Pragma, PragmaOperator };
+use midnight_security_rules_sdk::ast::statement::{ Statement, Assign, AssignOperator, Block };
+use midnight_security_rules_sdk::ast::declaration::{ Argument, StructPatternItem, Declaration, Import, Export, Ledger, Pattern };
 use midnight_security_rules_sdk::ast::expression::{ Expression, Identifier, BinaryExpressionOperator };
 use midnight_security_rules_sdk::ast::program::CompactNode;
 
@@ -26,7 +27,7 @@ match {
 pub Term: CompactNode = {
     <d:Directive> => CompactNode::Directive(d),
     <d:Declaration> => CompactNode::Declaration(d),
-    <e:Expression> => CompactNode::Expression(e),
+    <s:Statement> => CompactNode::Statement(s)
 }
 
 pub Directive: Directive = {
@@ -37,6 +38,35 @@ pub Declaration: Declaration = {
     <i:Import> => Declaration::Import(i),
     <e:Export> => Declaration::Export(e),
     <l:Ledger> => Declaration::Ledger(l),
+}
+
+pub Statement: Statement = {
+    <start: @L> <e1:Expression> "=" <e2:Expression> ";" <end: @R> => Statement::Assign(Rc::new(Assign {
+        id: 0,
+        location: Location::new(start, end),
+        target: e1,
+        value: e2,
+        operator: AssignOperator::Simple
+    })),
+    <start: @L> <e1:Expression> "+=" <e2:Expression> ";" <end: @R> => Statement::Assign(Rc::new(Assign {
+        id: 0,
+        location: Location::new(start, end),
+        target: e1,
+        value: e2,
+        operator: AssignOperator::Add
+    })),
+    <start: @L> <e1:Expression> "-=" <e2:Expression> ";" <end: @R> => Statement::Assign(Rc::new(Assign {
+        id: 0,
+        location: Location::new(start, end),
+        target: e1,
+        value: e2,
+        operator: AssignOperator::Sub
+    })),
+    <start: @L> "{" <statements:Statement*> "}" <end: @R> => Statement::Block(Rc::new(Block {
+        id: 0,
+        location: Location::new(start, end),
+        statements
+    })),
 }
 
 pub Expression : Expression = {
@@ -228,6 +258,41 @@ Ledger: Rc<Ledger> = {
         name: i.clone(),
         ty: t
     }),
+}
+
+StructPatternItem : Rc<StructPatternItem> = {
+    <start: @L> <i:Identifier> <end: @R> => Rc::new(StructPatternItem {
+        id: 0,
+        location: Location::new(start, end),
+        name: i,
+        pattern: None
+    }),
+    <start: @L> <i:Identifier> <p:Pattern> <end: @R> => Rc::new(StructPatternItem {
+        id: 0,
+        location: Location::new(start, end),
+        name: i,
+        pattern: Some(p)
+    }),
+}
+
+Pattern: Rc<Pattern> = {
+    <start: @L> <i:Identifier> <end: @R> => Rc::new(Pattern::Identifier(i)),
+    "[" <start: @L> <p:Pattern> <end: @R> "]" => Rc::new(Pattern::Tuple(p)),
+    "{" <start: @L> <sp:StructPatternItem> <end: @R> "}" => Rc::new(Pattern::Struct(sp))
+}
+
+Argument : Rc<Argument> = {
+    <start: @L> <p:Pattern> <t:Type> <end: @R> => Rc::new(Argument {
+        id: 0,
+        location: Location::new(start, end),
+        pattern: p,
+        ty: t
+    })
+}
+
+Arguments: Vec<Rc<Argument>> = {
+    "(" ")" => Vec::new(),
+    "(" <CommaTwo<Argument>> ")" => <>
 }
 
 CommaTwo<T>: Vec<T> = {

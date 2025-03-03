@@ -12,16 +12,12 @@ lalrpop_mod_doc!(pub compact);
 #[cfg(test)]
 #[rustfmt::skip]
 mod tests {
-    use midnight_security_rules_sdk::ast::{expression::Expression, literal::Literal};
-
     use super::*;
 
     #[test]
     fn test_parse_nat() {
-        let l = compact::TermParser::new().parse("1").unwrap();
-        if let midnight_security_rules_sdk::ast::program::CompactNode::Expression(
-            Expression::Literal(Literal::Nat(n)),
-        ) = l
+        let l = compact::LiteralParser::new().parse("1").unwrap();
+        if let midnight_security_rules_sdk::ast::literal::Literal::Nat(n) = l
         {
             assert_eq!(n.value, 1);
             assert_eq!(n.location.start, 0);
@@ -30,10 +26,8 @@ mod tests {
             panic!("Wrong Nat `1` parsing");
         }
 
-        let l = compact::TermParser::new().parse("0").unwrap();
-        if let midnight_security_rules_sdk::ast::program::CompactNode::Expression(
-            Expression::Literal(Literal::Nat(n)),
-        ) = l
+        let l = compact::LiteralParser::new().parse("0").unwrap();
+        if let midnight_security_rules_sdk::ast::literal::Literal::Nat(n) = l
         {
             assert_eq!(n.value, 0);
             assert_eq!(n.location.start, 0);
@@ -42,10 +36,8 @@ mod tests {
             panic!("Wrong Nat `0` parsing");
         }
 
-        let l = compact::TermParser::new().parse("123").unwrap();
-        if let midnight_security_rules_sdk::ast::program::CompactNode::Expression(
-            Expression::Literal(Literal::Nat(n)),
-        ) = l
+        let l = compact::LiteralParser::new().parse("123").unwrap();
+        if let midnight_security_rules_sdk::ast::literal::Literal::Nat(n) = l
         {
             assert_eq!(n.value, 123);
             assert_eq!(n.location.start, 0);
@@ -54,10 +46,8 @@ mod tests {
             panic!("Wrong Nat `123` parsing");
         }
 
-        let l = compact::TermParser::new().parse("12345").unwrap();
-        if let midnight_security_rules_sdk::ast::program::CompactNode::Expression(
-            Expression::Literal(Literal::Nat(n)),
-        ) = l
+        let l = compact::LiteralParser::new().parse("12345").unwrap();
+        if let midnight_security_rules_sdk::ast::literal::Literal::Nat(n) = l
         {
             assert_eq!(n.value, 12345);
             assert_eq!(n.location.start, 0);
@@ -74,83 +64,102 @@ mod tests {
 
     #[test]
     fn test_parse_version() {
-        assert!(compact::TermParser::new().parse("1.2.3").is_ok());
-        assert!(compact::TermParser::new().parse("1.2").is_ok());
-        assert!(compact::TermParser::new().parse("1").is_ok());
-        assert!(compact::TermParser::new()
+        assert!(compact::LiteralParser::new().parse("1.2.3").is_ok());
+        assert!(compact::LiteralParser::new().parse("1.2").is_ok());
+        assert!(compact::LiteralParser::new().parse("1").is_ok());
+        assert!(compact::LiteralParser::new()
             .parse(
                 "
             1.2.3"
             )
             .is_ok());
 
-        assert!(compact::TermParser::new().parse("1.2.").is_err());
-        assert!(compact::TermParser::new().parse("1.").is_err());
-        assert!(compact::TermParser::new().parse("1.2.3.").is_err());
+        assert!(compact::LiteralParser::new().parse("1.2.").is_err());
+        assert!(compact::LiteralParser::new().parse("1.").is_err());
+        assert!(compact::LiteralParser::new().parse("1.2.3.").is_err());
     }
 
     #[test]
     fn test_parse_bool() {
-        assert!(compact::TermParser::new().parse("true").is_ok());
-        assert!(compact::TermParser::new().parse("false").is_ok());
-        assert!(compact::TermParser::new().parse("True").is_err());
-        assert!(compact::TermParser::new().parse("False").is_err());
+        assert!(compact::LiteralParser::new().parse("true").is_ok());
+        assert!(compact::LiteralParser::new().parse("false").is_ok());
+        assert!(compact::LiteralParser::new().parse("True").is_err());
+        assert!(compact::LiteralParser::new().parse("False").is_err());
     }
 
     #[test]
     fn test_parse_str() {
-        assert!(compact::TermParser::new().parse("\"\"").is_ok());
-        assert!(compact::TermParser::new().parse("\"hello\"").is_ok());
-        assert!(compact::TermParser::new().parse("\"hello world\"").is_ok());
-        assert!(compact::TermParser::new().parse("\"hello world!\"").is_ok());
-        assert!(compact::TermParser::new().parse("\"hello world!\"").is_ok());
-        assert!(compact::TermParser::new().parse("\"hello world!\"").is_ok());
-        assert!(compact::TermParser::new().parse("\"hello world!\"").is_ok());
-        assert!(compact::TermParser::new().parse("\"hello world!\"").is_ok());
-        assert!(compact::TermParser::new().parse("\"hello world!\"").is_ok());
-        assert!(compact::TermParser::new().parse("\"hello world!\"").is_ok());
-        assert!(compact::TermParser::new().parse("\"hello world!\"").is_ok());
-        assert!(compact::TermParser::new().parse("\"hello world!\"").is_ok());
-        assert!(compact::TermParser::new().parse("\"hello world!\"").is_ok());
+        assert!(compact::LiteralParser::new().parse("\"\"").is_ok());
+        assert!(compact::LiteralParser::new().parse("\"hello\"").is_ok());
+        assert!(compact::LiteralParser::new().parse("\"hello world\"").is_ok());
+        assert!(compact::LiteralParser::new().parse("\"hello world!\"").is_ok());
+        assert!(compact::LiteralParser::new().parse("\"hello world!\"").is_ok());
+        assert!(compact::LiteralParser::new().parse("\"hello world!\"").is_ok());
+        assert!(compact::LiteralParser::new().parse("\"hello world!\"").is_ok());
+        assert!(compact::LiteralParser::new().parse("\"hello world!\"").is_ok());
+        assert!(compact::LiteralParser::new().parse("\"hello world!\"").is_ok());
+        assert!(compact::LiteralParser::new().parse("\"hello world!\"").is_ok());
+        assert!(compact::LiteralParser::new().parse("\"hello world!\"").is_ok());
+        assert!(compact::LiteralParser::new().parse("\"hello world!\"").is_ok());
+        assert!(compact::LiteralParser::new().parse("\"hello world!\"").is_ok());
 
-        assert!(compact::TermParser::new().parse("\"hello world!").is_err());
-        assert!(compact::TermParser::new().parse("hello world!\"").is_err());
-        assert!(compact::TermParser::new().parse("hello world!").is_err());
+        assert!(compact::LiteralParser::new().parse("\"hello world!").is_err());
+        assert!(compact::LiteralParser::new().parse("hello world!\"").is_err());
+        assert!(compact::LiteralParser::new().parse("hello world!").is_err());
     }
 
     #[test]
     fn test_identifier() {
-        assert!(compact::TermParser::new().parse("a").is_ok());
-        assert!(compact::TermParser::new().parse("a1").is_ok());
-        assert!(compact::TermParser::new().parse("a_1").is_ok());
-        assert!(compact::TermParser::new().parse("a_1_").is_ok());
-        assert!(compact::TermParser::new().parse("a_1_2").is_ok());
-        assert!(compact::TermParser::new().parse("a_1_2_").is_ok());
-        assert!(compact::TermParser::new().parse("a_1_2_3").is_ok());
-        assert!(compact::TermParser::new().parse("a_1_2_3_").is_ok());
-        assert!(compact::TermParser::new().parse("a_1_2_3_4").is_ok());
-        assert!(compact::TermParser::new().parse("a_1_2_3_4_").is_ok());
-        assert!(compact::TermParser::new().parse("a_1_2_3_4_5").is_ok());
-        assert!(compact::TermParser::new().parse("a_1_2_3_4_5_").is_ok());
-        assert!(compact::TermParser::new().parse("a_1_2_3_4_5_6").is_ok());
-        assert!(compact::TermParser::new().parse("a_1_2_3_4_5_6_").is_ok());
-        assert!(compact::TermParser::new().parse("a_1_2_3_4_5_6_7").is_ok());
-        assert!(compact::TermParser::new().parse("a_1_2_3_4_5_6_7_").is_ok());
-        assert!(compact::TermParser::new()
+        assert!(compact::ExpressionParser::new().parse("a").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a1").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a_1").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a_1_").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a_1_2").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a_1_2_").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a_1_2_3").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a_1_2_3_").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a_1_2_3_4").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a_1_2_3_4_").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a_1_2_3_4_5").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a_1_2_3_4_5_").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a_1_2_3_4_5_6").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a_1_2_3_4_5_6_").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a_1_2_3_4_5_6_7").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a_1_2_3_4_5_6_7_").is_ok());
+        assert!(compact::ExpressionParser::new()
             .parse("a_1_2_3_4_5_6_7_8")
             .is_ok());
-        assert!(compact::TermParser::new()
+        assert!(compact::ExpressionParser::new()
             .parse("a_1_2_3_4_5_6_7_8_")
             .is_ok());
-        assert!(compact::TermParser::new()
+        assert!(compact::ExpressionParser::new()
             .parse("a_1_2_3_4_5_6_7_8_9")
             .is_ok());
-        assert!(compact::TermParser::new()
+        assert!(compact::ExpressionParser::new()
             .parse(
                 "
-            a_1_2_3_4_5_6_7_8_9"
+                a_1_2_3_4_5_6_7_8_9"
             )
             .is_ok());
+    }
+    
+    #[test]
+    fn assign_statement() {
+        assert!(compact::TermParser::new().parse("a = 1;").is_ok());
+        assert!(compact::TermParser::new().parse("a += 1;").is_ok());
+        assert!(compact::TermParser::new().parse("a += 1;").is_ok());
+        assert!(compact::TermParser::new().parse("a =- 1;").is_err());
+        assert!(compact::TermParser::new().parse("a =+ 1;").is_err());
+    }
+
+    #[test]
+    fn block_statement() {
+        assert!(compact::TermParser::new().parse("{}").is_ok());
+        assert!(compact::TermParser::new().parse("{ a = 1; }").is_ok());
+        assert!(compact::TermParser::new().parse("{ a = 1; b = 2; }").is_ok());
+        assert!(compact::TermParser::new().parse("{ a = 1; b = 2; c = 3; }").is_ok());
+        assert!(compact::TermParser::new().parse("{ a = 1; b = 2; c = 3; d = 4; }").is_ok());
+        assert!(compact::TermParser::new().parse("{ a = 1; b = 2; c = 3; d = 4; e = 5; }").is_ok());
     }
 
     #[test]
@@ -224,4 +233,5 @@ mod tests {
         assert!(compact::TermParser::new().parse("sealed ledger test : Boolean;").is_ok());        
         assert!(compact::TermParser::new().parse("export sealed ledger test : Boolean;").is_ok());        
     }
+
 }
