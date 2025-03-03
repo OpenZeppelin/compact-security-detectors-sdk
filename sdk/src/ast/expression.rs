@@ -15,7 +15,7 @@ ast_enum! {
         IndexAccess(Rc<IndexAccess>),
         MemberAccess(Rc<MemberAccess>),
         FunctionCall(Rc<FunctionCall>),
-        TypeExpressoin(Rc<Type>),
+        @skip_location TypeExpressoin(Rc<Type>),
         @raw Literal(Literal),
         @symbol Identifier(Rc<Identifier>),
     }

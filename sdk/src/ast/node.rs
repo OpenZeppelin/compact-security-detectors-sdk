@@ -123,6 +123,19 @@ macro_rules! ast_enum {
             )*
         }
 
+        impl $name {
+            #[must_use]
+            pub fn location(&self) -> $crate::ast::node::Location {
+                match self {
+                    $(
+                        $name::$arm(_a) => {
+                            ast_enum!(@location _a, $( $conv )?)
+                        }
+                    )*
+                }
+            }
+        }
+
         impl From<&$name> for $crate::ast::node::NodeKind {
             fn from(n: &$name) -> Self {
                 match n {
@@ -136,6 +149,30 @@ macro_rules! ast_enum {
         }
     };
 
+    (@location $inner:ident, raw) => {
+        $inner.location()
+    };
+
+    (@location $inner:ident, symbol) => {
+        $inner.location.clone()
+    };
+
+    (@location $inner:ident, scope) => {
+        $inner.location.clone()
+    };
+
+    (@location $inner:ident, block) => {
+        $inner.location()
+    };
+
+    (@location $inner:ident, skip_location) => {
+        $crate::ast::node::Location::default()
+    };
+
+    (@location $inner:ident, ) => {
+        $inner.location.clone()
+    };
+
     (@convert $inner:ident, raw) => {
         $inner.into()
     };
@@ -146,6 +183,10 @@ macro_rules! ast_enum {
 
     (@convert $inner:ident, scope) => {
         $crate::ast::node::NodeKind::NewScope($inner.clone())
+    };
+
+    (@convert $inner:ident, skip_location) => {
+        $crate::ast::node::NodeKind::SameScopeNode($crate::ast::node::SameScopeNode::Composite($inner.clone()))
     };
 
     (@convert $inner:ident, ) => {

@@ -163,6 +163,11 @@ mod tests {
     }
 
     #[test]
+    fn expression_sequence_statement() {
+        assert!(compact::TermParser::new().parse("a, b;").is_ok());
+    }
+
+    #[test]
     fn test_pragma() {
         assert!(compact::TermParser::new().parse("pragma language_version >= 1.2.3;").is_ok());
         assert!(compact::TermParser::new().parse("pragma language_version > 1.2.3;").is_ok());

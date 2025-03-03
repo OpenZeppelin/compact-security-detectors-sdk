@@ -4,7 +4,7 @@ use lalrpop_util::ParseError;
 use midnight_security_rules_sdk::ast::node::{ Type, Location };
 use midnight_security_rules_sdk::ast::literal::{ Literal, Nat, Bool, Version, Str };
 use midnight_security_rules_sdk::ast::directive::{ Directive, Pragma, PragmaOperator };
-use midnight_security_rules_sdk::ast::statement::{ Statement, Assign, AssignOperator, Block };
+use midnight_security_rules_sdk::ast::statement::{ Statement, Assign, AssignOperator, Block, ExpressionSequence, Return };
 use midnight_security_rules_sdk::ast::declaration::{ Argument, StructPatternItem, Declaration, Import, Export, Ledger, Pattern };
 use midnight_security_rules_sdk::ast::expression::{ Expression, Identifier, BinaryExpressionOperator };
 use midnight_security_rules_sdk::ast::program::CompactNode;
@@ -62,6 +62,22 @@ pub Statement: Statement = {
         value: e2,
         operator: AssignOperator::Sub
     })),
+    <start: @L> "return" ";" <end: @R> => Statement::Return(Rc::new(Return {
+        id: 0,
+        location: Location::new(start, end),
+        value: None
+    })),
+    <CommaTwo<Expression>> ";" => {
+        let expressions = <>;
+        Statement::ExpressionSequence(Rc::new(ExpressionSequence {
+            id: 0,
+            location: Location::new(
+                expressions.first().unwrap().location().start,
+                expressions.last().unwrap().location().end
+            ),
+            expressions
+        }))
+    },
     <start: @L> "{" <statements:Statement*> "}" <end: @R> => Statement::Block(Rc::new(Block {
         id: 0,
         location: Location::new(start, end),

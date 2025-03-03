@@ -28,7 +28,7 @@ ast_enum! {
 ast_enum! {
     pub enum Pattern {
         Identifier(Rc<Identifier>),
-        Tuple(Rc<Pattern>),
+        @skip_location Tuple(Rc<Pattern>),
         Struct(Rc<StructPatternItem>),
     }
 }

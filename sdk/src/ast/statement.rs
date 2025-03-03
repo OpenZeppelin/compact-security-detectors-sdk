@@ -12,6 +12,7 @@ ast_enum! {
         Assign(Rc<Assign>),
         Assert(Rc<Assert>),
         Return(Rc<Return>),
+        ExpressionSequence(Rc<ExpressionSequence>),
         @scope Block(Rc<Block>),
         If(Rc<If>),
         @symbol Var(Rc<Var>),
@@ -26,7 +27,11 @@ ast_nodes! {
     }
 
     pub struct Return {
-        pub value: Option<Expression>,
+        pub value: Option<Rc<ExpressionSequence>>,
+    }
+
+    pub struct ExpressionSequence {
+        pub expressions: Vec<Expression>,
     }
 
     pub struct If {
@@ -75,7 +80,17 @@ impl Node for Assign {
 
 impl Node for Return {
     fn children(&self) -> Vec<Rc<NodeKind>> {
-        self.value
+        if let Some(value) = &self.value {
+            vec![Rc::new(NodeKind::from(value.as_ref()))]
+        } else {
+            vec![]
+        }
+    }
+}
+
+impl Node for ExpressionSequence {
+    fn children(&self) -> Vec<Rc<NodeKind>> {
+        self.expressions
             .iter()
             .map(|expr| Rc::new(NodeKind::from(expr)))
             .collect()
