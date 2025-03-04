@@ -1,6 +1,5 @@
 use std::str::FromStr;
 use std::rc::Rc;
-use lalrpop_util::ParseError;
 use midnight_security_rules_sdk::ast::node::{ Type, Location };
 use midnight_security_rules_sdk::ast::literal::{ Literal, Nat, Bool, Version, Str };
 use midnight_security_rules_sdk::ast::directive::{ Directive, Pragma, PragmaOperator };
@@ -62,21 +61,13 @@ pub Statement: Statement = {
         value: e2,
         operator: AssignOperator::Sub
     })),
-    <start: @L> "return" ";" <end: @R> => Statement::Return(Rc::new(Return {
+    <start: @L> "return" <s:Sequence?> ";" <end: @R> => Statement::Return(Rc::new(Return {
         id: 0,
         location: Location::new(start, end),
-        value: None
+        value: s
     })),
-    <CommaTwo<Expression>> ";" => {
-        let expressions = <>;
-        Statement::ExpressionSequence(Rc::new(Sequence {
-            id: 0,
-            location: Location::new(
-                expressions.first().unwrap().location().start,
-                expressions.last().unwrap().location().end
-            ),
-            expressions
-        }))
+    <start: @L> <s:Sequence> ";"  <end: @R> => {
+        Statement::ExpressionSequence(s)
     },
     <start: @L> "{" <statements:Statement*> "}" <end: @R> => Statement::Block(Rc::new(Block {
         id: 0,
@@ -158,16 +149,26 @@ Str : Rc<Str> = {
 }
 
 Identifier: Rc<Identifier> = {
-    <start: @L> <i: ID> <end: @R> =>? {
-         if i.to_lowercase() == "true" || i.to_lowercase() == "false" {
-             Err(ParseError::User { error: "Invalid identifier" })
-         } else {
-             Ok(Rc::new(Identifier {
-                 id: 0,
-                 location: Location::new(start, end),
-                 name: i.to_owned(),
-             }))
-         }
+    <start: @L> <i: ID> <end: @R> => {
+        Rc::new(Identifier {
+            id: 0,
+            location: Location::new(start, end),
+            name: i.to_owned(),
+        })
+    }
+}
+
+Sequence: Rc<Sequence> = {
+    <CommaTwo<Expression>> => {
+        let expressions = <>;
+        Rc::new(Sequence {
+            id: 0,
+            location: Location::new(
+                expressions.first().unwrap().location().start,
+                expressions.last().unwrap().location().end
+            ),
+            expressions
+        })
     }
 }
 

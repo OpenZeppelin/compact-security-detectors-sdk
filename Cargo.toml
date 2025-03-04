@@ -17,4 +17,4 @@ repository = "https://github.com/OpenZeppelin/midnight-security-rules-sdk"
 [workspace.dependencies]
 midnight-security-rules-sdk = { path = "./sdk", version = "0.0.1" }
 midnight-compact-parser = { path = "./parser", version = "0.0.1" }
-anyhow = "1.0.96"
+anyhow = "1.0.97"

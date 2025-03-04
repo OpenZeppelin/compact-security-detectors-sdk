@@ -168,6 +168,12 @@ mod tests {
     }
 
     #[test]
+    fn test_return_statement() {
+        assert!(compact::TermParser::new().parse("return;").is_ok());
+        assert!(compact::TermParser::new().parse("return a, b, c;").is_ok());
+    }
+
+    #[test]
     fn test_pragma() {
         assert!(compact::TermParser::new().parse("pragma language_version >= 1.2.3;").is_ok());
         assert!(compact::TermParser::new().parse("pragma language_version > 1.2.3;").is_ok());
