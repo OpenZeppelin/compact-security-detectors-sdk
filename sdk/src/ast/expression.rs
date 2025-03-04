@@ -13,6 +13,7 @@ ast_enum! {
         Binary(Rc<Binary>),
         Cast(Rc<Cast>),
         IndexAccess(Rc<IndexAccess>),
+        Sequence(Rc<Sequence>),
         MemberAccess(Rc<MemberAccess>),
         FunctionCall(Rc<FunctionCall>),
         @skip_location TypeExpressoin(Rc<Type>),
@@ -91,6 +92,10 @@ ast_nodes! {
         pub arguments: Vec<Rc<Expression>>,
     }
 
+    pub struct Sequence {
+        pub expressions: Vec<Expression>,
+    }
+
     pub struct Identifier {
         pub name: String,
     }
@@ -154,6 +159,15 @@ impl Node for IndexAccess {
             Rc::new(NodeKind::from(&*self.array)),
             Rc::new(NodeKind::from(&*self.index)),
         ]
+    }
+}
+
+impl Node for Sequence {
+    fn children(&self) -> Vec<Rc<NodeKind>> {
+        self.expressions
+            .iter()
+            .map(|expr| Rc::new(NodeKind::from(expr)))
+            .collect()
     }
 }
 

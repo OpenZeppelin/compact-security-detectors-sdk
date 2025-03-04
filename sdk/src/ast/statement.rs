@@ -3,7 +3,7 @@ use std::rc::Rc;
 use crate::{ast_enum, ast_nodes};
 
 use super::{
-    expression::{Expression, Identifier},
+    expression::{Expression, Identifier, Sequence},
     node::{Node, NodeKind, SymbolNode},
 };
 
@@ -12,7 +12,7 @@ ast_enum! {
         Assign(Rc<Assign>),
         Assert(Rc<Assert>),
         Return(Rc<Return>),
-        ExpressionSequence(Rc<ExpressionSequence>),
+        ExpressionSequence(Rc<Sequence>),
         @scope Block(Rc<Block>),
         If(Rc<If>),
         @symbol Var(Rc<Var>),
@@ -27,11 +27,7 @@ ast_nodes! {
     }
 
     pub struct Return {
-        pub value: Option<Rc<ExpressionSequence>>,
-    }
-
-    pub struct ExpressionSequence {
-        pub expressions: Vec<Expression>,
+        pub value: Option<Rc<Sequence>>,
     }
 
     pub struct If {
@@ -81,19 +77,12 @@ impl Node for Assign {
 impl Node for Return {
     fn children(&self) -> Vec<Rc<NodeKind>> {
         if let Some(value) = &self.value {
-            vec![Rc::new(NodeKind::from(value.as_ref()))]
+            vec![Rc::new(NodeKind::from(&Statement::ExpressionSequence(
+                value.clone(),
+            )))]
         } else {
             vec![]
         }
-    }
-}
-
-impl Node for ExpressionSequence {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        self.expressions
-            .iter()
-            .map(|expr| Rc::new(NodeKind::from(expr)))
-            .collect()
     }
 }
 

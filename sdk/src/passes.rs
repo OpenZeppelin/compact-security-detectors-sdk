@@ -193,6 +193,13 @@ fn infer_expr(expr: &Expression, env: &Rc<SymbolTable>) -> Result<Type> {
             Ok(symbol_type)
         }
         Expression::TypeExpressoin(te) => Ok(te.as_ref().clone()),
+        Expression::Sequence(expression_sequence) => {
+            let mut tv = Vec::new();
+            for expr in &expression_sequence.expressions {
+                tv.push(infer_expr(expr, env)?);
+            }
+            Ok(Type::Sum(tv))
+        }
     }
 }
 
@@ -203,7 +210,7 @@ mod test {
         declaration::Declaration,
         definition::Definition,
         directive::PragmaOperator,
-        expression::{Binary, Conditional, Identifier},
+        expression::{Binary, Conditional, Identifier, Sequence},
         literal::{Bool, Nat, Str, Version},
         node::Location,
         statement::{Block, If, Return, Statement, Var},
@@ -254,13 +261,17 @@ mod test {
                 Statement::Return(Rc::new(Return {
                     id: 4,
                     location: default_location(),
-                    value: Some(Expression::Binary(Rc::new(Binary {
+                    value: Some(Rc::new(Sequence {
                         id: 5,
                         location: default_location(),
-                        left_operand: Expression::Identifier(mock_identifier(1, "a")),
-                        right_operand: Expression::Identifier(mock_identifier(2, "b")),
-                        operator: BinaryExpressionOperator::Add,
-                    }))),
+                        expressions: vec![Expression::Binary(Rc::new(Binary {
+                            id: 6,
+                            location: default_location(),
+                            left_operand: Expression::Identifier(mock_identifier(1, "a")),
+                            right_operand: Expression::Identifier(mock_identifier(2, "b")),
+                            operator: BinaryExpressionOperator::Add,
+                        }))],
+                    })),
                 })),
             ],
             id: 8,
@@ -307,13 +318,17 @@ mod test {
                 Statement::Return(Rc::new(Return {
                     id: 4,
                     location: default_location(),
-                    value: Some(Expression::Binary(Rc::new(Binary {
+                    value: Some(Rc::new(Sequence {
                         id: 5,
                         location: default_location(),
-                        left_operand: Expression::Identifier(mock_identifier(6, "a")),
-                        right_operand: Expression::Identifier(mock_identifier(7, "b")),
-                        operator: BinaryExpressionOperator::Add,
-                    }))),
+                        expressions: vec![Expression::Binary(Rc::new(Binary {
+                            id: 5,
+                            location: default_location(),
+                            left_operand: Expression::Identifier(mock_identifier(6, "a")),
+                            right_operand: Expression::Identifier(mock_identifier(7, "b")),
+                            operator: BinaryExpressionOperator::Add,
+                        }))],
+                    })),
                 })),
             ],
             id: 8,
@@ -643,15 +658,17 @@ mod test {
         let ret_stmt = Statement::Return(Rc::new(Return {
             id: 42,
             location: default_location(),
-            value: Some(Expression::Binary(Rc::new(
-                crate::ast::expression::Binary {
-                    id: 43,
+            value: Some(Rc::new(Sequence {
+                id: 5,
+                location: default_location(),
+                expressions: vec![Expression::Binary(Rc::new(Binary {
+                    id: 5,
                     location: default_location(),
-                    left_operand: Expression::Identifier(mock_identifier(37, "a")),
-                    right_operand: Expression::Identifier(mock_identifier(40, "b")),
+                    left_operand: Expression::Identifier(mock_identifier(6, "a")),
+                    right_operand: Expression::Identifier(mock_identifier(7, "b")),
                     operator: BinaryExpressionOperator::Add,
-                },
-            ))),
+                }))],
+            })),
         }));
         let block = Statement::Block(Rc::new(Block {
             id: 44,
@@ -666,7 +683,7 @@ mod test {
         // And infer_expr on the return expression yields Type::Int.
         if let Statement::Return(ret) = &block {
             if let Some(expr) = &ret.value {
-                let ty = infer_expr(expr, &symbol_table)?;
+                let ty = infer_expr(&Expression::Sequence(expr.clone()), &symbol_table)?;
                 assert_eq!(ty, Type::Nat);
             }
         }
