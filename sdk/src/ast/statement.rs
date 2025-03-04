@@ -27,13 +27,13 @@ ast_nodes! {
     }
 
     pub struct Return {
-        pub value: Option<Rc<Sequence>>,
+        pub value: Option<Expression>,
     }
 
     pub struct If {
         pub condition: Expression,
-        pub then_branch: Statement,
-        pub else_branch: Option<Statement>,
+        pub then_branch: Rc<Block>,
+        pub else_branch: Option<Rc<Block>>,
     }
 
     pub struct For {
@@ -77,9 +77,7 @@ impl Node for Assign {
 impl Node for Return {
     fn children(&self) -> Vec<Rc<NodeKind>> {
         if let Some(value) = &self.value {
-            vec![Rc::new(NodeKind::from(&Statement::ExpressionSequence(
-                value.clone(),
-            )))]
+            vec![Rc::new(NodeKind::from(&value.clone()))]
         } else {
             vec![]
         }
@@ -90,10 +88,12 @@ impl Node for If {
     fn children(&self) -> Vec<Rc<NodeKind>> {
         let mut children = vec![
             Rc::new(NodeKind::from(&self.condition)),
-            Rc::new(NodeKind::from(&self.then_branch)),
+            Rc::new(NodeKind::from(&Statement::Block(self.then_branch.clone()))),
         ];
         if let Some(else_branch) = &self.else_branch {
-            children.push(Rc::new(NodeKind::from(else_branch)));
+            children.push(Rc::new(NodeKind::from(&Statement::Block(
+                else_branch.clone(),
+            ))));
         }
         children
     }

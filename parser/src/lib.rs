@@ -170,7 +170,18 @@ mod tests {
     #[test]
     fn test_return_statement() {
         assert!(compact::TermParser::new().parse("return;").is_ok());
+        assert!(compact::TermParser::new().parse("return false;").is_ok());
         assert!(compact::TermParser::new().parse("return a, b, c;").is_ok());
+    }
+
+    #[test]
+    fn test_if_statement() {
+        assert!(compact::TermParser::new().parse("if (a) { a = b; }").is_ok());
+        // assert!(compact::TermParser::new().parse("if (a) { b; } else { c; }").is_ok());
+        // assert!(compact::TermParser::new().parse("if (a) { b; } else { c; } else { d }").is_err());
+        // assert!(compact::TermParser::new().parse("if (a) { b; } else { c; } else d").is_err());
+        // assert!(compact::TermParser::new().parse("if (a) { b; } else c;").is_err());
+        // assert!(compact::TermParser::new().parse("if (a) { b; } else { c; } else { d } else { e }").is_err());
     }
 
     #[test]

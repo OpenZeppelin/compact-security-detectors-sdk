@@ -45,6 +45,20 @@ impl SymbolTable {
             None
         }
     }
+
+    pub fn lookdown(&self, name: &str) -> Option<Type> {
+        let syms = self.symbols.borrow();
+        if let Some(sym) = syms.get(name) {
+            Some(sym.clone())
+        } else {
+            for child in self.children.borrow().iter() {
+                if let Some(sym) = child.lookdown(name) {
+                    return Some(sym);
+                }
+            }
+            None
+        }
+    }
 }
 
 pub fn build_symbol_table(
@@ -87,7 +101,7 @@ pub fn build_symbol_table(
                                     .symbols
                                     .borrow_mut()
                                     .insert(symbol_name.clone(), symbol_type);
-                                // println!("Symbol table: {symbol_table:?}\n");
+                                println!("Symbol table: {symbol_table:?}\n");
                                 //why didn't we see the type of the symbol before? bug?
                                 // return Err(anyhow!(
                                 //     "Symbol {symbol_name} without a type in a symbol table"
@@ -237,11 +251,11 @@ mod test {
         let block_stmt = Block {
             statements: vec![
                 Statement::Var(Rc::new(Var {
-                    id: 0,
+                    id: 2,
                     location: default_location(),
                     ident: mock_identifier(1, "a"),
                     value: Expression::Literal(Literal::Nat(Rc::new(Nat {
-                        id: 1,
+                        id: 3,
                         location: default_location(),
                         value: 0,
                     }))),
@@ -261,7 +275,7 @@ mod test {
                 Statement::Return(Rc::new(Return {
                     id: 4,
                     location: default_location(),
-                    value: Some(Rc::new(Sequence {
+                    value: Some(Expression::Sequence(Rc::new(Sequence {
                         id: 5,
                         location: default_location(),
                         expressions: vec![Expression::Binary(Rc::new(Binary {
@@ -271,7 +285,7 @@ mod test {
                             right_operand: Expression::Identifier(mock_identifier(2, "b")),
                             operator: BinaryExpressionOperator::Add,
                         }))],
-                    })),
+                    }))),
                 })),
             ],
             id: 8,
@@ -318,7 +332,7 @@ mod test {
                 Statement::Return(Rc::new(Return {
                     id: 4,
                     location: default_location(),
-                    value: Some(Rc::new(Sequence {
+                    value: Some(Expression::Sequence(Rc::new(Sequence {
                         id: 5,
                         location: default_location(),
                         expressions: vec![Expression::Binary(Rc::new(Binary {
@@ -328,7 +342,7 @@ mod test {
                             right_operand: Expression::Identifier(mock_identifier(7, "b")),
                             operator: BinaryExpressionOperator::Add,
                         }))],
-                    })),
+                    }))),
                 })),
             ],
             id: 8,
@@ -595,28 +609,36 @@ mod test {
                 location: default_location(),
                 value: false,
             }))),
-            then_branch: Statement::Var(Rc::new(Var {
+            then_branch: Rc::new(Block {
                 id: 27,
                 location: default_location(),
-                ident: mock_identifier(28, "a"),
-                value: Expression::Literal(Literal::Nat(Rc::new(Nat {
-                    id: 29,
+                statements: vec![Statement::Var(Rc::new(Var {
+                    id: 28,
                     location: default_location(),
-                    value: 0,
-                }))),
-                ty_: None,
-            })),
-            else_branch: Some(Statement::Var(Rc::new(Var {
+                    ident: mock_identifier(28, "a"),
+                    value: Expression::Literal(Literal::Nat(Rc::new(Nat {
+                        id: 29,
+                        location: default_location(),
+                        value: 0,
+                    }))),
+                    ty_: None,
+                }))],
+            }),
+            else_branch: Some(Rc::new(Block {
                 id: 30,
                 location: default_location(),
-                ident: mock_identifier(31, "b"),
-                value: Expression::Literal(Literal::Nat(Rc::new(Nat {
-                    id: 32,
+                statements: vec![Statement::Var(Rc::new(Var {
+                    id: 31,
                     location: default_location(),
-                    value: 0,
-                }))),
-                ty_: None,
-            }))),
+                    ident: mock_identifier(31, "b"),
+                    value: Expression::Literal(Literal::Nat(Rc::new(Nat {
+                        id: 32,
+                        location: default_location(),
+                        value: 0,
+                    }))),
+                    ty_: None,
+                }))],
+            })),
         }));
         let block = Statement::Block(Rc::new(Block {
             id: 35,
@@ -625,8 +647,9 @@ mod test {
         }));
         let symbol_table =
             build_symbol_table(Rc::new(crate::passes::NodeKind::from(&block)), None)?;
-        assert!(symbol_table.lookup("a").is_some());
-        assert!(symbol_table.lookup("b").is_some());
+        // println!("Symbol table: {symbol_table:?}\n");
+        assert!(symbol_table.lookdown("a").is_some());
+        assert!(symbol_table.lookdown("b").is_some());
         Ok(())
     }
 
@@ -658,7 +681,7 @@ mod test {
         let ret_stmt = Statement::Return(Rc::new(Return {
             id: 42,
             location: default_location(),
-            value: Some(Rc::new(Sequence {
+            value: Some(Expression::Sequence(Rc::new(Sequence {
                 id: 5,
                 location: default_location(),
                 expressions: vec![Expression::Binary(Rc::new(Binary {
@@ -668,7 +691,7 @@ mod test {
                     right_operand: Expression::Identifier(mock_identifier(7, "b")),
                     operator: BinaryExpressionOperator::Add,
                 }))],
-            })),
+            }))),
         }));
         let block = Statement::Block(Rc::new(Block {
             id: 44,
@@ -683,7 +706,7 @@ mod test {
         // And infer_expr on the return expression yields Type::Int.
         if let Statement::Return(ret) = &block {
             if let Some(expr) = &ret.value {
-                let ty = infer_expr(&Expression::Sequence(expr.clone()), &symbol_table)?;
+                let ty = infer_expr(&expr.clone(), &symbol_table)?;
                 assert_eq!(ty, Type::Nat);
             }
         }
