@@ -17,7 +17,7 @@ ast_enum! {
         External(Rc<External>),
         Witness(Rc<Witness>),
         Ledger(Rc<Ledger>),
-        @scope Ctor(Rc<Constructor>),
+        @scope Constructor(Rc<Constructor>),
         @scope Contract(Rc<Contract>),
         @scope Struct(Rc<Struct>),
         @scope Enum(Rc<Enum>),

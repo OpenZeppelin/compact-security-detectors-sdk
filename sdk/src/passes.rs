@@ -143,8 +143,8 @@ fn infer_expr(expr: &Expression, env: &Rc<SymbolTable>) -> Result<Type> {
             Literal::Version(_) => Ok(Type::Unknown),
         },
         Expression::Binary(bin_expr) => {
-            let left = infer_expr(&bin_expr.left_operand, env)?;
-            let right = infer_expr(&bin_expr.right_operand, env)?;
+            let left = infer_expr(&bin_expr.left, env)?;
+            let right = infer_expr(&bin_expr.right, env)?;
             match bin_expr.operator {
                 BinaryExpressionOperator::Add
                 | BinaryExpressionOperator::Sub
@@ -281,8 +281,8 @@ mod test {
                         expressions: vec![Expression::Binary(Rc::new(Binary {
                             id: 6,
                             location: default_location(),
-                            left_operand: Expression::Identifier(mock_identifier(1, "a")),
-                            right_operand: Expression::Identifier(mock_identifier(2, "b")),
+                            left: Expression::Identifier(mock_identifier(1, "a")),
+                            right: Expression::Identifier(mock_identifier(2, "b")),
                             operator: BinaryExpressionOperator::Add,
                         }))],
                     }))),
@@ -338,8 +338,8 @@ mod test {
                         expressions: vec![Expression::Binary(Rc::new(Binary {
                             id: 5,
                             location: default_location(),
-                            left_operand: Expression::Identifier(mock_identifier(6, "a")),
-                            right_operand: Expression::Identifier(mock_identifier(7, "b")),
+                            left: Expression::Identifier(mock_identifier(6, "a")),
+                            right: Expression::Identifier(mock_identifier(7, "b")),
                             operator: BinaryExpressionOperator::Add,
                         }))],
                     }))),
@@ -357,8 +357,8 @@ mod test {
         let expr = Expression::Binary(Rc::new(Binary {
             id: 5,
             location: Location::default(),
-            left_operand: Expression::Identifier(mock_identifier(6, "a")),
-            right_operand: Expression::Identifier(mock_identifier(7, "b")),
+            left: Expression::Identifier(mock_identifier(6, "a")),
+            right: Expression::Identifier(mock_identifier(7, "b")),
             operator: BinaryExpressionOperator::Add,
         }));
         let ty = infer_expr(&expr, &symbol_table)?;
@@ -476,8 +476,8 @@ mod test {
         let binary = crate::ast::expression::Binary {
             id: 11,
             location: default_location(),
-            left_operand: left,
-            right_operand: right,
+            left,
+            right,
             operator: BinaryExpressionOperator::Add,
         };
         let expr = Expression::Binary(Rc::new(binary));
@@ -687,8 +687,8 @@ mod test {
                 expressions: vec![Expression::Binary(Rc::new(Binary {
                     id: 5,
                     location: default_location(),
-                    left_operand: Expression::Identifier(mock_identifier(6, "a")),
-                    right_operand: Expression::Identifier(mock_identifier(7, "b")),
+                    left: Expression::Identifier(mock_identifier(6, "a")),
+                    right: Expression::Identifier(mock_identifier(7, "b")),
                     operator: BinaryExpressionOperator::Add,
                 }))],
             }))),
@@ -778,7 +778,7 @@ mod test {
             Declaration::External(Rc::new(external)),
             Declaration::Witness(Rc::new(witness)),
             Declaration::Ledger(Rc::new(ledger)),
-            Declaration::Ctor(Rc::new(ctor)),
+            Declaration::Constructor(Rc::new(ctor)),
             Declaration::Contract(Rc::new(contract)),
             Declaration::Struct(Rc::new(struc)),
             Declaration::Enum(Rc::new(enm)),
@@ -803,6 +803,16 @@ mod test {
         let circuit = crate::ast::definition::Circuit {
             id: 56,
             location: default_location(),
+            is_exported: false,
+            is_pure: false,
+            name: mock_identifier(57, "circuit"),
+            arguments: vec![],
+            ty: Type::Nat,
+            body: Some(Rc::new(crate::ast::statement::Block {
+                id: 58,
+                location: default_location(),
+                statements: vec![],
+            })),
         };
         let defs = vec![
             Definition::Module(Rc::new(module)),

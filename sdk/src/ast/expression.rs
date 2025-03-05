@@ -67,8 +67,8 @@ ast_nodes! {
     }
 
     pub struct Binary {
-        pub left_operand: Expression,
-        pub right_operand: Expression,
+        pub left: Expression,
+        pub right: Expression,
         pub operator: BinaryExpressionOperator,
     }
 
@@ -138,8 +138,8 @@ impl Node for Conditional {
 impl Node for Binary {
     fn children(&self) -> Vec<Rc<NodeKind>> {
         vec![
-            Rc::new(NodeKind::from(&self.left_operand)),
-            Rc::new(NodeKind::from(&self.right_operand)),
+            Rc::new(NodeKind::from(&self.left)),
+            Rc::new(NodeKind::from(&self.right)),
         ]
     }
 }

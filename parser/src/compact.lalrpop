@@ -3,9 +3,10 @@ use std::rc::Rc;
 use midnight_security_rules_sdk::ast::node::{ Type, Location };
 use midnight_security_rules_sdk::ast::literal::{ Literal, Nat, Bool, Version, Str };
 use midnight_security_rules_sdk::ast::directive::{ Directive, Pragma, PragmaOperator };
+use midnight_security_rules_sdk::ast::definition::{ Definition, Circuit };
 use midnight_security_rules_sdk::ast::statement::{ Statement, Assign, Assert, AssignOperator, Const, Block, If, For, Return };
-use midnight_security_rules_sdk::ast::declaration::{ Argument, StructPatternItem, Declaration, Import, Export, Ledger, Pattern };
-use midnight_security_rules_sdk::ast::expression::{ Expression, Sequence, Identifier, BinaryExpressionOperator };
+use midnight_security_rules_sdk::ast::declaration::{ Argument, Constructor, StructPatternItem, Declaration, Import, Export, Ledger, Pattern };
+use midnight_security_rules_sdk::ast::expression::{ Binary, Expression, Sequence, Identifier, BinaryExpressionOperator };
 use midnight_security_rules_sdk::ast::program::CompactNode;
 
 grammar;
@@ -19,6 +20,7 @@ match {
 } else {
     "true" => TRUE,
     "false" => FALSE,
+    "circuit" => CIRCUIT,
     r#""[^\\"\n\r]*(\\[tnfbrx'"\\0-9][^\\"\n\r]*)*""# => STR,
     r"[a-zA-Z_][a-zA-Z0-9_]*" => ID,
 }
@@ -26,6 +28,7 @@ match {
 pub Term: CompactNode = {
     <d:Directive> => CompactNode::Directive(d),
     <d:Declaration> => CompactNode::Declaration(d),
+    <d:Definition> => CompactNode::Definition(d),
     <s:Statement> => CompactNode::Statement(s)
 }
 
@@ -34,9 +37,14 @@ pub Directive: Directive = {
 }
 
 pub Declaration: Declaration = {
+    <c:Constructor> => Declaration::Constructor(c),
     <i:Import> => Declaration::Import(i),
     <e:Export> => Declaration::Export(e),
     <l:Ledger> => Declaration::Ledger(l),
+}
+
+pub Definition: Definition = {
+    <c:Circuit> => Definition::Circuit(c),
 }
 
 pub Statement: Statement = {
@@ -150,9 +158,40 @@ Block: Rc<Block> = {
 }
 
 pub Expression : Expression = {
+    #[precedence(level="1")]
+    <e: ParathesizedExpression> => e,
     <i:Identifier> => Expression::Identifier(i),
     <l:Literal> => Expression::Literal(l),
-}
+    #[precedence(level="2")]#[assoc(side="left")]
+    <start: @L> <e1:Expression> "**" <e2:Expression> <end: @R> => Expression::Binary(Rc::new(Binary { id: 0, location: Location::new(start, end), left: e1, right: e2, operator: BinaryExpressionOperator::Pow })),
+    <start: @L> <e1:Expression> "*" <e2:Expression> <end: @R> => Expression::Binary(Rc::new(Binary { id: 0, location: Location::new(start, end), left: e1, right: e2, operator: BinaryExpressionOperator::Mul })),
+    <start: @L> <e1:Expression> "/" <e2:Expression> <end: @R> => Expression::Binary(Rc::new(Binary { id: 0, location: Location::new(start, end), left: e1, right: e2, operator: BinaryExpressionOperator::Div })),
+    <start: @L> <e1:Expression> "%" <e2:Expression> <end: @R> => Expression::Binary(Rc::new(Binary { id: 0, location: Location::new(start, end), left: e1, right: e2, operator: BinaryExpressionOperator::Mod })),
+    #[precedence(level="3")]#[assoc(side="left")]
+    <start: @L> <e1:Expression> "+" <e2:Expression> <end: @R> => Expression::Binary(Rc::new(Binary { id: 0, location: Location::new(start, end), left: e1, right: e2, operator: BinaryExpressionOperator::Add })),
+    <start: @L> <e1:Expression> "-" <e2:Expression> <end: @R> => Expression::Binary(Rc::new(Binary { id: 0, location: Location::new(start, end), left: e1, right: e2, operator: BinaryExpressionOperator::Sub })),
+    #[precedence(level="4")]#[assoc(side="left")]
+    <start: @L> <e1:Expression> "==" <e2:Expression> <end: @R> => Expression::Binary(Rc::new(Binary { id: 0, location: Location::new(start, end), left: e1, right: e2, operator: BinaryExpressionOperator::Eq })),
+    <start: @L> <e1:Expression> "!=" <e2:Expression> <end: @R> => Expression::Binary(Rc::new(Binary { id: 0, location: Location::new(start, end), left: e1, right: e2, operator: BinaryExpressionOperator::Ne })),
+    <start: @L> <e1:Expression> "<" <e2:Expression> <end: @R> => Expression::Binary(Rc::new(Binary { id: 0, location: Location::new(start, end), left: e1, right: e2, operator: BinaryExpressionOperator::Lt })),
+    <start: @L> <e1:Expression> "=<" <e2:Expression> <end: @R> => Expression::Binary(Rc::new(Binary { id: 0, location: Location::new(start, end), left: e1, right: e2, operator: BinaryExpressionOperator::Le })),
+    <start: @L> <e1:Expression> ">" <e2:Expression> <end: @R> => Expression::Binary(Rc::new(Binary { id: 0, location: Location::new(start, end), left: e1, right: e2, operator: BinaryExpressionOperator::Gt })),
+    <start: @L> <e1:Expression> ">=" <e2:Expression> <end: @R> => Expression::Binary(Rc::new(Binary { id: 0, location: Location::new(start, end), left: e1, right: e2, operator: BinaryExpressionOperator::Ge })),
+    #[precedence(level="5")]#[assoc(side="left")]
+    <start: @L> <e1:Expression> "&&" <e2:Expression> <end: @R> => Expression::Binary(Rc::new(Binary { id: 0, location: Location::new(start, end), left: e1, right: e2, operator: BinaryExpressionOperator::And })),
+    <start: @L> <e1:Expression> "||" <e2:Expression> <end: @R> => Expression::Binary(Rc::new(Binary { id: 0, location: Location::new(start, end), left: e1, right: e2, operator: BinaryExpressionOperator::Or })),
+    #[precedence(level="6")]#[assoc(side="left")]
+    <start: @L> <e1:Expression> "&" <e2:Expression> <end: @R> => Expression::Binary(Rc::new(Binary { id: 0, location: Location::new(start, end), left: e1, right: e2, operator: BinaryExpressionOperator::BitAnd })),
+    <start: @L> <e1:Expression> "|" <e2:Expression> <end: @R> => Expression::Binary(Rc::new(Binary { id: 0, location: Location::new(start, end), left: e1, right: e2, operator: BinaryExpressionOperator::BitOr })),
+    <start: @L> <e1:Expression> "^" <e2:Expression> <end: @R> => Expression::Binary(Rc::new(Binary { id: 0, location: Location::new(start, end), left: e1, right: e2, operator: BinaryExpressionOperator::BitXor })),
+    #[precedence(level="8")]#[assoc(side="left")]
+    <start: @L> <e1:Expression> "<<" <e2:Expression> <end: @R> => Expression::Binary(Rc::new(Binary { id: 0, location: Location::new(start, end), left: e1, right: e2, operator: BinaryExpressionOperator::Shl })),
+    <start: @L> <e1:Expression> ">>" <e2:Expression> <end: @R> => Expression::Binary(Rc::new(Binary { id: 0, location: Location::new(start, end), left: e1, right: e2, operator: BinaryExpressionOperator::Shr })),
+};
+
+ParathesizedExpression: Expression = {
+    "(" <e: Expression> ")" => e
+};
 
 pub Literal : Literal = {
     <v:Version> => Literal::Version(v),
@@ -251,29 +290,6 @@ CBIndentifiersList: Vec<Rc<Identifier>> = {
     "{" <CommaTwo<Identifier>> "}" => <>
 }
 
-BinaryExpressionOperator : BinaryExpressionOperator = {
-    "+" => BinaryExpressionOperator::Add,
-    "-" => BinaryExpressionOperator::Sub,
-    "*" => BinaryExpressionOperator::Mul,
-    "/" => BinaryExpressionOperator::Div,
-    "%" => BinaryExpressionOperator::Mod,
-    "**" => BinaryExpressionOperator::Pow,
-    "==" => BinaryExpressionOperator::Eq,
-    "!=" => BinaryExpressionOperator::Ne,
-    "<" => BinaryExpressionOperator::Lt,
-    "=<" => BinaryExpressionOperator::Le,
-    ">" => BinaryExpressionOperator::Gt,
-    ">=" => BinaryExpressionOperator::Ge,
-    "&&" => BinaryExpressionOperator::And,
-    "||" => BinaryExpressionOperator::Or,
-    "&" => BinaryExpressionOperator::BitAnd,
-    "|" => BinaryExpressionOperator::BitOr,
-    "^" => BinaryExpressionOperator::BitXor,
-    "!" => BinaryExpressionOperator::BitNot,
-    "<<" => BinaryExpressionOperator::Shl,
-    ">>" => BinaryExpressionOperator::Shr,
-}
-
 PragmaOperator: PragmaOperator = {
     "=" => PragmaOperator::Eq,
     ">" => PragmaOperator::Gt,
@@ -350,6 +366,58 @@ Ledger: Rc<Ledger> = {
     }),
 }
 
+Constructor: Rc<Constructor> = {
+    <start: @L> "constructor" <args:Arguments> <b:Block> <end: @R> => Rc::new(Constructor {
+        id: 0,
+        location: Location::new(start, end),
+        arguments: args,
+        body: b
+    }),
+}
+
+Circuit: Rc<Circuit> = {
+    <start: @L> CIRCUIT <i:Identifier> <args:Arguments> ":" <t:Type> <b:Block> <end: @R> => Rc::new(Circuit {
+        id: 0,
+        location: Location::new(start, end),
+        name: i,
+        arguments: args,
+        is_exported: false,
+        is_pure: false,
+        ty: t,
+        body: Some(b)
+    }),
+    <start: @L> "export" CIRCUIT <i:Identifier> <args:Arguments> ":" <t:Type> <b:Block> <end: @R> => Rc::new(Circuit {
+        id: 0,
+        location: Location::new(start, end),
+        name: i,
+        arguments: args,
+        is_exported: true,
+        is_pure: false,
+        ty: t,
+        body: Some(b)
+    }),
+    <start: @L> "pure" CIRCUIT <i:Identifier> <args:Arguments> ":" <t:Type> <b:Block> <end: @R> => Rc::new(Circuit {
+        id: 0,
+        location: Location::new(start, end),
+        name: i,
+        arguments: args,
+        is_exported: false,
+        is_pure: true,
+        ty: t,
+        body: Some(b)
+    }),
+    <start: @L> "export" "pure" CIRCUIT <i:Identifier> <args:Arguments> ":" <t:Type> <b:Block> <end: @R> => Rc::new(Circuit {
+        id: 0,
+        location: Location::new(start, end),
+        name: i,
+        arguments: args,
+        is_exported: true,
+        is_pure: true,
+        ty: t,
+        body: Some(b)
+    }),
+}
+
 StructPatternItem : Rc<StructPatternItem> = {
     <start: @L> <i:Identifier> <end: @R> => Rc::new(StructPatternItem {
         id: 0,
@@ -372,7 +440,7 @@ Pattern: Rc<Pattern> = {
 }
 
 Argument : Rc<Argument> = {
-    <start: @L> <p:Pattern> <t:Type> <end: @R> => Rc::new(Argument {
+    <start: @L> <p:Pattern> ":" <t:Type> <end: @R> => Rc::new(Argument {
         id: 0,
         location: Location::new(start, end),
         pattern: p,
@@ -382,6 +450,7 @@ Argument : Rc<Argument> = {
 
 Arguments: Vec<Rc<Argument>> = {
     "(" ")" => Vec::new(),
+    "(" <a:Argument> ")" => vec![a],
     "(" <CommaTwo<Argument>> ")" => <>
 }
 

@@ -3,7 +3,12 @@ use std::rc::Rc;
 
 use crate::{ast_enum, ast_nodes};
 
-use super::node::{Node, NodeKind};
+use super::{
+    declaration::Argument,
+    expression::Identifier,
+    node::{Node, NodeKind, Type},
+    statement::Block,
+};
 
 ast_enum! {
     pub enum Definition {
@@ -14,7 +19,14 @@ ast_enum! {
 
 ast_nodes! {
     pub struct Module {}
-    pub struct Circuit {}
+    pub struct Circuit {
+        pub name: Rc<Identifier>,
+        pub arguments: Vec<Rc<Argument>>,
+        pub is_exported: bool,
+        pub is_pure: bool,
+        pub ty: Type,
+        pub body: Option<Rc<Block>>,
+    }
 }
 
 impl Node for Module {
