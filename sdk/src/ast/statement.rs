@@ -3,7 +3,9 @@ use std::rc::Rc;
 use crate::{ast_enum, ast_nodes};
 
 use super::{
+    declaration::Pattern,
     expression::{Expression, Identifier, Sequence},
+    literal::{Literal, Nat, Str},
     node::{Node, NodeKind, SymbolNode},
 };
 
@@ -11,11 +13,14 @@ ast_enum! {
     pub enum Statement {
         Assign(Rc<Assign>),
         Assert(Rc<Assert>),
-        Return(Rc<Return>),
-        ExpressionSequence(Rc<Sequence>),
         @scope Block(Rc<Block>),
+        Const(Rc<Const>),
+        ExpressionSequence(Rc<Sequence>),
+        @raw Expression(Expression),
         If(Rc<If>),
+        For(Rc<For>),
         @symbol Var(Rc<Var>),
+        Return(Rc<Return>),
     }
 }
 
@@ -26,8 +31,19 @@ ast_nodes! {
         pub operator: AssignOperator,
     }
 
-    pub struct Return {
-        pub value: Option<Expression>,
+    pub struct Assert {
+        pub condition: Expression,
+        pub msg: Option<Rc<Str>>,
+    }
+
+    pub struct Block {
+        pub statements: Vec<Statement>,
+    }
+
+    pub struct Const {
+        pub pattern: Rc<Pattern>,
+        pub value: Expression,
+        pub ty: Option<Expression>,
     }
 
     pub struct If {
@@ -37,14 +53,10 @@ ast_nodes! {
     }
 
     pub struct For {
-        pub init: Option<Statement>,
-        pub condition: Option<Expression>,
-        pub update: Option<Statement>,
-        pub body: Statement,
-    }
-
-    pub struct Assert {
-        pub condition: Expression,
+        pub counter: Rc<Identifier>,
+        pub range: Option<(Rc<Nat>, Rc<Nat>)>,
+        pub limit: Option<Expression>,
+        pub body: Rc<Block>,
     }
 
     pub struct Var {
@@ -52,9 +64,8 @@ ast_nodes! {
         pub value: Expression,
         pub ty_: Option<Expression>,
     }
-
-    pub struct Block {
-        pub statements: Vec<Statement>,
+    pub struct Return {
+        pub value: Option<Expression>,
     }
 }
 
@@ -70,6 +81,15 @@ impl Node for Assign {
         vec![
             Rc::new(NodeKind::from(&self.target)),
             Rc::new(NodeKind::from(&self.value)),
+        ]
+    }
+}
+
+impl Node for Const {
+    fn children(&self) -> Vec<Rc<NodeKind>> {
+        vec![
+            Rc::new(NodeKind::from(&*self.pattern)),
+            Rc::new(NodeKind::from(&self.value.clone())),
         ]
     }
 }
@@ -95,6 +115,25 @@ impl Node for If {
                 else_branch.clone(),
             ))));
         }
+        children
+    }
+}
+
+impl Node for For {
+    fn children(&self) -> Vec<Rc<NodeKind>> {
+        let mut children = vec![Rc::new(NodeKind::from(&Expression::Identifier(
+            self.counter.clone(),
+        )))];
+        if let Some((start, end)) = &self.range {
+            children.push(Rc::new(NodeKind::from(&Literal::Nat(start.clone()))));
+            children.push(Rc::new(NodeKind::from(&Literal::Nat(end.clone()))));
+        }
+        if let Some(limit) = &self.limit {
+            children.push(Rc::new(NodeKind::from(limit)));
+        }
+        children.push(Rc::new(NodeKind::from(&Statement::Block(
+            self.body.clone(),
+        ))));
         children
     }
 }

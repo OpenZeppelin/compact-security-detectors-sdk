@@ -3,7 +3,7 @@ use std::rc::Rc;
 use midnight_security_rules_sdk::ast::node::{ Type, Location };
 use midnight_security_rules_sdk::ast::literal::{ Literal, Nat, Bool, Version, Str };
 use midnight_security_rules_sdk::ast::directive::{ Directive, Pragma, PragmaOperator };
-use midnight_security_rules_sdk::ast::statement::{ Statement, Assign, AssignOperator, Block, If, Return };
+use midnight_security_rules_sdk::ast::statement::{ Statement, Assign, Assert, AssignOperator, Const, Block, If, For, Return };
 use midnight_security_rules_sdk::ast::declaration::{ Argument, StructPatternItem, Declaration, Import, Export, Ledger, Pattern };
 use midnight_security_rules_sdk::ast::expression::{ Expression, Sequence, Identifier, BinaryExpressionOperator };
 use midnight_security_rules_sdk::ast::program::CompactNode;
@@ -61,6 +61,7 @@ pub Statement: Statement = {
         value: e2,
         operator: AssignOperator::Sub
     })),
+    <start: @L> <e:Expression> ";" <end: @R> => Statement::Expression(e),
     <start: @L> "return" ";" <end: @R> => Statement::Return(Rc::new(Return {
         id: 0,
         location: Location::new(start, end),
@@ -71,7 +72,7 @@ pub Statement: Statement = {
         location: Location::new(start, end),
         value: Some(e)
     })),
-    <start: @L> "return" <s:Sequence> ";" <end: @R> => Statement::Return(Rc::new(Return {
+    <start: @L> "return" <s:Sequence> ";" <end: @R> => Statement::Return(Rc::new(Return { //This is not ideal, revisit later
         id: 0,
         location: Location::new(start, end),
         value: Some(Expression::Sequence(s))
@@ -97,6 +98,46 @@ pub Statement: Statement = {
             else_branch: Some(b2)
         }))
     },
+    <start: @L> "for" "(" "const" <i:Identifier> "of" <n1:Nat> ".." <n2:Nat> ")" <b:Block> <end: @R> => {
+        Statement::For(Rc::new(For {
+            id: 0,
+            location: Location::new(start, end),
+            counter: i,
+            range: Some((n1, n2)),
+            limit: None,
+            body: b
+        }))
+    },
+    <start: @L> "for" "(" "const" <i:Identifier> "of" <e:Expression> ")" <b:Block> <end: @R> => {
+        Statement::For(Rc::new(For {
+            id: 0,
+            location: Location::new(start, end),
+            counter: i,
+            range: None,
+            limit: Some(e),
+            body: b
+        }))
+    },
+    <start: @L> "assert" <e:Expression> <s:Str?> ";" <end: @R> => Statement::Assert(Rc::new(Assert {
+        id: 0,
+        location: Location::new(start, end),
+        condition: e,
+        msg: s,
+    })),
+    <start: @L> "const" <p:Pattern> "=" <e:Expression> ";" <end: @R> => Statement::Const(Rc::new(Const {
+        id: 0,
+        location: Location::new(start, end),
+        pattern: p,
+        value: e,
+        ty: None
+    })),
+    <start: @L> "const" <p:Pattern> ":" <t:Expression> "=" <e:Expression> ";" <end: @R> => Statement::Const(Rc::new(Const {
+        id: 0,
+        location: Location::new(start, end),
+        pattern: p,
+        value: e,
+        ty: Some(t)
+    })),
     <b:Block> => Statement::Block(b),
 }
 

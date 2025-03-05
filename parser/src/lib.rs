@@ -177,11 +177,25 @@ mod tests {
     #[test]
     fn test_if_statement() {
         assert!(compact::TermParser::new().parse("if (a) { a = b; }").is_ok());
-        // assert!(compact::TermParser::new().parse("if (a) { b; } else { c; }").is_ok());
-        // assert!(compact::TermParser::new().parse("if (a) { b; } else { c; } else { d }").is_err());
-        // assert!(compact::TermParser::new().parse("if (a) { b; } else { c; } else d").is_err());
-        // assert!(compact::TermParser::new().parse("if (a) { b; } else c;").is_err());
-        // assert!(compact::TermParser::new().parse("if (a) { b; } else { c; } else { d } else { e }").is_err());
+        assert!(compact::TermParser::new().parse("if (a) { b; } else { c; }").is_ok());
+    }
+
+    #[test]
+    fn test_for_statement() {
+        assert!(compact::TermParser::new().parse("for (const a of 1..2) { a = b; }").is_ok());
+        assert!(compact::TermParser::new().parse("for (const a of b) { b; }").is_ok());
+    }
+
+    #[test]
+    fn test_assert_statement() {
+        assert!(compact::TermParser::new().parse("assert a;").is_ok());
+        assert!(compact::TermParser::new().parse("assert a \"error\";").is_ok());
+    }
+
+    #[test]
+    fn test_const_statement() {
+        assert!(compact::TermParser::new().parse("const a = 1;").is_ok());
+        assert!(compact::TermParser::new().parse("const a : Nat = b;").is_ok());
     }
 
     #[test]
