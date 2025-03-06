@@ -794,6 +794,10 @@ mod test {
                 crate::ast::definition::Module {
                     id: 54,
                     location: default_location(),
+                    is_exported: false,
+                    name: mock_identifier(55, "module"),
+                    generic_parameters: None,
+                    nodes: vec![],
                 },
             ))),
         ];
@@ -807,6 +811,10 @@ mod test {
         let module = crate::ast::definition::Module {
             id: 55,
             location: default_location(),
+            is_exported: false,
+            name: mock_identifier(56, "module"),
+            generic_parameters: None,
+            nodes: vec![],
         };
         let circuit = crate::ast::definition::Circuit {
             id: 56,

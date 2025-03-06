@@ -5,6 +5,7 @@ use midnight_security_rules_sdk::ast::literal::{ Literal, Nat, Bool, Version, St
 use midnight_security_rules_sdk::ast::directive::{ Directive, Pragma, PragmaOperator };
 use midnight_security_rules_sdk::ast::definition::{
     Definition,
+    Module,
     Circuit,
     Structure,
     Field,
@@ -63,6 +64,7 @@ pub Declaration: Declaration = {
 }
 
 pub Definition: Definition = {
+    <m:Module> => Definition::Module(m),
     <c:Circuit> => Definition::Circuit(c),
     <s:Structure> => Definition::Structure(s),
     <e:Enum> => Definition::Enum(e),
@@ -431,6 +433,25 @@ Contract: Rc<Contract> = {
         name: i,
         is_exported: true,
         circuits: c
+    }),
+}
+
+Module: Rc<Module> = {
+    <start: @L> "module" <i:Identifier> <gp:GenericParameters?> "{" <c:Term*> "}" <end: @R> => Rc::new(Module {
+        id: 0,
+        location: Location::new(start, end),
+        name: i,
+        is_exported: false,
+        generic_parameters: gp,
+        nodes: c
+    }),
+        <start: @L> "export" "module" <i:Identifier> <gp:GenericParameters?> "{" <c:Term*> "}" <end: @R> => Rc::new(Module {
+        id: 0,
+        location: Location::new(start, end),
+        name: i,
+        is_exported: true,
+        generic_parameters: gp,
+        nodes: c
     }),
 }
 

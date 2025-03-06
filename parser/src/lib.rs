@@ -383,4 +383,14 @@ mod tests {
         assert!(compact::TermParser::new().parse("export enum test {a, b, c}").is_ok());
     }
 
+    #[test]
+    fn test_module() {
+        assert!(compact::TermParser::new().parse("module test {}").is_ok());
+        assert!(compact::TermParser::new().parse("export module test {}").is_ok());
+        assert!(compact::TermParser::new().parse("module test {circuit test<A>(): Field { }}").is_ok());
+        assert!(compact::TermParser::new().parse("export module test {circuit test<A>(): Field { }}").is_ok());
+        assert!(compact::TermParser::new().parse("module test {circuit test<A>(): Field { } export circuit test<>(a: Boolean, b: Field, c: Vector<1, Boolean>): Field { }}").is_ok());
+        assert!(compact::TermParser::new().parse("export module test {circuit test<A>(): Field { } export circuit test<>(a: Boolean, b: Field, c: Vector<1, Boolean>): Field { }}").is_ok());
+    }
+
 }

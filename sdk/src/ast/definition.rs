@@ -7,6 +7,7 @@ use super::{
     declaration::Argument,
     expression::Identifier,
     node::{Node, NodeKind, Type},
+    program::CompactNode,
     statement::Block,
 };
 
@@ -20,7 +21,13 @@ ast_enum! {
 }
 
 ast_nodes! {
-    pub struct Module {}
+    pub struct Module {
+        pub is_exported: bool,
+        pub name: Rc<Identifier>,
+        pub generic_parameters: Option<Vec<Rc<Identifier>>>,
+        pub nodes: Vec<CompactNode>,
+    }
+
     pub struct Circuit {
         pub name: Rc<Identifier>,
         pub arguments: Vec<Rc<Argument>>,
