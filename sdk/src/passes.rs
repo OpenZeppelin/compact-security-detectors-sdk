@@ -740,6 +740,7 @@ mod test {
             name: mock_identifier(79, "witness"),
             arguments: vec![],
             ty: Type::Nat,
+            generic_parameters: None,
         };
         let ledger = crate::ast::declaration::Ledger {
             id: 49,
@@ -766,6 +767,9 @@ mod test {
         let contract = crate::ast::declaration::Contract {
             id: 51,
             location: default_location(),
+            is_exported: false,
+            name: mock_identifier(2123, "c"),
+            circuits: vec![],
         };
         let struc = crate::ast::declaration::Struct {
             id: 52,

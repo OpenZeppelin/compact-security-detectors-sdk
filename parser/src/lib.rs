@@ -340,4 +340,47 @@ mod tests {
         assert!(compact::TermParser::new().parse("export pure circuit test<A, #B>(a: Boolean, b: Field, c: Vector<1, Boolean>): Field { return a ** 2 + b **2 - (2 + c);}").is_ok());
     }
 
+    #[test]
+    fn test_witness() {
+        assert!(compact::TermParser::new().parse("witness test(): Boolean;").is_ok());
+        assert!(compact::TermParser::new().parse("witness test(a: Boolean): Field;").is_ok());
+        assert!(compact::TermParser::new().parse("export witness test(a: Boolean, b: Field, c: Vector<1, Boolean>): Opaque<\"abc asd 234\">;").is_ok());
+        assert!(compact::TermParser::new().parse("export witness test(a: Boolean, b: Field, c: Vector<1, Boolean>): Field;").is_ok());
+        assert!(compact::TermParser::new().parse("export witness test(a: Boolean, b: Field, c: Vector<1, Boolean>): Field;").is_ok());
+        
+        assert!(compact::TermParser::new().parse("witness test<A>(): Field;").is_ok());
+        assert!(compact::TermParser::new().parse("witness test<A, B>(a: Boolean): Field;").is_ok());
+        assert!(compact::TermParser::new().parse("export witness test<>(a: Boolean, b: Field, c: Vector<1, Boolean>): Vector<1, Boolean>;").is_ok());
+        assert!(compact::TermParser::new().parse("export witness test<#A>(a: Boolean, b: Field, c: Vector<1, Boolean>): Field;").is_ok());
+        assert!(compact::TermParser::new().parse("export witness test<#A, #B>(a: Boolean, b: Field, c: Vector<1, Boolean>): Field;").is_ok());
+        assert!(compact::TermParser::new().parse("export witness test<#A, B>(a: Boolean, b: Field, c: Vector<1, Boolean>): Field;").is_ok());
+    }
+
+    #[test]
+    fn test_contract() {
+        assert!(compact::TermParser::new().parse("contract test {}").is_ok());
+        assert!(compact::TermParser::new().parse("export contract test {}").is_ok());
+        assert!(compact::TermParser::new().parse("contract test {circuit test<A>(): Field { }}").is_ok());
+        assert!(compact::TermParser::new().parse("export contract test {circuit test<A>(): Field { }}").is_ok());
+        assert!(compact::TermParser::new().parse("contract test {circuit test<A>(): Field { } export circuit test<>(a: Boolean, b: Field, c: Vector<1, Boolean>): Field { }}").is_ok());
+        assert!(compact::TermParser::new().parse("export contract test {circuit test<A>(): Field { } export circuit test<>(a: Boolean, b: Field, c: Vector<1, Boolean>): Field { }}").is_ok());
+    }
+
+    #[test]
+    fn test_struct() {
+        assert!(compact::TermParser::new().parse("struct test {}").is_ok());
+        assert!(compact::TermParser::new().parse("export struct test {}").is_ok());
+        assert!(compact::TermParser::new().parse("struct test {a: Boolean;}").is_ok());
+        assert!(compact::TermParser::new().parse("export struct test {x: Uint<4>; y: Uint<4>;}").is_ok());
+        assert!(compact::TermParser::new().parse("struct test<#A, B> {a: Boolean, b: Field;}").is_ok());
+    }
+
+    #[test]
+    fn test_enum() {
+        assert!(compact::TermParser::new().parse("enum test {}").is_ok());
+        assert!(compact::TermParser::new().parse("export enum test {}").is_ok());
+        assert!(compact::TermParser::new().parse("enum test {a, b, c}").is_ok());
+        assert!(compact::TermParser::new().parse("export enum test {a, b, c}").is_ok());
+    }
+
 }

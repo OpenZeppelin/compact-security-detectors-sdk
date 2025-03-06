@@ -3,9 +3,26 @@ use std::rc::Rc;
 use midnight_security_rules_sdk::ast::node::{ Type, Location };
 use midnight_security_rules_sdk::ast::literal::{ Literal, Nat, Bool, Version, Str };
 use midnight_security_rules_sdk::ast::directive::{ Directive, Pragma, PragmaOperator };
-use midnight_security_rules_sdk::ast::definition::{ Definition, Circuit };
+use midnight_security_rules_sdk::ast::definition::{
+    Definition,
+    Circuit,
+    Structure,
+    Field,
+    Enum
+};
 use midnight_security_rules_sdk::ast::statement::{ Statement, Assign, Assert, AssignOperator, Const, Block, If, For, Return };
-use midnight_security_rules_sdk::ast::declaration::{ Argument, Constructor, StructPatternItem, Declaration, Import, Export, Ledger, Pattern };
+use midnight_security_rules_sdk::ast::declaration::{
+    Argument,
+    Constructor,
+    Contract,
+    StructPatternItem,
+    Declaration,
+    Import,
+    Export,
+    Ledger,
+    Pattern,
+    Witness
+};
 use midnight_security_rules_sdk::ast::expression::{ Binary, Expression, Sequence, Identifier, BinaryExpressionOperator };
 use midnight_security_rules_sdk::ast::program::CompactNode;
 
@@ -38,13 +55,17 @@ pub Directive: Directive = {
 
 pub Declaration: Declaration = {
     <c:Constructor> => Declaration::Constructor(c),
+    <c:Contract> => Declaration::Contract(c),
     <i:Import> => Declaration::Import(i),
     <e:Export> => Declaration::Export(e),
     <l:Ledger> => Declaration::Ledger(l),
+    <w:Witness> => Declaration::Witness(w),
 }
 
 pub Definition: Definition = {
     <c:Circuit> => Definition::Circuit(c),
+    <s:Structure> => Definition::Structure(s),
+    <e:Enum> => Definition::Enum(e),
 }
 
 pub Statement: Statement = {
@@ -366,12 +387,50 @@ Ledger: Rc<Ledger> = {
     }),
 }
 
+Witness: Rc<Witness> = {
+    <start: @L> "witness" <i:Identifier> <gp:GenericParameters?> <args:Arguments> ":" <t:Type> ";" <end: @R> => Rc::new(Witness {
+        id: 0,
+        location: Location::new(start, end),
+        name: i.clone(),
+        is_exported: false,
+        generic_parameters: gp,
+        arguments: args,
+        ty: t
+    }),
+    <start: @L> "export" "witness" <i:Identifier> <gp:GenericParameters?> <args:Arguments> ":" <t:Type> ";" <end: @R> => Rc::new(Witness {
+        id: 0,
+        location: Location::new(start, end),
+        name: i.clone(),
+        is_exported: true,
+        generic_parameters: gp,
+        arguments: args,
+        ty: t
+    }),
+}
+
 Constructor: Rc<Constructor> = {
     <start: @L> "constructor" <args:Arguments> <b:Block> <end: @R> => Rc::new(Constructor {
         id: 0,
         location: Location::new(start, end),
         arguments: args,
         body: b
+    }),
+}
+
+Contract: Rc<Contract> = {
+    <start: @L> "contract" <i:Identifier> "{" <c:Circuit*> "}" <end: @R> => Rc::new(Contract {
+        id: 0,
+        location: Location::new(start, end),
+        name: i,
+        is_exported: false,
+        circuits: c
+    }),
+    <start: @L> "export" "contract" <i:Identifier> "{" <c:Circuit*> "}" <end: @R> => Rc::new(Contract {
+        id: 0,
+        location: Location::new(start, end),
+        name: i,
+        is_exported: true,
+        circuits: c
     }),
 }
 
@@ -430,6 +489,57 @@ Circuit: Rc<Circuit> = {
         is_pure: true,
         ty: t,
         body: Some(b)
+    }),
+}
+
+Field: Rc<Field> = {
+    <start: @L> <i:Identifier> ":" <t:Type> ";" <end: @R> => Rc::new(Field {
+        id: 0,
+        location: Location::new(start, end),
+        name: i,
+        ty: t
+    }),
+    <start: @L> <i:Identifier> ":" <t:Type> "," <end: @R> => Rc::new(Field {
+        id: 0,
+        location: Location::new(start, end),
+        name: i,
+        ty: t
+    })
+}
+
+Structure: Rc<Structure> = {
+    <start: @L> "struct" <i:Identifier> <gp:GenericParameters?> "{" <f:Field*> "}" <end: @R> => Rc::new(Structure {
+        id: 0,
+        location: Location::new(start, end),
+        is_exported: false,
+        name: i,
+        generic_parameters: gp,
+        fields: f
+    }),
+    <start: @L> "export" "struct" <i:Identifier> <gp:GenericParameters?> "{" <f:Field*> "}" <end: @R> => Rc::new(Structure {
+        id: 0,
+        location: Location::new(start, end),
+        is_exported: true,
+        name: i,
+        generic_parameters: gp,
+        fields: f
+    }),
+}
+
+Enum: Rc<Enum> = {
+    <start: @L> "enum" <i:Identifier> <v:CBIndentifiersList> <end: @R> => Rc::new(Enum {
+        id: 0,
+        location: Location::new(start, end),
+        is_exported: false,
+        name: i,
+        options: v
+    }),
+    <start: @L> "export" "enum" <i:Identifier> <v:CBIndentifiersList> <end: @R> => Rc::new(Enum {
+        id: 0,
+        location: Location::new(start, end),
+        is_exported: true,
+        name: i,
+        options: v
     }),
 }
 

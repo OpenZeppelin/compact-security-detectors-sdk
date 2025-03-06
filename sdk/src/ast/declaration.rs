@@ -4,7 +4,7 @@ use std::rc::Rc;
 use crate::{ast_enum, ast_nodes};
 
 use super::{
-    definition::Definition,
+    definition::{Circuit, Definition},
     expression::Identifier,
     node::{Node, NodeKind, Type},
     statement::Block,
@@ -57,6 +57,7 @@ ast_nodes! {
     pub struct Witness {
         pub is_exported: bool,
         pub name: Rc<Identifier>,
+        pub generic_parameters: Option<Vec<Rc<Identifier>>>,
         pub arguments: Vec<Rc<Argument>>,
         pub ty: Type,
     }
@@ -73,7 +74,11 @@ ast_nodes! {
         pub body: Rc<Block>
     }
 
-    pub struct Contract {}
+    pub struct Contract {
+        pub is_exported: bool,
+        pub name: Rc<Identifier>,
+        pub circuits: Vec<Rc<Circuit>>,
+    }
 
     pub struct Struct {}
 
