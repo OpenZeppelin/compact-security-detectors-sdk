@@ -22,6 +22,7 @@ ast_nodes! {
     pub struct Circuit {
         pub name: Rc<Identifier>,
         pub arguments: Vec<Rc<Argument>>,
+        pub generic_parameters: Option<Vec<Rc<Identifier>>>,
         pub is_exported: bool,
         pub is_pure: bool,
         pub ty: Type,

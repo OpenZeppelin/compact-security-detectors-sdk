@@ -376,40 +376,55 @@ Constructor: Rc<Constructor> = {
 }
 
 Circuit: Rc<Circuit> = {
-    <start: @L> CIRCUIT <i:Identifier> <args:Arguments> ":" <t:Type> <b:Block> <end: @R> => Rc::new(Circuit {
+    <start: @L> CIRCUIT <i:Identifier> <gp:GenericParameters?> <args:Arguments> ":" <t:Type> <b:Block> <end: @R> => Rc::new(Circuit {
         id: 0,
         location: Location::new(start, end),
         name: i,
+        generic_parameters: gp,
         arguments: args,
         is_exported: false,
         is_pure: false,
         ty: t,
         body: Some(b)
     }),
-    <start: @L> "export" CIRCUIT <i:Identifier> <args:Arguments> ":" <t:Type> <b:Block> <end: @R> => Rc::new(Circuit {
+    <start: @L> "export" CIRCUIT <i:Identifier> <gp:GenericParameters?> <args:Arguments> ":" <t:Type> <b:Block> <end: @R> => Rc::new(Circuit {
         id: 0,
         location: Location::new(start, end),
         name: i,
+        generic_parameters: gp,
         arguments: args,
         is_exported: true,
         is_pure: false,
         ty: t,
         body: Some(b)
     }),
-    <start: @L> "pure" CIRCUIT <i:Identifier> <args:Arguments> ":" <t:Type> <b:Block> <end: @R> => Rc::new(Circuit {
+    <start: @L> "export" CIRCUIT <i:Identifier> <gp:GenericParameters?> <args:Arguments> ":" <t:Type> ";" <end: @R> => Rc::new(Circuit {
         id: 0,
         location: Location::new(start, end),
         name: i,
+        generic_parameters: gp,
+        arguments: args,
+        is_exported: true,
+        is_pure: false,
+        ty: t,
+        body: None
+    }),
+    <start: @L> "pure" CIRCUIT <i:Identifier> <gp:GenericParameters?> <args:Arguments> ":" <t:Type> <b:Block> <end: @R> => Rc::new(Circuit {
+        id: 0,
+        location: Location::new(start, end),
+        name: i,
+        generic_parameters: gp,
         arguments: args,
         is_exported: false,
         is_pure: true,
         ty: t,
         body: Some(b)
     }),
-    <start: @L> "export" "pure" CIRCUIT <i:Identifier> <args:Arguments> ":" <t:Type> <b:Block> <end: @R> => Rc::new(Circuit {
+    <start: @L> "export" "pure" CIRCUIT <i:Identifier> <gp:GenericParameters?> <args:Arguments> ":" <t:Type> <b:Block> <end: @R> => Rc::new(Circuit {
         id: 0,
         location: Location::new(start, end),
         name: i,
+        generic_parameters: gp,
         arguments: args,
         is_exported: true,
         is_pure: true,
@@ -452,6 +467,25 @@ Arguments: Vec<Rc<Argument>> = {
     "(" ")" => Vec::new(),
     "(" <a:Argument> ")" => vec![a],
     "(" <CommaTwo<Argument>> ")" => <>
+}
+
+GenericParameterId: Rc<Identifier> = {
+    <start: @L> "#" <i:Identifier> <end: @R> => Rc::new(Identifier {
+        id: 0,
+        location: Location::new(start, end),
+        name: format!("#{}", i.name),
+    })
+}
+
+GenericParameter: Rc<Identifier> = {
+    <i:GenericParameterId> => i,
+    <i:Identifier> => i
+}
+
+GenericParameters: Vec<Rc<Identifier>> = {
+    "<" ">" => Vec::new(),
+    "<" <i:GenericParameter> ">" => vec![i],
+    "<" <CommaTwo<GenericParameter>> ">" => <>
 }
 
 CommaTwo<T>: Vec<T> = {

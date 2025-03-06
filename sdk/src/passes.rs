@@ -736,6 +736,10 @@ mod test {
         let witness = crate::ast::declaration::Witness {
             id: 48,
             location: default_location(),
+            is_exported: false,
+            name: mock_identifier(79, "witness"),
+            arguments: vec![],
+            ty: Type::Nat,
         };
         let ledger = crate::ast::declaration::Ledger {
             id: 49,
@@ -807,6 +811,7 @@ mod test {
             is_pure: false,
             name: mock_identifier(57, "circuit"),
             arguments: vec![],
+            generic_parameters: None,
             ty: Type::Nat,
             body: Some(Rc::new(crate::ast::statement::Block {
                 id: 58,

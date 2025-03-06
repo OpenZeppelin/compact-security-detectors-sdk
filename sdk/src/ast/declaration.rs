@@ -54,7 +54,12 @@ ast_nodes! {
 
     pub struct External {}
 
-    pub struct Witness {}
+    pub struct Witness {
+        pub is_exported: bool,
+        pub name: Rc<Identifier>,
+        pub arguments: Vec<Rc<Argument>>,
+        pub ty: Type,
+    }
 
     pub struct Ledger {
         pub is_exported: bool,

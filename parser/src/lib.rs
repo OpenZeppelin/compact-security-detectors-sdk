@@ -328,8 +328,16 @@ mod tests {
         assert!(compact::TermParser::new().parse("circuit test(): Field { }").is_ok());
         assert!(compact::TermParser::new().parse("circuit test(a: Boolean): Field { }").is_ok());
         assert!(compact::TermParser::new().parse("export circuit test(a: Boolean, b: Field, c: Vector<1, Boolean>): Field { }").is_ok());
+        assert!(compact::TermParser::new().parse("export circuit test(a: Boolean, b: Field, c: Vector<1, Boolean>): Field;").is_ok());
         assert!(compact::TermParser::new().parse("export pure circuit test(a: Boolean, b: Field, c: Vector<1, Boolean>): Field { }").is_ok());
-        assert!(compact::TermParser::new().parse("export pure circuit test(a: Boolean, b: Field, c: Vector<1, Boolean>): Field { return a ** 2 + b **2 - (2 + c);}").is_ok());
+        
+        assert!(compact::TermParser::new().parse("circuit test<A>(): Field { }").is_ok());
+        assert!(compact::TermParser::new().parse("circuit test<A, B>(a: Boolean): Field { }").is_ok());
+        assert!(compact::TermParser::new().parse("export circuit test<>(a: Boolean, b: Field, c: Vector<1, Boolean>): Field { }").is_ok());
+        assert!(compact::TermParser::new().parse("export circuit test<#A>(a: Boolean, b: Field, c: Vector<1, Boolean>): Field;").is_ok());
+        assert!(compact::TermParser::new().parse("export pure circuit<#A, #B> test(a: Boolean, b: Field, c: Vector<1, Boolean>): Field { }").is_ok());
+        assert!(compact::TermParser::new().parse("export pure circuit test<#A, B>(a: Boolean, b: Field, c: Vector<1, Boolean>): Field { return a ** 2 + b **2 - (2 + c);}").is_ok());
+        assert!(compact::TermParser::new().parse("export pure circuit test<A, #B>(a: Boolean, b: Field, c: Vector<1, Boolean>): Field { return a ** 2 + b **2 - (2 + c);}").is_ok());
     }
 
 }
