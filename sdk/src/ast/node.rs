@@ -2,12 +2,7 @@
 
 use std::{any::Any, rc::Rc};
 
-use serde::{Deserialize, Serialize};
-
-use super::{
-    expression::{Expression, Identifier},
-    literal::{Nat, Str},
-};
+use super::expression::Expression;
 #[derive(Clone, PartialEq, Eq, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct Location {
     pub start: usize,
@@ -18,28 +13,6 @@ impl Location {
     #[must_use]
     pub fn new(start: usize, end: usize) -> Self {
         Self { start, end }
-    }
-}
-
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Type {
-    Nat,
-    Bool,
-    String,
-    Field,
-    Uint(Rc<Nat>, Option<Rc<Nat>>),
-    Vector(Rc<Nat>, Box<Type>),
-    Opaque(Rc<Str>),
-    Bytes(Rc<Nat>),
-    Ref(Rc<Identifier>, Option<Vec<Rc<Identifier>>>),
-    Sum(Vec<Type>),
-    #[default]
-    Unknown,
-}
-
-impl Node for Type {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        vec![]
     }
 }
 

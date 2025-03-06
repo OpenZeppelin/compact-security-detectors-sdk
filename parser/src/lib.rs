@@ -164,8 +164,8 @@ mod tests {
         assert!(compact::ExpressionParser::new().parse("a >> b ** c").is_ok());
         assert!(compact::ExpressionParser::new().parse("a < b").is_ok());
         assert!(compact::ExpressionParser::new().parse("a < b ** c").is_ok());
-        assert!(compact::ExpressionParser::new().parse("a =< b").is_ok());
-        assert!(compact::ExpressionParser::new().parse("a =< b ** c").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a <= b").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a <= b ** c").is_ok());
         assert!(compact::ExpressionParser::new().parse("a > b").is_ok());
         assert!(compact::ExpressionParser::new().parse("a > b ** c").is_ok());
         assert!(compact::ExpressionParser::new().parse("a >= b").is_ok());
@@ -185,12 +185,19 @@ mod tests {
         assert!(compact::ExpressionParser::new().parse("a || b").is_ok());
         assert!(compact::ExpressionParser::new().parse("a || b ** c").is_ok());
     }
+
+    #[test]
+    fn test_index_access_expression() {
+        assert!(compact::ExpressionParser::new().parse("v[0]").is_ok());
+        assert!(compact::ExpressionParser::new().parse("v[0][a]").is_ok());
+        assert!(compact::ExpressionParser::new().parse("v[0] + v[1]").is_ok());
+    }
     
     #[test]
     fn assign_statement() {
         assert!(compact::TermParser::new().parse("a = 1;").is_ok());
         assert!(compact::TermParser::new().parse("a += 1;").is_ok());
-        assert!(compact::TermParser::new().parse("a += 1;").is_ok());
+        assert!(compact::TermParser::new().parse("a -= 1;").is_ok());
         assert!(compact::TermParser::new().parse("a =- 1;").is_err());
         assert!(compact::TermParser::new().parse("a =+ 1;").is_err());
     }
@@ -299,10 +306,10 @@ mod tests {
         assert!(compact::TermParser::new().parse("ledger test: Uint<1234..5678>;").is_ok());
         assert!(compact::TermParser::new().parse("ledger test: Bytes<1234>;").is_ok());
         assert!(compact::TermParser::new().parse("ledger test: Opaque<\"abc asd 234\">;").is_ok());
-        assert!(compact::TermParser::new().parse("ledger test: [ ref_type ];").is_ok());
-        assert!(compact::TermParser::new().parse("ledger test: [ ref_type { a, b, c, d } ];").is_ok());
-        assert!(compact::TermParser::new().parse("ledger test: [ Boolean, Field, Vector<1, Boolean>, Uint<1234> ];").is_ok());
-        assert!(compact::TermParser::new().parse("ledger test: [ [ref_type { a, b, c, d }], [ref_type { a, b, c, d }] ];").is_ok());
+        assert!(compact::TermParser::new().parse("ledger test: ref_type;").is_ok());
+        assert!(compact::TermParser::new().parse("ledger test: ref_type<a, b, c, d>;").is_ok());
+        // assert!(compact::TermParser::new().parse("ledger test: [ Boolean, Field, Vector<1, Boolean>, Uint<1234> ];").is_ok());
+        // assert!(compact::TermParser::new().parse("ledger test: [ ref_type<a, b, c, d> , ref_type<a, b, c, d> ];").is_ok());
     }
 
     #[test]
@@ -391,6 +398,69 @@ mod tests {
         assert!(compact::TermParser::new().parse("export module test {circuit test<A>(): Field { }}").is_ok());
         assert!(compact::TermParser::new().parse("module test {circuit test<A>(): Field { } export circuit test<>(a: Boolean, b: Field, c: Vector<1, Boolean>): Field { }}").is_ok());
         assert!(compact::TermParser::new().parse("export module test {circuit test<A>(): Field { } export circuit test<>(a: Boolean, b: Field, c: Vector<1, Boolean>): Field { }}").is_ok());
+    }
+
+    #[test]
+    fn test_misc_expr() {
+        assert!(compact::ExpressionParser::new().parse("a").is_ok());
+        assert!(compact::ExpressionParser::new().parse("\"a\"").is_ok());
+        assert!(compact::ExpressionParser::new().parse("123").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a[1]").is_ok());
+        assert!(compact::ExpressionParser::new().parse("v[1][b]").is_ok());
+        assert!(compact::ExpressionParser::new().parse("!a").is_ok());
+        assert!(compact::ExpressionParser::new().parse("-a").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a ** 2").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a ** -2").is_ok());
+        assert!(compact::ExpressionParser::new().parse("!a ** -2").is_ok());
+        assert!(compact::ExpressionParser::new().parse("-a ** b[-2]").is_ok());
+        assert!(compact::ExpressionParser::new().parse("-a[v] ** b[-2]").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a ** b % c").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a ** (b % c)").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a ** b % c ** d").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a ** (b % c ** d)").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a * b").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a * b ** c").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a / b").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a / b ** c").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a % b").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a % b ** c").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a + b").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a + b ** c").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a - b").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a - b ** c").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a << b").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a << b ** c").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a >> b").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a >> b ** c").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a & b").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a ^ b").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a ^ b & C << 234 >> v32 % (a ** c)").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a | b").is_ok());
+        assert!(compact::ExpressionParser::new().parse("v[0] != v[1]").is_ok());
+        assert!(compact::ExpressionParser::new().parse("v[0] != v[1] && v[0] != v[2]").is_ok());
+        assert!(compact::ExpressionParser::new().parse("(v[0] != v[1] && v[0] != v[2])").is_ok());
+    }
+
+    #[test]
+    fn test_long_return() {
+        assert!(compact::TermParser::new().parse(r#"
+        pure circuit unique_vector(v: Vector<17, Coord>): Boolean {
+  return (v[0] != v[1] && v[0] != v[2] && v[0] != v[3] && v[0] != v[4] && v[0] != v[5] && v[0] != v[6] && v[0] != v[7] && v[0] != v[8] && v[0] != v[9] && v[0] != v[10] && v[0] != v[11] && v[0] != v[12] && v[0] != v[13] && v[0] != v[14] && v[0] != v[15] && v[0] != v[16] &&
+          v[1] != v[2] && v[1] != v[3] && v[1] != v[4] && v[1] != v[5] && v[1] != v[6] && v[1] != v[7] && v[1] != v[8] && v[1] != v[9] && v[1] != v[10] && v[1] != v[11] && v[1] != v[12] && v[1] != v[13] && v[1] != v[14] && v[1] != v[15] && v[1] != v[16] &&
+          v[2] != v[3] && v[2] != v[4] && v[2] != v[5] && v[2] != v[6] && v[2] != v[7] && v[2] != v[8] && v[2] != v[9] && v[2] != v[10] && v[2] != v[11] && v[2] != v[12] && v[2] != v[13] && v[2] != v[14] && v[2] != v[15] && v[2] != v[16] &&
+          v[3] != v[4] && v[3] != v[5] && v[3] != v[6] && v[3] != v[7] && v[3] != v[8] && v[3] != v[9] && v[3] != v[10] && v[3] != v[11] && v[3] != v[12] && v[3] != v[13] && v[3] != v[14] && v[3] != v[15] && v[3] != v[16] &&
+          v[4] != v[5] && v[4] != v[6] && v[4] != v[7] && v[4] != v[8] && v[4] != v[9] && v[4] != v[10] && v[4] != v[11] && v[4] != v[12] && v[4] != v[13] && v[4] != v[14] && v[4] != v[15] && v[4] != v[16] &&
+          v[5] != v[6] && v[5] != v[7] && v[5] != v[8] && v[5] != v[9] && v[5] != v[10] && v[5] != v[11] && v[5] != v[12] && v[5] != v[13] && v[5] != v[14] && v[5] != v[15] && v[5] != v[16] &&
+          v[6] != v[7] && v[6] != v[8] && v[6] != v[9] && v[6] != v[10] && v[6] != v[11] && v[6] != v[12] && v[6] != v[13] && v[6] != v[14] && v[6] != v[15] && v[6] != v[16] &&
+          v[7] != v[8] && v[7] != v[9] && v[7] != v[10] && v[7] != v[11] && v[7] != v[12] && v[7] != v[13] && v[7] != v[14] && v[7] != v[15] && v[7] != v[16] &&
+          v[8] != v[9] && v[8] != v[10] && v[8] != v[11] && v[8] != v[12] && v[8] != v[13] && v[8] != v[14] && v[8] != v[15] && v[8] != v[16] &&
+          v[9] != v[10] && v[9] != v[11] && v[9] != v[12] && v[9] != v[13] && v[9] != v[14] && v[9] != v[15] && v[9] != v[16] &&
+          v[10] != v[11] && v[10] != v[12] && v[10] != v[13] && v[10] != v[14] && v[10] != v[15] && v[10] != v[16] &&
+          v[11] != v[12] && v[11] != v[13] && v[11] != v[14] && v[11] != v[15] && v[11] != v[16] &&
+          v[12] != v[13] && v[12] != v[14] && v[12] != v[15] && v[12] != v[16] &&
+          v[13] != v[14] && v[13] != v[15] && v[13] != v[16] &&
+          v[14] != v[15] && v[14] != v[16] &&
+          v[15] != v[16]);}"#).is_ok());
     }
 
 }

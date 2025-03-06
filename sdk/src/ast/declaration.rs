@@ -6,8 +6,9 @@ use crate::{ast_enum, ast_nodes};
 use super::{
     definition::{Circuit, Definition},
     expression::Identifier,
-    node::{Node, NodeKind, Type},
+    node::{Node, NodeKind},
     statement::Block,
+    ty::Type,
 };
 
 ast_enum! {

@@ -4,19 +4,21 @@ use crate::{ast_enum, ast_nodes};
 
 use super::{
     literal::Literal,
-    node::{Node, NodeKind, SameScopeNode, SymbolNode, Type},
+    node::{Node, NodeKind, SameScopeNode, SymbolNode},
+    ty::Type,
 };
 
 ast_enum! {
     pub enum Expression {
         Conditional(Rc<Conditional>),
         Binary(Rc<Binary>),
+        Unary(Rc<Unary>),
         Cast(Rc<Cast>),
         IndexAccess(Rc<IndexAccess>),
         Sequence(Rc<Sequence>),
         MemberAccess(Rc<MemberAccess>),
         FunctionCall(Rc<FunctionCall>),
-        @skip_location TypeExpressoin(Rc<Type>),
+        @raw TypeExpressoin(Type),
         @raw Literal(Literal),
         @symbol Identifier(Rc<Identifier>),
     }
@@ -40,7 +42,7 @@ impl From<&NodeKind> for Expression {
                 } else if let Some(function_call) = cond.as_any().downcast_ref::<Rc<FunctionCall>>()
                 {
                     Expression::FunctionCall(function_call.clone())
-                } else if let Some(type_expr) = cond.as_any().downcast_ref::<Rc<Type>>() {
+                } else if let Some(type_expr) = cond.as_any().downcast_ref::<Type>() {
                     Expression::TypeExpressoin(type_expr.clone())
                 } else {
                     unreachable!()
@@ -61,9 +63,9 @@ impl From<&NodeKind> for Expression {
 ast_nodes! {
     /// E.g. `const a = bool ? 1 : 2`
     pub struct Conditional {
-        pub condition: Rc<Expression>,
-        pub then_branch: Rc<Expression>,
-        pub else_branch: Rc<Expression>,
+        pub condition: Expression,
+        pub then_branch: Expression,
+        pub else_branch: Expression,
     }
 
     pub struct Binary {
@@ -72,24 +74,29 @@ ast_nodes! {
         pub operator: BinaryExpressionOperator,
     }
 
+    pub struct Unary {
+        pub operand: Expression,
+        pub operator: UnaryExpressionOperator,
+    }
+
     pub struct Cast {
-        pub expression: Rc<Expression>,
-        pub target_type: Rc<Expression>,
+        pub expression: Expression,
+        pub target_type: Expression,
     }
 
     pub struct IndexAccess {
-        pub array: Rc<Expression>,
-        pub index: Rc<Expression>,
+        pub base: Expression,
+        pub index: Expression,
     }
 
     pub struct MemberAccess {
-        pub base: Rc<Expression>,
+        pub base: Expression,
         pub member: String,
     }
 
     pub struct FunctionCall {
-        pub function: Rc<Expression>,
-        pub arguments: Vec<Rc<Expression>>,
+        pub function: Expression,
+        pub arguments: Vec<Expression>,
     }
 
     pub struct Sequence {
@@ -125,12 +132,18 @@ pub enum BinaryExpressionOperator {
     Shr,
 }
 
+#[derive(Clone, PartialEq, Eq, Debug, serde::Serialize, serde::Deserialize)]
+pub enum UnaryExpressionOperator {
+    Neg,
+    Not,
+}
+
 impl Node for Conditional {
     fn children(&self) -> Vec<Rc<NodeKind>> {
         vec![
-            Rc::new(NodeKind::from(&*self.condition)),
-            Rc::new(NodeKind::from(&*self.then_branch)),
-            Rc::new(NodeKind::from(&*self.else_branch)),
+            Rc::new(NodeKind::from(&self.condition)),
+            Rc::new(NodeKind::from(&self.then_branch)),
+            Rc::new(NodeKind::from(&self.else_branch)),
         ]
     }
 }
@@ -144,11 +157,17 @@ impl Node for Binary {
     }
 }
 
+impl Node for Unary {
+    fn children(&self) -> Vec<Rc<NodeKind>> {
+        vec![Rc::new(NodeKind::from(&self.operand))]
+    }
+}
+
 impl Node for Cast {
     fn children(&self) -> Vec<Rc<NodeKind>> {
         vec![
-            Rc::new(NodeKind::from(&*self.expression)),
-            Rc::new(NodeKind::from(&*self.target_type)),
+            Rc::new(NodeKind::from(&self.expression)),
+            Rc::new(NodeKind::from(&self.target_type)),
         ]
     }
 }
@@ -156,8 +175,8 @@ impl Node for Cast {
 impl Node for IndexAccess {
     fn children(&self) -> Vec<Rc<NodeKind>> {
         vec![
-            Rc::new(NodeKind::from(&*self.array)),
-            Rc::new(NodeKind::from(&*self.index)),
+            Rc::new(NodeKind::from(&self.base)),
+            Rc::new(NodeKind::from(&self.index)),
         ]
     }
 }
@@ -173,17 +192,17 @@ impl Node for Sequence {
 
 impl Node for MemberAccess {
     fn children(&self) -> Vec<Rc<NodeKind>> {
-        vec![Rc::new(NodeKind::from(&*self.base))]
+        vec![Rc::new(NodeKind::from(&self.base))]
     }
 }
 
 impl Node for FunctionCall {
     fn children(&self) -> Vec<Rc<NodeKind>> {
-        let mut children = vec![Rc::new(NodeKind::from(&*self.function))];
+        let mut children = vec![Rc::new(NodeKind::from(&self.function))];
         children.extend(
             self.arguments
                 .iter()
-                .map(|arg| Rc::new(NodeKind::from(&**arg))),
+                .map(|arg| Rc::new(NodeKind::from(arg))),
         );
         children
     }

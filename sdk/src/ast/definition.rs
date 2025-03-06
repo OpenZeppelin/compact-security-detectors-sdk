@@ -6,9 +6,10 @@ use crate::{ast_enum, ast_nodes};
 use super::{
     declaration::Argument,
     expression::Identifier,
-    node::{Node, NodeKind, Type},
+    node::{Node, NodeKind},
     program::CompactNode,
     statement::Block,
+    ty::Type,
 };
 
 ast_enum! {
