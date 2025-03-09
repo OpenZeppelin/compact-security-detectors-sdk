@@ -159,7 +159,7 @@ fn infer_expr(expr: &Expression, env: &Rc<SymbolTable>) -> Option<Type> {
                 | BinaryExpressionOperator::Ge
                 | BinaryExpressionOperator::And
                 | BinaryExpressionOperator::Or => {
-                    if left == right {
+                    if left.matches(&right) {
                         Some(left)
                     } else {
                         panic!("Error: type mismatch in the binary expression")
@@ -170,7 +170,7 @@ fn infer_expr(expr: &Expression, env: &Rc<SymbolTable>) -> Option<Type> {
         Expression::Conditional(conditional) => {
             let then_type = infer_expr(&conditional.then_branch, env)?;
             let else_type = infer_expr(&conditional.else_branch, env)?;
-            if then_type == else_type {
+            if then_type.matches(&else_type) {
                 Some(then_type)
             } else {
                 panic!("Error: type mismatch in the conditional expression")
@@ -181,7 +181,7 @@ fn infer_expr(expr: &Expression, env: &Rc<SymbolTable>) -> Option<Type> {
         Expression::MemberAccess(member_access) => infer_expr(&member_access.base, env),
         Expression::FunctionCall(function_call) => infer_expr(&function_call.function, env),
         Expression::Identifier(identifier) => env.lookup(&identifier.name),
-        Expression::TypeExpressoin(te) => Some(te.clone()),
+        Expression::TypeExpression(te) => Some(te.clone()),
         Expression::Sequence(expression_sequence) => {
             let mut tv = Vec::new();
             for expr in &expression_sequence.expressions {
@@ -298,7 +298,7 @@ mod test {
                         location: default_location(),
                         value: 0,
                     }))),
-                    ty_: Some(Expression::TypeExpressoin(Type::Nat(Rc::new(
+                    ty_: Some(Expression::TypeExpression(Type::Nat(Rc::new(
                         TypeNat::default(),
                     )))),
                 })),
@@ -311,7 +311,7 @@ mod test {
                         location: default_location(),
                         value: 0,
                     }))),
-                    ty_: Some(Expression::TypeExpressoin(Type::Nat(Rc::new(
+                    ty_: Some(Expression::TypeExpression(Type::Nat(Rc::new(
                         TypeNat::default(),
                     )))),
                 })),

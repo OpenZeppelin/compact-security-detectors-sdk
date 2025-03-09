@@ -21,6 +21,32 @@ ast_enum! {
     }
 }
 
+ast_enum! {
+    pub enum TypeRefGenericParam {
+        @raw Type(Type),
+        Nat(Rc<Nat>),
+    }
+}
+
+impl Type {
+    #[must_use]
+    pub fn matches(&self, ty: &Type) -> bool {
+        matches!(
+            (self, ty),
+            (Type::Nat(_), Type::Nat(_))
+                | (Type::Bool(_), Type::Bool(_))
+                | (Type::String(_), Type::String(_))
+                | (Type::Field(_), Type::Field(_))
+                | (Type::Uint(_), Type::Uint(_))
+                | (Type::Vector(_), Type::Vector(_))
+                | (Type::Opaque(_), Type::Opaque(_))
+                | (Type::Bytes(_), Type::Bytes(_))
+                | (Type::Ref(_), Type::Ref(_))
+                | (Type::Sum(_), Type::Sum(_))
+        )
+    }
+}
+
 ast_nodes! {
     #[derive(Default)]
     pub struct TypeNat{}
@@ -46,7 +72,7 @@ ast_nodes! {
     }
     pub struct Ref {
         pub name: Rc<Identifier>,
-        pub generic_parameters: Option<Vec<Type>>,
+        pub generic_parameters: Option<Vec<TypeRefGenericParam>>,
     }
     pub struct Sum {
         pub types: Vec<Type>,

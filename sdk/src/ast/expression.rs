@@ -18,7 +18,7 @@ ast_enum! {
         Sequence(Rc<Sequence>),
         MemberAccess(Rc<MemberAccess>),
         FunctionCall(Rc<FunctionCall>),
-        @raw TypeExpressoin(Type),
+        @raw TypeExpression(Type),
         @raw Literal(Literal),
         @symbol Identifier(Rc<Identifier>),
     }
@@ -43,7 +43,7 @@ impl From<&NodeKind> for Expression {
                 {
                     Expression::FunctionCall(function_call.clone())
                 } else if let Some(type_expr) = cond.as_any().downcast_ref::<Type>() {
-                    Expression::TypeExpressoin(type_expr.clone())
+                    Expression::TypeExpression(type_expr.clone())
                 } else {
                     unreachable!()
                 }
