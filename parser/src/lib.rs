@@ -58,25 +58,6 @@ mod tests {
 
         assert!(compact::TermParser::new().parse("01").is_err());
         assert!(compact::TermParser::new().parse("0123").is_err());
-        assert!(compact::TermParser::new().parse("-1").is_err());
-        assert!(compact::TermParser::new().parse("-0123").is_err());
-    }
-
-    #[test]
-    fn test_parse_version() {
-        assert!(compact::LiteralParser::new().parse("1.2.3").is_ok());
-        assert!(compact::LiteralParser::new().parse("1.2").is_ok());
-        assert!(compact::LiteralParser::new().parse("1").is_ok());
-        assert!(compact::LiteralParser::new()
-            .parse(
-                "
-            1.2.3"
-            )
-            .is_ok());
-
-        assert!(compact::LiteralParser::new().parse("1.2.").is_err());
-        assert!(compact::LiteralParser::new().parse("1.").is_err());
-        assert!(compact::LiteralParser::new().parse("1.2.3.").is_err());
     }
 
     #[test]
@@ -145,41 +126,19 @@ mod tests {
 
     #[test]
     fn test_binary_expression() {
-        assert!(compact::ExpressionParser::new().parse("a ** b").is_ok());
-        assert!(compact::ExpressionParser::new().parse("(a ** b)").is_ok());
-        assert!(compact::ExpressionParser::new().parse("a ** (b ** c)").is_ok());
         assert!(compact::ExpressionParser::new().parse("a * b").is_ok());
-        assert!(compact::ExpressionParser::new().parse("a * b ** c").is_ok());
         assert!(compact::ExpressionParser::new().parse("a / b").is_ok());
-        assert!(compact::ExpressionParser::new().parse("a / b ** c").is_ok());
         assert!(compact::ExpressionParser::new().parse("a % b").is_ok());
-        assert!(compact::ExpressionParser::new().parse("a % b ** c").is_ok());
         assert!(compact::ExpressionParser::new().parse("a + b").is_ok());
-        assert!(compact::ExpressionParser::new().parse("a + b ** c").is_ok());
         assert!(compact::ExpressionParser::new().parse("a - b").is_ok());
-        assert!(compact::ExpressionParser::new().parse("a - b ** c").is_ok());
         assert!(compact::ExpressionParser::new().parse("a < b").is_ok());
-        assert!(compact::ExpressionParser::new().parse("a < b ** c").is_ok());
         assert!(compact::ExpressionParser::new().parse("a <= b").is_ok());
-        assert!(compact::ExpressionParser::new().parse("a <= b ** c").is_ok());
         assert!(compact::ExpressionParser::new().parse("a > b").is_ok());
-        assert!(compact::ExpressionParser::new().parse("a > b ** c").is_ok());
         assert!(compact::ExpressionParser::new().parse("a >= b").is_ok());
-        assert!(compact::ExpressionParser::new().parse("a >= b ** c").is_ok());
         assert!(compact::ExpressionParser::new().parse("a == b").is_ok());
-        assert!(compact::ExpressionParser::new().parse("a == b ** c").is_ok());
         assert!(compact::ExpressionParser::new().parse("a != b").is_ok());
-        assert!(compact::ExpressionParser::new().parse("a != b ** c").is_ok());
-        assert!(compact::ExpressionParser::new().parse("a & b").is_ok());
-        assert!(compact::ExpressionParser::new().parse("a & b ** c").is_ok());
-        assert!(compact::ExpressionParser::new().parse("a ^ b").is_ok());
-        assert!(compact::ExpressionParser::new().parse("a ^ b ** c").is_ok());
-        assert!(compact::ExpressionParser::new().parse("a | b").is_ok());
-        assert!(compact::ExpressionParser::new().parse("a | b ** c").is_ok());
         assert!(compact::ExpressionParser::new().parse("a && b").is_ok());
-        assert!(compact::ExpressionParser::new().parse("a && b ** c").is_ok());
         assert!(compact::ExpressionParser::new().parse("a || b || c").is_ok());
-        assert!(compact::ExpressionParser::new().parse("a || b ** c").is_ok());
     }
 
     #[test]
@@ -194,7 +153,6 @@ mod tests {
         assert!(compact::TermParser::new().parse("a = 1;").is_ok());
         assert!(compact::TermParser::new().parse("a += 1;").is_ok());
         assert!(compact::TermParser::new().parse("a -= 1;").is_ok());
-        //FIXME assert!(compact::TermParser::new().parse("a =- 1;").is_err());
         assert!(compact::TermParser::new().parse("a =+ 1;").is_err());
     }
 
@@ -308,7 +266,6 @@ mod tests {
         assert!(compact::TermParser::new().parse("ledger test: some<Boolean,Nat>;").is_ok());
         assert!(compact::TermParser::new().parse("ledger test: [ Boolean, Field, Vector<1, Boolean>, Uint<1234> ];").is_ok());
         assert!(compact::TermParser::new().parse("ledger test: [ ref_type<a, b, c, d> , ref_type<a, b, c, d> ];").is_ok());
-        // // FIXME this is a weird sutiation why fails assert!(compact::TermParser::new().parse("ledger test: some<Bytes<123>>;").is_ok());
         assert!(compact::TermParser::new().parse("ledger test: some<Bytes<123> >;").is_ok());
         assert!(compact::TermParser::new().parse("ledger test: some<Uint<123>,Some<T>>;").is_ok());
     }
@@ -344,8 +301,8 @@ mod tests {
         assert!(compact::TermParser::new().parse("export circuit test<>(a: Boolean, b: Field, c: Vector<1, Boolean>): Field { }").is_ok());
         assert!(compact::TermParser::new().parse("export circuit test<#A>(a: Boolean, b: Field, c: Vector<1, Boolean>): Field;").is_ok());
         assert!(compact::TermParser::new().parse("export pure circuit test<#A, #B>(a: Boolean, b: Field, c: Vector<1, Boolean>): Field { }").is_ok());
-        assert!(compact::TermParser::new().parse("export pure circuit test<#A, B>(a: Boolean, b: Field, c: Vector<1, Boolean>): Field { return a ** 2 + b **2 - (2 + c);}").is_ok());
-        assert!(compact::TermParser::new().parse("export pure circuit test<A, #B>(a: Boolean, b: Field, c: Vector<1, Boolean>): Field { return a ** 2 + b **2 - (2 + c);}").is_ok());
+        assert!(compact::TermParser::new().parse("export pure circuit test<#A, B>(a: Boolean, b: Field, c: Vector<1, Boolean>): Field { return a * 2 + b * 2 - (2 + c);}").is_ok());
+        assert!(compact::TermParser::new().parse("export pure circuit test<A, #B>(a: Boolean, b: Field, c: Vector<1, Boolean>): Field { return a * 2 + b * 2 - (2 + c);}").is_ok());
     }
 
     #[test]
@@ -409,34 +366,21 @@ mod tests {
         assert!(compact::ExpressionParser::new().parse("a[1]").is_ok());
         assert!(compact::ExpressionParser::new().parse("v[1][b]").is_ok());
         assert!(compact::ExpressionParser::new().parse("!a").is_ok());
-        assert!(compact::ExpressionParser::new().parse("-a").is_ok());
-        assert!(compact::ExpressionParser::new().parse("a ** 2").is_ok());
-        assert!(compact::ExpressionParser::new().parse("a ** -2").is_ok());
-        assert!(compact::ExpressionParser::new().parse("!a ** -2").is_ok());
-        assert!(compact::ExpressionParser::new().parse("-a ** b[-2]").is_ok());
-        assert!(compact::ExpressionParser::new().parse("-a[v] ** b[-2]").is_ok());
-        assert!(compact::ExpressionParser::new().parse("a ** b % c").is_ok());
-        assert!(compact::ExpressionParser::new().parse("a ** (b % c)").is_ok());
-        assert!(compact::ExpressionParser::new().parse("a ** b % c ** d").is_ok());
-        assert!(compact::ExpressionParser::new().parse("a ** (b % c ** d)").is_ok());
         assert!(compact::ExpressionParser::new().parse("a * b").is_ok());
-        assert!(compact::ExpressionParser::new().parse("a * b ** c").is_ok());
         assert!(compact::ExpressionParser::new().parse("a / b").is_ok());
-        assert!(compact::ExpressionParser::new().parse("a / b ** c").is_ok());
         assert!(compact::ExpressionParser::new().parse("a % b").is_ok());
-        assert!(compact::ExpressionParser::new().parse("a % b ** c").is_ok());
         assert!(compact::ExpressionParser::new().parse("a + b").is_ok());
-        assert!(compact::ExpressionParser::new().parse("a + b ** c").is_ok());
-        assert!(compact::ExpressionParser::new().parse("a + (b ** (c - d))").is_ok());
         assert!(compact::ExpressionParser::new().parse("a - b").is_ok());
-        assert!(compact::ExpressionParser::new().parse("a - b ** c").is_ok());
-        assert!(compact::ExpressionParser::new().parse("a & b").is_ok());
-        assert!(compact::ExpressionParser::new().parse("a ^ b").is_ok());
-        assert!(compact::ExpressionParser::new().parse("a ^ b % (a ** c)").is_ok());
-        assert!(compact::ExpressionParser::new().parse("a | b").is_ok());
         assert!(compact::ExpressionParser::new().parse("v[0] != v[1]").is_ok());
         assert!(compact::ExpressionParser::new().parse("v[0] != v[1] && v[0] != v[2]").is_ok());
         assert!(compact::ExpressionParser::new().parse("(v[0] != v[1] && v[0] != v[2])").is_ok());
+    }
+
+    #[test]
+    fn test_conditional_expression() {
+        assert!(compact::ExpressionParser::new().parse("a ? b : c").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a > c ? b : c").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a > c ? b + 1: c[v]").is_ok());
     }
 
     #[test]

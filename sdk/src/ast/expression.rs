@@ -81,7 +81,7 @@ ast_nodes! {
 
     pub struct Cast {
         pub expression: Expression,
-        pub target_type: Expression,
+        pub target_type: Type,
     }
 
     pub struct IndexAccess {
@@ -91,7 +91,7 @@ ast_nodes! {
 
     pub struct MemberAccess {
         pub base: Expression,
-        pub member: String,
+        pub member: Rc<Identifier>,
     }
 
     pub struct FunctionCall {

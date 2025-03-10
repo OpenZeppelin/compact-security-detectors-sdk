@@ -176,7 +176,7 @@ fn infer_expr(expr: &Expression, env: &Rc<SymbolTable>) -> Option<Type> {
                 panic!("Error: type mismatch in the conditional expression")
             }
         }
-        Expression::Cast(cast) => infer_expr(&cast.target_type, env),
+        Expression::Cast(cast) => Some(cast.target_type.clone()),
         Expression::IndexAccess(index_access) => infer_expr(&index_access.base, env),
         Expression::MemberAccess(member_access) => infer_expr(&member_access.base, env),
         Expression::FunctionCall(function_call) => infer_expr(&function_call.function, env),
@@ -485,11 +485,7 @@ mod test {
                 location: default_location(),
                 value: 0,
             }))),
-            target_type: Expression::Literal(Literal::Str(Rc::new(Str {
-                id: 14,
-                location: default_location(),
-                value: String::default(),
-            }))),
+            target_type: Type::String(Rc::new(TypeString::default())),
         };
         let expr = Expression::Cast(Rc::new(cast));
         let ty = infer_expr(&expr, &env).unwrap();
@@ -511,7 +507,11 @@ mod test {
             id: 15,
             location: default_location(),
             base: Expression::Identifier(mock_identifier(16, "a")),
-            member: "dummy".to_string(),
+            member: Rc::new(Identifier {
+                id: 17,
+                location: default_location(),
+                name: "member".to_string(),
+            }),
         };
         let expr = Expression::MemberAccess(Rc::new(member_access));
         let ty = infer_expr(&expr, &env).unwrap();

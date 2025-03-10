@@ -40,11 +40,14 @@ use midnight_security_rules_sdk::ast::expression::{
     Binary,
     Unary,
     Expression,
+    Conditional,
+    Cast,
     Sequence,
     Identifier,
     BinaryExpressionOperator,
     UnaryExpressionOperator,
     IndexAccess,
+    MemberAccess,
 };
 use midnight_security_rules_sdk::ast::program::CompactNode;
 
@@ -195,7 +198,18 @@ Block: Rc<Block> = {
     }),
 }
 
-pub Expression: Expression = Or;
+pub Expression: Expression = Conditional;
+
+Conditional: Expression = {
+    <start: @L> <e1:Conditional> "?" <e2:Conditional> ":" <e3:Or> <end: @R> => Expression::Conditional(Rc::new(Conditional {
+        id: 0,
+        location: Location::new(start, end),
+        condition: e1,
+        then_branch: e2,
+        else_branch: e3
+    })),
+    Or
+}
 
 Or: Expression = {
     <start: @L> <e1:Or> "||" <e2:And> <end: @R> => Expression::Binary(Rc::new(Binary {
@@ -209,19 +223,33 @@ Or: Expression = {
 }
 
 And: Expression = {
-    <start: @L> <e1:And> "&&" <e2:Comparison> <end: @R> => Expression::Binary(Rc::new(Binary {
+    <start: @L> <e1:And> "&&" <e2:EqualsComparison> <end: @R> => Expression::Binary(Rc::new(Binary {
         id: 0,
         location: Location::new(start, end),
         left: e1,
         right: e2,
         operator: BinaryExpressionOperator::And
     })),
+    EqualsComparison
+}
+
+EqualsComparisonComparisonOperator: BinaryExpressionOperator = {
+    "==" => BinaryExpressionOperator::Eq,
+    "!=" => BinaryExpressionOperator::Ne,
+}
+
+EqualsComparison: Expression = {
+    <start: @L> <e1:EqualsComparison> <op:EqualsComparisonComparisonOperator> <e2:Comparison> <end: @R> => Expression::Binary(Rc::new(Binary {
+        id: 0,
+        location: Location::new(start, end),
+        left: e1,
+        right: e2,
+        operator: op
+    })),
     Comparison
 }
 
 ComparisonOperator: BinaryExpressionOperator = {
-    "==" => BinaryExpressionOperator::Eq,
-    "!=" => BinaryExpressionOperator::Ne,
     "<" => BinaryExpressionOperator::Lt,
     "<=" => BinaryExpressionOperator::Le,
     ">" => BinaryExpressionOperator::Gt,
@@ -229,61 +257,23 @@ ComparisonOperator: BinaryExpressionOperator = {
 }
 
 Comparison: Expression = {
-    <start: @L> <e1:BitOr> <op:ComparisonOperator> <e2:BitOr> <end: @R> => Expression::Binary(Rc::new(Binary {
+    <start: @L> <e1:Comparison> <op:ComparisonOperator> <e2:Sum> <end: @R> => Expression::Binary(Rc::new(Binary {
         id: 0,
         location: Location::new(start, end),
         left: e1,
         right: e2,
         operator: op
     })),
-    BitOr
-}
-
-BitOr: Expression = {
-    <start: @L> <e1:BitXor> "|" <e2:BitOr> <end: @R> => Expression::Binary(Rc::new(Binary {
-        id: 0,
-        location: Location::new(start, end),
-        left: e1,
-        right: e2,
-        operator: BinaryExpressionOperator::BitOr
-    })),
-    BitXor
-}
-
-BitXor: Expression = {
-    <start: @L> <e1:BitAnd> "^" <e2:BitXor> <end: @R> => Expression::Binary(Rc::new(Binary {
-        id: 0,
-        location: Location::new(start, end),
-        left: e1,
-        right: e2,
-        operator: BinaryExpressionOperator::BitXor
-    })),
-    BitAnd
-}
-
-BitAnd: Expression = {
-    <start: @L> <e1:Sum> "&" <e2:BitAnd> <end: @R> => Expression::Binary(Rc::new(Binary {
-        id: 0,
-        location: Location::new(start, end),
-        left: e1,
-        right: e2,
-        operator: BinaryExpressionOperator::BitAnd
-    })),
     Sum
 }
 
-// BitShiftOperator: BinaryExpressionOperator = {
-//     "<<" => BinaryExpressionOperator::Shl,
-//     ">>" => BinaryExpressionOperator::Shr,
-// }
-
-// BitShift: Expression = {
-//     <start: @L> <e1:Sum> <op:BitShiftOperator> <e2:BitShift> <end: @R> => Expression::Binary(Rc::new(Binary {
+// TODO ambiguity
+// Cast: Expression = {
+//     <start: @L> <e:Cast> "as" <t:Type> <end: @R> => Expression::Cast(Rc::new(Cast {
 //         id: 0,
 //         location: Location::new(start, end),
-//         left: e1,
-//         right: e2,
-//         operator: op
+//         expression: e,
+//         target_type: t
 //     })),
 //     Sum
 // }
@@ -311,30 +301,18 @@ ProductOperator: BinaryExpressionOperator = {
 }
 
 Product: Expression = {
-    <start: @L> <e1:Power> <op:ProductOperator> <e2:Product> <end: @R> => Expression::Binary(Rc::new(Binary {
+    <start: @L> <e1:Product> <op:ProductOperator> <e2:Unary> <end: @R> => Expression::Binary(Rc::new(Binary {
         id: 0,
         location: Location::new(start, end),
         left: e1,
         right: e2,
         operator: op
     })),
-    Power
-}
-
-Power: Expression = {
-    <start: @L> <e1:Unary> "**" <e2:Power> <end: @R> => Expression::Binary(Rc::new(Binary {
-        id: 0,
-        location: Location::new(start, end),
-        left: e1,
-        right: e2,
-        operator: BinaryExpressionOperator::Pow
-    })),
     Unary
 }
 
 UnaryExpressionOperator: UnaryExpressionOperator = {
     "!" => UnaryExpressionOperator::Not,
-    "-" => UnaryExpressionOperator::Neg,
 }
 
 Unary : Expression = {
@@ -358,19 +336,22 @@ IndexAccess: Rc<IndexAccess> = {
     })
 }
 
-ExprTier<Curr, Next> : Expression = {
-    ExprTier<Curr, Next> Curr Next => <>,
-    Next
+MemberAccess: Rc<MemberAccess> = {
+    <start: @L> <e1:CommonExpression> "." <e2:IdentifierString> <end: @R> => Rc::new(MemberAccess {
+        id: 0,
+        location: Location::new(start, end),
+        base: e1,
+        member: Rc::new(Identifier {
+            id: 0,
+            location: Location::new(start, end),
+            name: e2
+        })
+    })
 }
-
-// CommonExpression = ExprTier<IndexAccess, LiteralExpression>;
-
-// LiteralExpression: Expression = {
-//     <l:Literal> => Expression::Literal(l),
-// }
 
 CommonExpression : Expression = {
     <i:IndexAccess> => Expression::IndexAccess(i),
+    <m:MemberAccess> => Expression::MemberAccess(m),
     <l:Literal> => Expression::Literal(l),
     <i:Identifier> => Expression::Identifier(i),
      "(" <e: Expression> ")" => e,
@@ -378,7 +359,6 @@ CommonExpression : Expression = {
 }
 
 pub Literal : Literal = {
-    <v:Version> => Literal::Version(v),
     <n:Nat> => Literal::Nat(n),
     <b:Bool> => Literal::Bool(b),
     <s:Str> => Literal::Str(s),
@@ -387,11 +367,6 @@ pub Literal : Literal = {
 TypeExpression : Expression = {
     <t:Type> => Expression::TypeExpression(t),
 }
-
-// Type: Type = {
-//     <t:BaseType> => t,
-//     <t:GenericType> => t,
-// }
 
 TypeRefGenericParam: TypeRefGenericParam = {
     // <n: Nat> => TypeRefGenericParam::Nat(n),
@@ -403,70 +378,24 @@ TypeRefGenericParameters: Vec<TypeRefGenericParam> = {
     "<" <arg: TypeRefGenericParam> ">" => vec![arg]
 }
 
-// GenericType: Type = {
-//     <start: @L> <i: Identifier> "<" <generic_parameters: TypeRefGenericParameters> ">" <end: @R>=> Type::Ref(Rc::new(Ref {
-//         id: 0,
-//         location: Location::new(start, end),
-//         name: i,
-//         generic_parameters: Some(generic_parameters)
-//     }))
-// }
-
-// TypeGenericParameters: Vec<TypeRefGenericParam> = {
-//     <t:Type> => vec![TypeRefGenericParam::Type(t)],
-//     <CommaTwo<Type>> => <>.map(|t| TypeRefGenericParam::Type(t)).collect()
-// }
-
-// Type: Type = TypeTerm
-
-// TypeTerm<Op,NextTier>: Type = {
-//     TypeTerm<Op,NextTier> Op NextTier => Box::new(Expr::Op(<>)),
-//     NextTier
-// };
-
 Type: Type = {
-    <start: @L> <i:Identifier> <generic_parameters: TypeRefGenericParameters?> <end: @R>=> Type::Ref(Rc::new(Ref {
+    <start: @L> <i:IdentifierString> <generic_parameters: TypeRefGenericParameters?> <end: @R>=> Type::Ref(Rc::new(Ref {
         id: 0,
         location: Location::new(start, end),
-        name: i,
+        name: Rc::new(Identifier {
+            id: 0,
+            location: Location::new(start, end),
+            name: i
+        }),
         generic_parameters: generic_parameters
     })),
     <start: @L> "Boolean" <end:@R> => Type::Bool(Rc::new(TypeBool {id: 0,location: Location::new(start, end)})),
     <start: @L> "Field" <end: @R> => Type::Field(Rc::new(TypeField {id: 0, location: Location::new(start, end)})),
-    <start: @L> "Uint" "<" <s:Nat> ">" <end: @R> => Type::Uint(Rc::new(Uint {
-        id: 0,
-        location: Location::new(start, end),
-        start: s,
-        end: None
-    })),
-    <start: @L> "Uint" "<" <s:Nat> ".." <e:Nat> ">" <end: @R> => Type::Uint(Rc::new(Uint {
-        id: 0,
-        location: Location::new(start, end),
-        start: s,
-        end: Some(e)
-    })),
-    <start: @L> "Vector" "<" <s:Nat> "," <t:Type> ">" <end: @R> => Type::Vector(Rc::new(Vector {
-        id: 0,
-        location: Location::new(start, end),
-        size: s,
-        ty: t
-    })),
-    <start: @L> "Bytes" "<" <s:Nat> ">" <end: @R> => Type::Bytes(Rc::new(Bytes {
-        id: 0,
-        location: Location::new(start, end),
-        size: s
-    })),
-    <start: @L> "Opaque" "<" <s:Str> ">" <end: @R> => Type::Opaque(Rc::new(Opaque {
-        id: 0,
-        location: Location::new(start, end),
-        value: s
-    })),
-    // <start: @L> <i:Identifier> <end: @R> => Type::Ref(Rc::new(Ref {
-    //     id: 0,
-    //     location: Location::new(start, end),
-    //     name: i,
-    //     generic_parameters: None
-    // })),
+    <start: @L> "Uint" "<" <s:Nat> ">" <end: @R> => Type::Uint(Rc::new(Uint {id: 0,location: Location::new(start, end),start: s,end: None})),
+    <start: @L> "Uint" "<" <s:Nat> ".." <e:Nat> ">" <end: @R> => Type::Uint(Rc::new(Uint {id: 0,location: Location::new(start, end),start: s,end: Some(e)})),
+    <start: @L> "Vector" "<" <s:Nat> "," <t:Type> ">" <end: @R> => Type::Vector(Rc::new(Vector {id: 0,location: Location::new(start, end),size: s,ty: t})),
+    <start: @L> "Bytes" "<" <s:Nat> ">" <end: @R> => Type::Bytes(Rc::new(Bytes {id: 0,location: Location::new(start, end),size: s})),
+    <start: @L> "Opaque" "<" <s:Str> ">" <end: @R> => Type::Opaque(Rc::new(Opaque {id: 0,location: Location::new(start, end),value: s})),
     "[" <CommaTwo<Type>> "]"=> Type::Sum(Rc::new(Sum {
         id: 0,
         location: Location {
@@ -843,17 +772,12 @@ Arguments: Vec<Rc<Argument>> = {
     "(" <CommaTwo<Argument>> ")" => <>
 }
 
-GenericParameterId: Rc<Identifier> = {
-    <start: @L> "#" <i:Identifier> <end: @R> => Rc::new(Identifier {
+GenericParameter: Rc<Identifier> = {
+    <start: @L> "#"? <i:IdentifierString> <end: @R> => Rc::new(Identifier {
         id: 0,
         location: Location::new(start, end),
-        name: format!("#{}", i.name),
+        name: i,
     })
-}
-
-GenericParameter: Rc<Identifier> = {
-    <i:GenericParameterId> => i,
-    <i:Identifier> => i
 }
 
 GenericParameters: Vec<Rc<Identifier>> = {
