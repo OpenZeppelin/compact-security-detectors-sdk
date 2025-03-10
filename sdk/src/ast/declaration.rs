@@ -103,6 +103,12 @@ impl Node for Import {
     }
 }
 
+impl Import {
+    pub fn name(&self) -> String {
+        self.value.name.clone()
+    }
+}
+
 impl Node for Export {
     fn children(&self) -> Vec<Rc<NodeKind>> {
         vec![]
@@ -118,6 +124,13 @@ impl Node for Witness {
         vec![]
     }
 }
+
+impl Ledger {
+    pub fn name(&self) -> String {
+        self.name.name.clone()
+    }
+}
+
 impl Node for Ledger {
     fn children(&self) -> Vec<Rc<NodeKind>> {
         vec![]

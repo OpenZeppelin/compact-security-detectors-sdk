@@ -9,7 +9,13 @@ use super::{
 };
 
 #[derive(Clone, PartialEq, Eq, Debug, Default, serde::Serialize, serde::Deserialize)]
-pub struct Program {}
+pub struct Program {
+    pub directives: Vec<Directive>,
+    pub declarations: Vec<Declaration>,
+    pub definitions: Vec<Definition>,
+    pub statements: Vec<Statement>,
+    pub modules: Vec<Rc<Module>>,
+}
 
 #[derive(Clone, PartialEq, Eq, Debug, serde::Serialize, serde::Deserialize)]
 pub enum CompactNode {

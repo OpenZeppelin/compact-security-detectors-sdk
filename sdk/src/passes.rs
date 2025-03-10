@@ -205,7 +205,7 @@ mod test {
     use crate::ast::{
         declaration::Declaration,
         definition::Definition,
-        directive::PragmaOperator,
+        directive::VersionExpr,
         expression::{Binary, Conditional, Identifier, Sequence},
         literal::{Bool, Nat, Str, Version},
         node::Location,
@@ -402,12 +402,13 @@ mod test {
                 location: default_location(),
                 value: 0,
             }),
-            minor: Rc::new(Nat {
+            minor: Some(Rc::new(Nat {
                 id: 6,
                 location: default_location(),
                 value: 0,
-            }),
+            })),
             bugfix: None,
+            operator: crate::ast::literal::VersionOperator::Gt,
         })));
         let ty = infer_expr(&expr, &env);
         // We treat Version as Unknown
@@ -848,7 +849,7 @@ mod test {
                 location: default_location(),
                 name: "pragma".to_string(),
             }),
-            version: Rc::new(Version {
+            version: VersionExpr::Version(Rc::new(Version {
                 id: 59,
                 location: default_location(),
                 major: Rc::new(Nat {
@@ -856,14 +857,14 @@ mod test {
                     location: default_location(),
                     value: 0,
                 }),
-                minor: Rc::new(Nat {
+                minor: Some(Rc::new(Nat {
                     id: 61,
                     location: default_location(),
                     value: 0,
-                }),
+                })),
                 bugfix: None,
-            }),
-            operator: PragmaOperator::Ge,
+                operator: crate::ast::literal::VersionOperator::Gt,
+            })),
         };
 
         let dirs = vec![crate::ast::directive::Directive::Pragma(Rc::new(pragma))];

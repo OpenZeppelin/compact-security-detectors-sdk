@@ -2,6 +2,8 @@
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, marker::PhantomData};
 
+use crate::ast::program::Program;
+
 #[allow(dead_code)]
 trait CodebaseOpen {}
 #[allow(dead_code)]
@@ -13,10 +15,9 @@ impl CodebaseOpen for OpenState {}
 pub struct SealedState;
 impl CodebaseSealed for SealedState {}
 
-#[allow(dead_code)] //REMOVE
 pub struct SourceCodeFile {
     pub(crate) fname: String,
-    pub(crate) content: String,
+    pub(crate) ast: Program,
 }
 
 #[derive(Serialize, Deserialize)]

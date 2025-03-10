@@ -26,9 +26,20 @@ ast_nodes! {
     }
     pub struct Version {
         pub major: Rc<Nat>,
-        pub minor: Rc<Nat>,
+        pub minor: Option<Rc<Nat>>,
         pub bugfix: Option<Rc<Nat>>,
+        pub operator: VersionOperator,
     }
+}
+
+#[derive(Clone, PartialEq, Eq, Debug, serde::Serialize, serde::Deserialize)]
+pub enum VersionOperator {
+    Gt,
+    Ge,
+    Lt,
+    Le,
+    Eq,
+    Neq,
 }
 
 impl Node for Nat {
