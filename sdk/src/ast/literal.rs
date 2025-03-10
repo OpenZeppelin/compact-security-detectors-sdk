@@ -1,10 +1,9 @@
 #![warn(clippy::pedantic)]
 use std::rc::Rc;
 
-use crate::{
-    ast_enum, ast_nodes,
-    passes::{Node, NodeKind},
-};
+use crate::{ast_enum, ast_nodes};
+
+use super::node::{Node, NodeKind};
 
 ast_enum! {
     pub enum Literal {
@@ -16,10 +15,20 @@ ast_enum! {
 }
 
 ast_nodes! {
-    pub struct Nat {}
-    pub struct Bool {}
-    pub struct Str {}
-    pub struct Version {}
+    pub struct Nat {
+        pub value: u64,
+    }
+    pub struct Bool {
+        pub value: bool,
+    }
+    pub struct Str {
+        pub value: String,
+    }
+    pub struct Version {
+        pub major: Rc<Nat>,
+        pub minor: Rc<Nat>,
+        pub bugfix: Option<Rc<Nat>>,
+    }
 }
 
 impl Node for Nat {

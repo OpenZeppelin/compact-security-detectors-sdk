@@ -1,0 +1,803 @@
+use std::str::FromStr;
+use std::rc::Rc;
+use midnight_security_rules_sdk::ast::node::{ Location };
+use midnight_security_rules_sdk::ast::ty::{ 
+    Type,
+    TypeBool,
+    TypeField,
+    Uint,
+    Vector,
+    Opaque,
+    Bytes,
+    TypeRefGenericParam,
+    Ref,
+    Sum
+};
+use midnight_security_rules_sdk::ast::literal::{ Literal, Nat, Bool, Version, Str };
+use midnight_security_rules_sdk::ast::directive::{ Directive, Pragma, PragmaOperator };
+use midnight_security_rules_sdk::ast::definition::{
+    Definition,
+    Module,
+    Circuit,
+    Structure,
+    Field,
+    Enum
+};
+use midnight_security_rules_sdk::ast::statement::{ Statement, Assign, Assert, AssignOperator, Const, Block, If, For, Return };
+use midnight_security_rules_sdk::ast::declaration::{
+    Argument,
+    Constructor,
+    Contract,
+    StructPatternItem,
+    Declaration,
+    Import,
+    Export,
+    Ledger,
+    Pattern,
+    Witness
+};
+use midnight_security_rules_sdk::ast::expression::{
+    Binary,
+    Unary,
+    Expression,
+    Conditional,
+    Cast,
+    Sequence,
+    Identifier,
+    BinaryExpressionOperator,
+    UnaryExpressionOperator,
+    IndexAccess,
+    MemberAccess,
+};
+use midnight_security_rules_sdk::ast::program::CompactNode;
+
+grammar;
+
+match {
+    // Skip whitespace and comments
+    r"\s*" => { },
+    r"//[^\n\r]*[\n\r]*" => { }, // `// comment`
+    r"/\*([^\*]*\*+[^\*/])*([^\*]*\*+|[^\*])*\*/" => { }, // `/* comment */`
+    _,
+}
+
+pub Term: CompactNode = {
+    <d:Directive> => CompactNode::Directive(d),
+    <d:Declaration> => CompactNode::Declaration(d),
+    <d:Definition> => CompactNode::Definition(d),
+    <s:Statement> => CompactNode::Statement(s)
+}
+
+pub Directive: Directive = {
+    <p:Pragma> => Directive::Pragma(p),
+}
+
+pub Declaration: Declaration = {
+    <c:Constructor> => Declaration::Constructor(c),
+    <c:Contract> => Declaration::Contract(c),
+    <i:Import> => Declaration::Import(i),
+    <e:Export> => Declaration::Export(e),
+    <l:Ledger> => Declaration::Ledger(l),
+    <w:Witness> => Declaration::Witness(w),
+}
+
+pub Definition: Definition = {
+    <m:Module> => Definition::Module(m),
+    <c:Circuit> => Definition::Circuit(c),
+    <s:Structure> => Definition::Structure(s),
+    <e:Enum> => Definition::Enum(e),
+}
+
+pub Statement: Statement = {
+    <start: @L> <e1:Expression> "=" <e2:Expression> ";" <end: @R> => Statement::Assign(Rc::new(Assign {
+        id: 0,
+        location: Location::new(start, end),
+        target: e1,
+        value: e2,
+        operator: AssignOperator::Simple
+    })),
+    <start: @L> <e1:Expression> "+=" <e2:Expression> ";" <end: @R> => Statement::Assign(Rc::new(Assign {
+        id: 0,
+        location: Location::new(start, end),
+        target: e1,
+        value: e2,
+        operator: AssignOperator::Add
+    })),
+    <start: @L> <e1:Expression> "-=" <e2:Expression> ";" <end: @R> => Statement::Assign(Rc::new(Assign {
+        id: 0,
+        location: Location::new(start, end),
+        target: e1,
+        value: e2,
+        operator: AssignOperator::Sub
+    })),
+    <start: @L> <e:Expression> ";" <end: @R> => Statement::Expression(e),
+    <start: @L> "return" ";" <end: @R> => Statement::Return(Rc::new(Return {
+        id: 0,
+        location: Location::new(start, end),
+        value: None
+    })),
+     <start: @L> "return" <e:Expression> ";" <end: @R> => Statement::Return(Rc::new(Return {
+        id: 0,
+        location: Location::new(start, end),
+        value: Some(e)
+    })),
+    <start: @L> "return" <s:Sequence> ";" <end: @R> => Statement::Return(Rc::new(Return { //This is not ideal, revisit later
+        id: 0,
+        location: Location::new(start, end),
+        value: Some(Expression::Sequence(s))
+    })),
+    <start: @L>  <s:Sequence> ";"  <end: @R> => {
+        Statement::ExpressionSequence(s)
+    },
+    <start: @L> "if" "(" <e:Expression> ")" <b:Block> <end: @R> => {
+        Statement::If(Rc::new(If {
+            id: 0,
+            location: Location::new(start, end),
+            condition: e,
+            then_branch: b,
+            else_branch: None
+        }))
+    },
+    <start: @L> "if" "(" <e:Expression> ")" <b1:Block> "else" <b2:Block> <end: @R> => {
+        Statement::If(Rc::new(If {
+            id: 0,
+            location: Location::new(start, end),
+            condition: e,
+            then_branch: b1,
+            else_branch: Some(b2)
+        }))
+    },
+    <start: @L> "for" "(" "const" <i:Identifier> "of" <n1:Nat> ".." <n2:Nat> ")" <b:Block> <end: @R> => {
+        Statement::For(Rc::new(For {
+            id: 0,
+            location: Location::new(start, end),
+            counter: i,
+            range: Some((n1, n2)),
+            limit: None,
+            body: b
+        }))
+    },
+    <start: @L> "for" "(" "const" <i:Identifier> "of" <e:Expression> ")" <b:Block> <end: @R> => {
+        Statement::For(Rc::new(For {
+            id: 0,
+            location: Location::new(start, end),
+            counter: i,
+            range: None,
+            limit: Some(e),
+            body: b
+        }))
+    },
+    <start: @L> "assert" <e:Expression> <s:Str?> ";" <end: @R> => Statement::Assert(Rc::new(Assert {
+        id: 0,
+        location: Location::new(start, end),
+        condition: e,
+        msg: s,
+    })),
+    <start: @L> "const" <p:Pattern> "=" <e:Expression> ";" <end: @R> => Statement::Const(Rc::new(Const {
+        id: 0,
+        location: Location::new(start, end),
+        pattern: p,
+        value: e,
+        ty: None
+    })),
+    <start: @L> "const" <p:Pattern> ":" <t:Expression> "=" <e:Expression> ";" <end: @R> => Statement::Const(Rc::new(Const {
+        id: 0,
+        location: Location::new(start, end),
+        pattern: p,
+        value: e,
+        ty: Some(t)
+    })),
+    <b:Block> => Statement::Block(b),
+}
+
+Block: Rc<Block> = {
+    <start: @L> "{" <statements:Statement*> "}" <end: @R> => Rc::new(Block {
+        id: 0,
+        location: Location::new(start, end),
+        statements
+    }),
+}
+
+pub Expression: Expression = Conditional;
+
+Conditional: Expression = {
+    <start: @L> <e1:Conditional> "?" <e2:Conditional> ":" <e3:Or> <end: @R> => Expression::Conditional(Rc::new(Conditional {
+        id: 0,
+        location: Location::new(start, end),
+        condition: e1,
+        then_branch: e2,
+        else_branch: e3
+    })),
+    Or
+}
+
+Or: Expression = {
+    <start: @L> <e1:Or> "||" <e2:And> <end: @R> => Expression::Binary(Rc::new(Binary {
+        id: 0,
+        location: Location::new(start, end),
+        left: e1,
+        right: e2,
+        operator: BinaryExpressionOperator::Or
+    })),
+    And
+}
+
+And: Expression = {
+    <start: @L> <e1:And> "&&" <e2:EqualsComparison> <end: @R> => Expression::Binary(Rc::new(Binary {
+        id: 0,
+        location: Location::new(start, end),
+        left: e1,
+        right: e2,
+        operator: BinaryExpressionOperator::And
+    })),
+    EqualsComparison
+}
+
+EqualsComparisonComparisonOperator: BinaryExpressionOperator = {
+    "==" => BinaryExpressionOperator::Eq,
+    "!=" => BinaryExpressionOperator::Ne,
+}
+
+EqualsComparison: Expression = {
+    <start: @L> <e1:EqualsComparison> <op:EqualsComparisonComparisonOperator> <e2:Comparison> <end: @R> => Expression::Binary(Rc::new(Binary {
+        id: 0,
+        location: Location::new(start, end),
+        left: e1,
+        right: e2,
+        operator: op
+    })),
+    Comparison
+}
+
+ComparisonOperator: BinaryExpressionOperator = {
+    "<" => BinaryExpressionOperator::Lt,
+    "<=" => BinaryExpressionOperator::Le,
+    ">" => BinaryExpressionOperator::Gt,
+    ">=" => BinaryExpressionOperator::Ge,
+}
+
+Comparison: Expression = {
+    <start: @L> <e1:Comparison> <op:ComparisonOperator> <e2:Sum> <end: @R> => Expression::Binary(Rc::new(Binary {
+        id: 0,
+        location: Location::new(start, end),
+        left: e1,
+        right: e2,
+        operator: op
+    })),
+    Sum
+}
+
+// TODO ambiguity
+// Cast: Expression = {
+//     <start: @L> <e:Cast> "as" <t:Type> <end: @R> => Expression::Cast(Rc::new(Cast {
+//         id: 0,
+//         location: Location::new(start, end),
+//         expression: e,
+//         target_type: t
+//     })),
+//     Sum
+// }
+
+SumOperator: BinaryExpressionOperator = {
+    "+" => BinaryExpressionOperator::Add,
+    "-" => BinaryExpressionOperator::Sub,
+}
+
+Sum: Expression = {
+    <start: @L> <e1:Product> <op:SumOperator> <e2:Sum> <end: @R> => Expression::Binary(Rc::new(Binary {
+        id: 0,
+        location: Location::new(start, end),
+        left: e1,
+        right: e2,
+        operator: op
+    })),
+    Product
+}
+
+ProductOperator: BinaryExpressionOperator = {
+    "*" => BinaryExpressionOperator::Mul,
+    "/" => BinaryExpressionOperator::Div,
+    "%" => BinaryExpressionOperator::Mod,
+}
+
+Product: Expression = {
+    <start: @L> <e1:Product> <op:ProductOperator> <e2:Unary> <end: @R> => Expression::Binary(Rc::new(Binary {
+        id: 0,
+        location: Location::new(start, end),
+        left: e1,
+        right: e2,
+        operator: op
+    })),
+    Unary
+}
+
+UnaryExpressionOperator: UnaryExpressionOperator = {
+    "!" => UnaryExpressionOperator::Not,
+}
+
+Unary : Expression = {
+    <start: @L> <op:UnaryExpressionOperator> <e:CommonExpression>  <end: @R> => {
+        Expression::Unary(Rc::new(Unary {
+            id: 0,
+            location: Location::new(start, end),
+            operator: op,
+            operand: e
+        }))
+    },
+    CommonExpression
+}
+
+IndexAccess: Rc<IndexAccess> = {
+    <start: @L> <e1:CommonExpression> "[" <e2:Expression> "]" <end: @R> => Rc::new(IndexAccess {
+        id: 0,
+        location: Location::new(start, end),
+        base: e1,
+        index: e2
+    })
+}
+
+MemberAccess: Rc<MemberAccess> = {
+    <start: @L> <e1:CommonExpression> "." <e2:IdentifierString> <end: @R> => Rc::new(MemberAccess {
+        id: 0,
+        location: Location::new(start, end),
+        base: e1,
+        member: Rc::new(Identifier {
+            id: 0,
+            location: Location::new(start, end),
+            name: e2
+        })
+    })
+}
+
+CommonExpression : Expression = {
+    <i:IndexAccess> => Expression::IndexAccess(i),
+    <m:MemberAccess> => Expression::MemberAccess(m),
+    <l:Literal> => Expression::Literal(l),
+    <i:Identifier> => Expression::Identifier(i),
+     "(" <e: Expression> ")" => e,
+    // TypeExpression
+}
+
+pub Literal : Literal = {
+    <n:Nat> => Literal::Nat(n),
+    <b:Bool> => Literal::Bool(b),
+    <s:Str> => Literal::Str(s),
+}
+
+TypeExpression : Expression = {
+    <t:Type> => Expression::TypeExpression(t),
+}
+
+TypeRefGenericParam: TypeRefGenericParam = {
+    // <n: Nat> => TypeRefGenericParam::Nat(n),
+    <t:Type> => TypeRefGenericParam::Type(t),
+}
+
+TypeRefGenericParameters: Vec<TypeRefGenericParam> = {
+    "<" <CommaTwo<TypeRefGenericParam>> ">" => <>,
+    "<" <arg: TypeRefGenericParam> ">" => vec![arg]
+}
+
+Type: Type = {
+    <start: @L> <i:IdentifierString> <generic_parameters: TypeRefGenericParameters?> <end: @R>=> Type::Ref(Rc::new(Ref {
+        id: 0,
+        location: Location::new(start, end),
+        name: Rc::new(Identifier {
+            id: 0,
+            location: Location::new(start, end),
+            name: i
+        }),
+        generic_parameters: generic_parameters
+    })),
+    <start: @L> "Boolean" <end:@R> => Type::Bool(Rc::new(TypeBool {id: 0,location: Location::new(start, end)})),
+    <start: @L> "Field" <end: @R> => Type::Field(Rc::new(TypeField {id: 0, location: Location::new(start, end)})),
+    <start: @L> "Uint" "<" <s:Nat> ">" <end: @R> => Type::Uint(Rc::new(Uint {id: 0,location: Location::new(start, end),start: s,end: None})),
+    <start: @L> "Uint" "<" <s:Nat> ".." <e:Nat> ">" <end: @R> => Type::Uint(Rc::new(Uint {id: 0,location: Location::new(start, end),start: s,end: Some(e)})),
+    <start: @L> "Vector" "<" <s:Nat> "," <t:Type> ">" <end: @R> => Type::Vector(Rc::new(Vector {id: 0,location: Location::new(start, end),size: s,ty: t})),
+    <start: @L> "Bytes" "<" <s:Nat> ">" <end: @R> => Type::Bytes(Rc::new(Bytes {id: 0,location: Location::new(start, end),size: s})),
+    <start: @L> "Opaque" "<" <s:Str> ">" <end: @R> => Type::Opaque(Rc::new(Opaque {id: 0,location: Location::new(start, end),value: s})),
+    "[" <CommaTwo<Type>> "]"=> Type::Sum(Rc::new(Sum {
+        id: 0,
+        location: Location {
+            start: <>.first().unwrap().location().start,
+            end: <>.last().unwrap().location().end
+        },
+        types: <>
+    })),
+}
+
+Nat : Rc<Nat> = {
+    <start: @L> <n:r"0|[1-9]\d*"> <end: @R> => Rc::new(Nat 
+    {
+        id: 0,
+        location: Location::new(start, end),
+        value: u64::from_str(n).unwrap()
+    }),
+}
+
+Bool : Rc<Bool> = {
+    <start: @L> "true" <end: @R> => Rc::new(Bool {
+        id: 0,
+        location: Location::new(start, end),
+        value: true
+    }),
+    <start: @L> "false" <end: @R> => Rc::new(Bool {
+        id: 0,
+        location: Location::new(start, end),
+        value: false
+    })
+}
+
+Version : Rc<Version> = {
+    <start: @L> <major:Nat> "." <minor:Nat> "." <bugfix:Nat> <end: @R> => Rc::new(Version {
+        id : 0,
+        location: Location::new(start, end),
+        major,
+        minor,
+        bugfix: Some(bugfix)
+    }),
+    <start: @L> <major:Nat> "." <minor:Nat> <end: @R> => Rc::new(Version {
+        id : 0,
+        location: Location::new(start, end),
+        major, 
+        minor,
+        bugfix: None
+    })
+}
+
+Str : Rc<Str> = {
+    <start: @L> <s:StringLiteral> <end: @R>  => Rc::new(Str {
+        id: 0,
+        location: Location::new(start, end),
+        value: String::from(s)
+    })
+}
+
+Identifier: Rc<Identifier> = {
+    <start: @L> <i:IdentifierString> <end: @R> => {
+        Rc::new(Identifier {
+            id: 0,
+            location: Location::new(start, end),
+            name: i,
+        })
+    }
+}
+
+Sequence: Rc<Sequence> = {
+    <CommaTwo<Expression>> => {
+        let expressions = <>;
+        Rc::new(Sequence {
+            id: 0,
+            location: Location::new(
+                expressions.first().unwrap().location().start,
+                expressions.last().unwrap().location().end
+            ),
+            expressions
+        })
+    }
+}
+
+// RefTypeGenericParameters: 
+
+CBIndentifiersList: Vec<Rc<Identifier>> = {
+    "{" "}" => Vec::new(),
+    "{" <i:Identifier> "}" => vec![i],
+    "{" <CommaTwo<Identifier>> "}" => <>
+}
+
+PragmaOperator: PragmaOperator = {
+    "=" => PragmaOperator::Eq,
+    ">" => PragmaOperator::Gt,
+    ">=" => PragmaOperator::Ge,
+}
+
+Pragma : Rc<Pragma> = {
+    <start: @L> "pragma" <value:Identifier> <op:PragmaOperator> <version:Version> ";" <end: @R> => Rc::new(Pragma {
+        id: 0,
+        location: Location::new(start, end),
+        value: value.clone(),
+        version: version.clone(),
+        operator: op.clone()
+    })
+}
+
+Import : Rc<Import> = {
+    <start: @L> "import" <value:Identifier> ";" <end: @R> => Rc::new(Import {
+        id: 0,
+        location: Location::new(start, end),
+        value: value.clone()
+    }),
+    <start: @L> "import" <path:StringLiteral> ";" <end: @R> => Rc::new(Import {
+        id: 0,
+        location: Location::new(start, end),
+        value: Rc::new(Identifier {
+                 id: 0,
+                 location: Location::new(start, end),
+                 name: path,
+             })
+    })
+}
+
+Export: Rc<Export> = {
+    <start: @L> "export" <v:CBIndentifiersList> <t:";"?>  <end: @R> => Rc::new(Export {
+        id: 0,
+        location: Location::new(start, end),
+        values: v.clone()
+    }),
+}
+
+Ledger: Rc<Ledger> = {
+    <start: @L> "ledger" <i:Identifier> ":" <t:Type> ";" <end: @R> => Rc::new(Ledger {
+        id: 0,
+        location: Location::new(start, end),
+        is_exported: false,
+        is_sealed: false,
+        name: i.clone(),
+        ty: t
+    }),
+    <start: @L> "export" "ledger" <i:Identifier> ":" <t:Type> ";" <end: @R> => Rc::new(Ledger {
+        id: 0,
+        location: Location::new(start, end),
+        is_exported: true,
+        is_sealed: false,
+        name: i.clone(),
+        ty: t
+    }),
+    <start: @L> "sealed" "ledger" <i:Identifier> ":" <t:Type> ";" <end: @R> => Rc::new(Ledger {
+        id: 0,
+        location: Location::new(start, end),
+        is_exported: false,
+        is_sealed: true,
+        name: i.clone(),
+        ty: t
+    }),
+    <start: @L> "export" "sealed" "ledger" <i:Identifier> ":" <t:Type> ";" <end: @R> => Rc::new(Ledger {
+        id: 0,
+        location: Location::new(start, end),
+        is_exported: true,
+        is_sealed: true,
+        name: i.clone(),
+        ty: t
+    }),
+}
+
+Witness: Rc<Witness> = {
+    <start: @L> "witness" <i:Identifier> <gp:GenericParameters?> <args:Arguments> ":" <t:Type> ";" <end: @R> => Rc::new(Witness {
+        id: 0,
+        location: Location::new(start, end),
+        name: i.clone(),
+        is_exported: false,
+        generic_parameters: gp,
+        arguments: args,
+        ty: t
+    }),
+    <start: @L> "export" "witness" <i:Identifier> <gp:GenericParameters?> <args:Arguments> ":" <t:Type> ";" <end: @R> => Rc::new(Witness {
+        id: 0,
+        location: Location::new(start, end),
+        name: i.clone(),
+        is_exported: true,
+        generic_parameters: gp,
+        arguments: args,
+        ty: t
+    }),
+}
+
+Constructor: Rc<Constructor> = {
+    <start: @L> "constructor" <args:Arguments> <b:Block> <end: @R> => Rc::new(Constructor {
+        id: 0,
+        location: Location::new(start, end),
+        arguments: args,
+        body: b
+    }),
+}
+
+Contract: Rc<Contract> = {
+    <start: @L> "contract" <i:Identifier> "{" <c:Circuit*> "}" <end: @R> => Rc::new(Contract {
+        id: 0,
+        location: Location::new(start, end),
+        name: i,
+        is_exported: false,
+        circuits: c
+    }),
+    <start: @L> "export" "contract" <i:Identifier> "{" <c:Circuit*> "}" <end: @R> => Rc::new(Contract {
+        id: 0,
+        location: Location::new(start, end),
+        name: i,
+        is_exported: true,
+        circuits: c
+    }),
+}
+
+Module: Rc<Module> = {
+    <start: @L> "module" <i:Identifier> <gp:GenericParameters?> "{" <c:Term*> "}" <end: @R> => Rc::new(Module {
+        id: 0,
+        location: Location::new(start, end),
+        name: i,
+        is_exported: false,
+        generic_parameters: gp,
+        nodes: c
+    }),
+        <start: @L> "export" "module" <i:Identifier> <gp:GenericParameters?> "{" <c:Term*> "}" <end: @R> => Rc::new(Module {
+        id: 0,
+        location: Location::new(start, end),
+        name: i,
+        is_exported: true,
+        generic_parameters: gp,
+        nodes: c
+    }),
+}
+
+Circuit: Rc<Circuit> = {
+    <start: @L> "circuit" <i:Identifier> <gp:GenericParameters?> <args:Arguments> ":" <t:Type> <b:Block> <end: @R> => Rc::new(Circuit {
+        id: 0,
+        location: Location::new(start, end),
+        name: i,
+        generic_parameters: gp,
+        arguments: args,
+        is_exported: false,
+        is_pure: false,
+        ty: t,
+        body: Some(b)
+    }),
+    <start: @L> "export" "circuit" <i:Identifier> <gp:GenericParameters?> <args:Arguments> ":" <t:Type> <b:Block> <end: @R> => Rc::new(Circuit {
+        id: 0,
+        location: Location::new(start, end),
+        name: i,
+        generic_parameters: gp,
+        arguments: args,
+        is_exported: true,
+        is_pure: false,
+        ty: t,
+        body: Some(b)
+    }),
+    <start: @L> "export" "circuit" <i:Identifier> <gp:GenericParameters?> <args:Arguments> ":" <t:Type> ";" <end: @R> => Rc::new(Circuit {
+        id: 0,
+        location: Location::new(start, end),
+        name: i,
+        generic_parameters: gp,
+        arguments: args,
+        is_exported: true,
+        is_pure: false,
+        ty: t,
+        body: None
+    }),
+    <start: @L> "pure" "circuit" <i:Identifier> <gp:GenericParameters?> <args:Arguments> ":" <t:Type> <b:Block> <end: @R> => Rc::new(Circuit {
+        id: 0,
+        location: Location::new(start, end),
+        name: i,
+        generic_parameters: gp,
+        arguments: args,
+        is_exported: false,
+        is_pure: true,
+        ty: t,
+        body: Some(b)
+    }),
+    <start: @L> "export" "pure" "circuit" <i:Identifier> <gp:GenericParameters?> <args:Arguments> ":" <t:Type> <b:Block> <end: @R> => Rc::new(Circuit {
+        id: 0,
+        location: Location::new(start, end),
+        name: i,
+        generic_parameters: gp,
+        arguments: args,
+        is_exported: true,
+        is_pure: true,
+        ty: t,
+        body: Some(b)
+    }),
+}
+
+Field: Rc<Field> = {
+    <start: @L> <i:Identifier> ":" <t:Type> ";" <end: @R> => Rc::new(Field {
+        id: 0,
+        location: Location::new(start, end),
+        name: i,
+        ty: t
+    }),
+    <start: @L> <i:Identifier> ":" <t:Type> "," <end: @R> => Rc::new(Field {
+        id: 0,
+        location: Location::new(start, end),
+        name: i,
+        ty: t
+    })
+}
+
+Structure: Rc<Structure> = {
+    <start: @L> "struct" <i:Identifier> <gp:GenericParameters?> "{" <f:Field*> "}" <end: @R> => Rc::new(Structure {
+        id: 0,
+        location: Location::new(start, end),
+        is_exported: false,
+        name: i,
+        generic_parameters: gp,
+        fields: f
+    }),
+    <start: @L> "export" "struct" <i:Identifier> <gp:GenericParameters?> "{" <f:Field*> "}" <end: @R> => Rc::new(Structure {
+        id: 0,
+        location: Location::new(start, end),
+        is_exported: true,
+        name: i,
+        generic_parameters: gp,
+        fields: f
+    }),
+}
+
+Enum: Rc<Enum> = {
+    <start: @L> "enum" <i:Identifier> <v:CBIndentifiersList> <end: @R> => Rc::new(Enum {
+        id: 0,
+        location: Location::new(start, end),
+        is_exported: false,
+        name: i,
+        options: v
+    }),
+    <start: @L> "export" "enum" <i:Identifier> <v:CBIndentifiersList> <end: @R> => Rc::new(Enum {
+        id: 0,
+        location: Location::new(start, end),
+        is_exported: true,
+        name: i,
+        options: v
+    }),
+}
+
+StructPatternItem : Rc<StructPatternItem> = {
+    <start: @L> <i:Identifier> <end: @R> => Rc::new(StructPatternItem {
+        id: 0,
+        location: Location::new(start, end),
+        name: i,
+        pattern: None
+    }),
+    <start: @L> <i:Identifier> <p:Pattern> <end: @R> => Rc::new(StructPatternItem {
+        id: 0,
+        location: Location::new(start, end),
+        name: i,
+        pattern: Some(p)
+    }),
+}
+
+Pattern: Rc<Pattern> = {
+    <start: @L> <i:Identifier> <end: @R> => Rc::new(Pattern::Identifier(i)),
+    "[" <start: @L> <p:Pattern> <end: @R> "]" => Rc::new(Pattern::Tuple(p)),
+    "{" <start: @L> <sp:StructPatternItem> <end: @R> "}" => Rc::new(Pattern::Struct(sp))
+}
+
+Argument : Rc<Argument> = {
+    <start: @L> <p:Pattern> ":" <t:Type> <end: @R> => Rc::new(Argument {
+        id: 0,
+        location: Location::new(start, end),
+        pattern: p,
+        ty: t
+    })
+}
+
+Arguments: Vec<Rc<Argument>> = {
+    "(" ")" => Vec::new(),
+    "(" <a:Argument> ")" => vec![a],
+    "(" <CommaTwo<Argument>> ")" => <>
+}
+
+GenericParameter: Rc<Identifier> = {
+    <start: @L> "#"? <i:IdentifierString> <end: @R> => Rc::new(Identifier {
+        id: 0,
+        location: Location::new(start, end),
+        name: i,
+    })
+}
+
+GenericParameters: Vec<Rc<Identifier>> = {
+    "<" ">" => Vec::new(),
+    "<" <i:GenericParameter> ">" => vec![i],
+    "<" <CommaTwo<GenericParameter>> ">" => <>
+}
+
+CommaTwo<T>: Vec<T> = {
+    <e:T> <v:("," <T>)+> => {
+        let mut v = v;
+        v.insert(0, e);
+        v
+    }
+};
+
+IdentifierString: String = {
+    r"[a-zA-Z_][a-zA-Z0-9_]*" => <>.to_string()
+}
+
+StringLiteral: String = {
+    r#""[^\\"\n\r]*(\\[tnfbrx'"\\0-9][^\\"\n\r]*)*""# => <>.to_string()
+}

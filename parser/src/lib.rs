@@ -1,0 +1,408 @@
+macro_rules! lalrpop_mod_doc {
+    ($vis:vis $name:ident) => {
+        lalrpop_util::lalrpop_mod!(
+            #[allow(clippy::ptr_arg)]
+            #[allow(clippy::vec_box)]
+            $vis $name);
+        }
+    }
+
+lalrpop_mod_doc!(pub compact);
+
+#[cfg(test)]
+#[rustfmt::skip]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_nat() {
+        let l = compact::LiteralParser::new().parse("1").unwrap();
+        if let midnight_security_rules_sdk::ast::literal::Literal::Nat(n) = l
+        {
+            assert_eq!(n.value, 1);
+            assert_eq!(n.location.start, 0);
+            assert_eq!(n.location.end, 1);
+        } else {
+            panic!("Wrong Nat `1` parsing");
+        }
+
+        let l = compact::LiteralParser::new().parse("0").unwrap();
+        if let midnight_security_rules_sdk::ast::literal::Literal::Nat(n) = l
+        {
+            assert_eq!(n.value, 0);
+            assert_eq!(n.location.start, 0);
+            assert_eq!(n.location.end, 1);
+        } else {
+            panic!("Wrong Nat `0` parsing");
+        }
+
+        let l = compact::LiteralParser::new().parse("123").unwrap();
+        if let midnight_security_rules_sdk::ast::literal::Literal::Nat(n) = l
+        {
+            assert_eq!(n.value, 123);
+            assert_eq!(n.location.start, 0);
+            assert_eq!(n.location.end, 3);
+        } else {
+            panic!("Wrong Nat `123` parsing");
+        }
+
+        let l = compact::LiteralParser::new().parse("12345").unwrap();
+        if let midnight_security_rules_sdk::ast::literal::Literal::Nat(n) = l
+        {
+            assert_eq!(n.value, 12345);
+            assert_eq!(n.location.start, 0);
+            assert_eq!(n.location.end, 5);
+        } else {
+            panic!("Wrong Nat `12345` parsing");
+        }
+
+        assert!(compact::TermParser::new().parse("01").is_err());
+        assert!(compact::TermParser::new().parse("0123").is_err());
+    }
+
+    #[test]
+    fn test_parse_bool() {
+        assert!(compact::LiteralParser::new().parse("true").is_ok());
+        assert!(compact::LiteralParser::new().parse("false").is_ok());
+        assert!(compact::LiteralParser::new().parse("True").is_err());
+        assert!(compact::LiteralParser::new().parse("False").is_err());
+    }
+
+    #[test]
+    fn test_parse_str() {
+        assert!(compact::LiteralParser::new().parse("\"\"").is_ok());
+        assert!(compact::LiteralParser::new().parse("\"hello\"").is_ok());
+        assert!(compact::LiteralParser::new().parse("\"hello world\"").is_ok());
+        assert!(compact::LiteralParser::new().parse("\"hello world!\"").is_ok());
+        assert!(compact::LiteralParser::new().parse("\"hello world!\"").is_ok());
+        assert!(compact::LiteralParser::new().parse("\"hello world!\"").is_ok());
+        assert!(compact::LiteralParser::new().parse("\"hello world!\"").is_ok());
+        assert!(compact::LiteralParser::new().parse("\"hello world!\"").is_ok());
+        assert!(compact::LiteralParser::new().parse("\"hello world!\"").is_ok());
+        assert!(compact::LiteralParser::new().parse("\"hello world!\"").is_ok());
+        assert!(compact::LiteralParser::new().parse("\"hello world!\"").is_ok());
+        assert!(compact::LiteralParser::new().parse("\"hello world!\"").is_ok());
+        assert!(compact::LiteralParser::new().parse("\"hello world!\"").is_ok());
+
+        assert!(compact::LiteralParser::new().parse("\"hello world!").is_err());
+        assert!(compact::LiteralParser::new().parse("hello world!\"").is_err());
+        assert!(compact::LiteralParser::new().parse("hello world!").is_err());
+    }
+
+    #[test]
+    fn test_identifier() {
+        assert!(compact::ExpressionParser::new().parse("a").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a1").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a_1").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a_1_").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a_1_2").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a_1_2_").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a_1_2_3").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a_1_2_3_").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a_1_2_3_4").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a_1_2_3_4_").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a_1_2_3_4_5").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a_1_2_3_4_5_").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a_1_2_3_4_5_6").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a_1_2_3_4_5_6_").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a_1_2_3_4_5_6_7").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a_1_2_3_4_5_6_7_").is_ok());
+        assert!(compact::ExpressionParser::new()
+            .parse("a_1_2_3_4_5_6_7_8")
+            .is_ok());
+        assert!(compact::ExpressionParser::new()
+            .parse("a_1_2_3_4_5_6_7_8_")
+            .is_ok());
+        assert!(compact::ExpressionParser::new()
+            .parse("a_1_2_3_4_5_6_7_8_9")
+            .is_ok());
+        assert!(compact::ExpressionParser::new()
+            .parse(
+                "
+                a_1_2_3_4_5_6_7_8_9"
+            )
+            .is_ok());
+    }
+
+    #[test]
+    fn test_binary_expression() {
+        assert!(compact::ExpressionParser::new().parse("a * b").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a / b").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a % b").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a + b").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a - b").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a < b").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a <= b").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a > b").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a >= b").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a == b").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a != b").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a && b").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a || b || c").is_ok());
+    }
+
+    #[test]
+    fn index_access_expression() {
+        assert!(compact::ExpressionParser::new().parse("v[0]").is_ok());
+        assert!(compact::ExpressionParser::new().parse("v[0][a]").is_ok());
+        assert!(compact::ExpressionParser::new().parse("v[0] + v[1]").is_ok());
+    }
+    
+    #[test]
+    fn assign_statement() {
+        assert!(compact::TermParser::new().parse("a = 1;").is_ok());
+        assert!(compact::TermParser::new().parse("a += 1;").is_ok());
+        assert!(compact::TermParser::new().parse("a -= 1;").is_ok());
+        assert!(compact::TermParser::new().parse("a =+ 1;").is_err());
+    }
+
+    #[test]
+    fn block_statement() {
+        assert!(compact::TermParser::new().parse("{}").is_ok());
+        assert!(compact::TermParser::new().parse("{ a = 1; }").is_ok());
+        assert!(compact::TermParser::new().parse("{ a = 1; b = 2; }").is_ok());
+        assert!(compact::TermParser::new().parse("{ a = 1; b = 2; c = 3; }").is_ok());
+        assert!(compact::TermParser::new().parse("{ a = 1; b = 2; c = 3; d = 4; }").is_ok());
+        assert!(compact::TermParser::new().parse("{ a = 1; b = 2; c = 3; d = 4; e = 5; }").is_ok());
+    }
+
+    #[test]
+    fn expression_sequence_statement() {
+        assert!(compact::TermParser::new().parse("a, b;").is_ok());
+    }
+
+    #[test]
+    fn test_return_statement() {
+        assert!(compact::TermParser::new().parse("return;").is_ok());
+        assert!(compact::TermParser::new().parse("return false;").is_ok());
+        assert!(compact::TermParser::new().parse("return a, b, c;").is_ok());
+    }
+
+    #[test]
+    fn test_if_statement() {
+        assert!(compact::TermParser::new().parse("if (a) { a = b; }").is_ok());
+        assert!(compact::TermParser::new().parse("if (a) { b; } else { c; }").is_ok());
+    }
+
+    #[test]
+    fn test_for_statement() {
+        assert!(compact::TermParser::new().parse("for (const a of 1..2) { a = b; }").is_ok());
+        assert!(compact::TermParser::new().parse("for (const a of b) { b; }").is_ok());
+    }
+
+    #[test]
+    fn test_assert_statement() {
+        assert!(compact::TermParser::new().parse("assert a;").is_ok());
+        assert!(compact::TermParser::new().parse("assert a \"error\";").is_ok());
+    }
+
+    #[test]
+    fn test_const_statement() {
+        assert!(compact::TermParser::new().parse("const a = 1;").is_ok());
+        assert!(compact::TermParser::new().parse("const a : Nat = b;").is_ok());
+    }
+
+    #[test]
+    fn test_pragma() {
+        assert!(compact::TermParser::new().parse("pragma language_version >= 1.2.3;").is_ok());
+        assert!(compact::TermParser::new().parse("pragma language_version > 1.2.3;").is_ok());
+        assert!(compact::TermParser::new().parse("pragma language_version = 1.2.3;").is_ok());
+        assert!(compact::TermParser::new().parse("pragma language_version >= ;").is_err());
+        assert!(compact::TermParser::new().parse("pragma language_version > ;").is_err());
+        assert!(compact::TermParser::new().parse("pragma language_version == ;").is_err());
+        assert!(compact::TermParser::new().parse("pragma language_version < ;").is_err());
+        assert!(compact::TermParser::new().parse("pragma language_version =< ;").is_err());
+        assert!(compact::TermParser::new().parse("pragma language_version >= 1.2.3").is_err());
+        assert!(compact::TermParser::new().parse("pragma language_version > 1.2.3").is_err());
+        assert!(compact::TermParser::new().parse("pragma language_version == 1.2.3").is_err());
+        assert!(compact::TermParser::new().parse("pragma language_version < 1.2.3").is_err());
+        assert!(compact::TermParser::new().parse("pragma language_version =< 1.2.3").is_err());
+        assert!(compact::TermParser::new().parse("pragma language_version 1.2.3;").is_err());
+        assert!(compact::TermParser::new().parse("pragma language_version >= 1.2.3.4;").is_err());
+        assert!(compact::TermParser::new().parse("pragma language_version >= 1..2.3;").is_err());
+        assert!(compact::TermParser::new().parse("pragma language_version >= 1.2..3;").is_err());
+        assert!(compact::TermParser::new().parse("pragma language_version >= 1.2.3.;").is_err());
+    }
+
+    #[test]
+    fn test_import() {
+        assert!(compact::TermParser::new().parse("import a;").is_ok());
+        assert!(compact::TermParser::new().parse("import a_1;").is_ok());
+        assert!(compact::TermParser::new().parse("import \"../../Test\";").is_ok());
+        assert!(compact::TermParser::new().parse("import ;").is_err());
+        assert!(compact::TermParser::new().parse("import 1;").is_err());
+        assert!(compact::TermParser::new().parse("import a b;").is_err());
+        assert!(compact::TermParser::new().parse("import \"../../Test").is_err());
+        assert!(compact::TermParser::new().parse("import ../../Test\";").is_err());
+    }
+
+    #[test]
+    fn test_export() {
+        assert!(compact::TermParser::new().parse("export { a }").is_ok());
+        assert!(compact::TermParser::new().parse("export { a, b }").is_ok());
+        assert!(compact::TermParser::new().parse("export { a, b, c }").is_ok());
+        assert!(compact::TermParser::new().parse("export { a };").is_ok());
+        assert!(compact::TermParser::new().parse("export { a, b };").is_ok());
+        assert!(compact::TermParser::new().parse("export { a, b, c };").is_ok());
+        assert!(compact::TermParser::new().parse("export { ;").is_err());
+        assert!(compact::TermParser::new().parse("export { a, ;").is_err());
+        assert!(compact::TermParser::new().parse("export { a b }").is_err());
+        assert!(compact::TermParser::new().parse("export { a, b c }").is_err());
+        assert!(compact::TermParser::new().parse("export { a, b, c, }").is_err());
+    }
+
+    #[test]
+    fn test_type() {
+        assert!(compact::TermParser::new().parse("ledger test: Boolean;").is_ok());
+        assert!(compact::TermParser::new().parse("ledger test: Field;").is_ok());
+        assert!(compact::TermParser::new().parse("ledger test: Vector<1, Boolean>;").is_ok());
+        assert!(compact::TermParser::new().parse("ledger test: Uint<1234>;").is_ok());
+        assert!(compact::TermParser::new().parse("ledger test: Uint<1234..5678>;").is_ok());
+        assert!(compact::TermParser::new().parse("ledger test: Bytes<1234>;").is_ok());
+        assert!(compact::TermParser::new().parse("ledger test: Opaque<\"abc asd 234\">;").is_ok());
+        assert!(compact::TermParser::new().parse("ledger test: ref_type;").is_ok());
+        assert!(compact::TermParser::new().parse("ledger test: some<Boolean,Boolean>;").is_ok());
+        assert!(compact::TermParser::new().parse("ledger test: some<Boolean>;").is_ok());
+        assert!(compact::TermParser::new().parse("ledger test: some<Boolean,Nat>;").is_ok());
+        assert!(compact::TermParser::new().parse("ledger test: [ Boolean, Field, Vector<1, Boolean>, Uint<1234> ];").is_ok());
+        assert!(compact::TermParser::new().parse("ledger test: [ ref_type<a, b, c, d> , ref_type<a, b, c, d> ];").is_ok());
+        assert!(compact::TermParser::new().parse("ledger test: some<Bytes<123> >;").is_ok());
+        assert!(compact::TermParser::new().parse("ledger test: some<Uint<123>,Some<T>>;").is_ok());
+    }
+
+    #[test]
+    fn test_ledger() {
+        assert!(compact::TermParser::new().parse("ledger test : Boolean;").is_ok());        
+        assert!(compact::TermParser::new().parse("export ledger test : Boolean;").is_ok());        
+        assert!(compact::TermParser::new().parse("sealed ledger test : Boolean;").is_ok());        
+        assert!(compact::TermParser::new().parse("export sealed ledger test : Boolean;").is_ok());        
+    }
+
+    #[test]
+    fn test_constructor() {
+        assert!(compact::TermParser::new().parse("constructor() { }").is_ok());
+        assert!(compact::TermParser::new().parse("constructor(a: Boolean) { }").is_ok());
+        assert!(compact::TermParser::new().parse("constructor(a: Boolean, b: Field) { }").is_ok());
+        assert!(compact::TermParser::new().parse("constructor(a: Boolean, b: Field, c: Vector<1, Boolean>) { }").is_ok());
+        assert!(compact::TermParser::new().parse("constructor(a: Boolean, b: Field, c: Vector<1, Boolean>) { return a + b; }").is_ok());
+        
+    }
+
+    #[test]
+    fn test_circuit() {
+        assert!(compact::TermParser::new().parse("circuit test(): Field { }").is_ok());
+        assert!(compact::TermParser::new().parse("circuit test(a: Boolean): Field { }").is_ok());
+        assert!(compact::TermParser::new().parse("export circuit test(a: Boolean, b: Field, c: Vector<1, Boolean>): Field { }").is_ok());
+        assert!(compact::TermParser::new().parse("export circuit test(a: Boolean, b: Field, c: Vector<1, Boolean>): Field;").is_ok());
+        assert!(compact::TermParser::new().parse("export pure circuit test(a: Boolean, b: Field, c: Vector<1, Boolean>): Field { }").is_ok());
+        
+        assert!(compact::TermParser::new().parse("circuit test<A>(): Field { }").is_ok());
+        assert!(compact::TermParser::new().parse("circuit test<A, B>(a: Boolean): Field { }").is_ok());
+        assert!(compact::TermParser::new().parse("export circuit test<>(a: Boolean, b: Field, c: Vector<1, Boolean>): Field { }").is_ok());
+        assert!(compact::TermParser::new().parse("export circuit test<#A>(a: Boolean, b: Field, c: Vector<1, Boolean>): Field;").is_ok());
+        assert!(compact::TermParser::new().parse("export pure circuit test<#A, #B>(a: Boolean, b: Field, c: Vector<1, Boolean>): Field { }").is_ok());
+        assert!(compact::TermParser::new().parse("export pure circuit test<#A, B>(a: Boolean, b: Field, c: Vector<1, Boolean>): Field { return a * 2 + b * 2 - (2 + c);}").is_ok());
+        assert!(compact::TermParser::new().parse("export pure circuit test<A, #B>(a: Boolean, b: Field, c: Vector<1, Boolean>): Field { return a * 2 + b * 2 - (2 + c);}").is_ok());
+    }
+
+    #[test]
+    fn test_witness() {
+        assert!(compact::TermParser::new().parse("witness test(): Boolean;").is_ok());
+        assert!(compact::TermParser::new().parse("witness test(a: Boolean): Field;").is_ok());
+        assert!(compact::TermParser::new().parse("export witness test(a: Boolean, b: Field, c: Vector<1, Boolean>): Opaque<\"abc asd 234\">;").is_ok());
+        assert!(compact::TermParser::new().parse("export witness test(a: Boolean, b: Field, c: Vector<1, Boolean>): Field;").is_ok());
+        assert!(compact::TermParser::new().parse("export witness test(a: Boolean, b: Field, c: Vector<1, Boolean>): Field;").is_ok());
+        
+        assert!(compact::TermParser::new().parse("witness test<A>(): Field;").is_ok());
+        assert!(compact::TermParser::new().parse("witness test<A, B>(a: Boolean): Field;").is_ok());
+        assert!(compact::TermParser::new().parse("export witness test<>(a: Boolean, b: Field, c: Vector<1, Boolean>): Vector<1, Boolean>;").is_ok());
+        assert!(compact::TermParser::new().parse("export witness test<#A>(a: Boolean, b: Field, c: Vector<1, Boolean>): Field;").is_ok());
+        assert!(compact::TermParser::new().parse("export witness test<#A, #B>(a: Boolean, b: Field, c: Vector<1, Boolean>): Field;").is_ok());
+        assert!(compact::TermParser::new().parse("export witness test<#A, B>(a: Boolean, b: Field, c: Vector<1, Boolean>): Field;").is_ok());
+    }
+
+    #[test]
+    fn test_contract() {
+        assert!(compact::TermParser::new().parse("contract test {}").is_ok());
+        assert!(compact::TermParser::new().parse("export contract test {}").is_ok());
+        assert!(compact::TermParser::new().parse("contract test {circuit test<A>(): Field { }}").is_ok());
+        assert!(compact::TermParser::new().parse("export contract test {circuit test<A>(): Field { }}").is_ok());
+        assert!(compact::TermParser::new().parse("contract test {circuit test<A>(): Field { } export circuit test<>(a: Boolean, b: Field, c: Vector<1, Boolean>): Field { }}").is_ok());
+        assert!(compact::TermParser::new().parse("export contract test {circuit test<A>(): Field { } export circuit test<>(a: Boolean, b: Field, c: Vector<1, Boolean>): Field { }}").is_ok());
+    }
+
+    #[test]
+    fn test_struct() {
+        assert!(compact::TermParser::new().parse("struct test {}").is_ok());
+        assert!(compact::TermParser::new().parse("export struct test {}").is_ok());
+        assert!(compact::TermParser::new().parse("struct test {a: Boolean;}").is_ok());
+        assert!(compact::TermParser::new().parse("export struct test {x: Uint<4>; y: Uint<4>;}").is_ok());
+        assert!(compact::TermParser::new().parse("struct test<#A, B> {a: Boolean, b: Field;}").is_ok());
+    }
+
+    #[test]
+    fn test_enum() {
+        assert!(compact::TermParser::new().parse("enum test {}").is_ok());
+        assert!(compact::TermParser::new().parse("export enum test {}").is_ok());
+        assert!(compact::TermParser::new().parse("enum test {a, b, c}").is_ok());
+        assert!(compact::TermParser::new().parse("export enum test {a, b, c}").is_ok());
+    }
+
+    #[test]
+    fn test_module() {
+        assert!(compact::TermParser::new().parse("module test {}").is_ok());
+        assert!(compact::TermParser::new().parse("export module test {}").is_ok());
+        assert!(compact::TermParser::new().parse("module test {circuit test<A>(): Field { }}").is_ok());
+        assert!(compact::TermParser::new().parse("export module test {circuit test<A>(): Field { }}").is_ok());
+        assert!(compact::TermParser::new().parse("module test {circuit test<A>(): Field { } export circuit test<>(a: Boolean, b: Field, c: Vector<1, Boolean>): Field { }}").is_ok());
+        assert!(compact::TermParser::new().parse("export module test {circuit test<A>(): Field { } export circuit test<>(a: Boolean, b: Field, c: Vector<1, Boolean>): Field { }}").is_ok());
+    }
+
+    #[test]
+    fn test_misc_expr() {
+        assert!(compact::ExpressionParser::new().parse("a").is_ok());
+        assert!(compact::ExpressionParser::new().parse("\"a\"").is_ok());
+        assert!(compact::ExpressionParser::new().parse("123").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a[1]").is_ok());
+        assert!(compact::ExpressionParser::new().parse("v[1][b]").is_ok());
+        assert!(compact::ExpressionParser::new().parse("!a").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a * b").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a / b").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a % b").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a + b").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a - b").is_ok());
+        assert!(compact::ExpressionParser::new().parse("v[0] != v[1]").is_ok());
+        assert!(compact::ExpressionParser::new().parse("v[0] != v[1] && v[0] != v[2]").is_ok());
+        assert!(compact::ExpressionParser::new().parse("(v[0] != v[1] && v[0] != v[2])").is_ok());
+    }
+
+    #[test]
+    fn test_conditional_expression() {
+        assert!(compact::ExpressionParser::new().parse("a ? b : c").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a > c ? b : c").is_ok());
+        assert!(compact::ExpressionParser::new().parse("a > c ? b + 1: c[v]").is_ok());
+    }
+
+    #[test]
+    fn test_long_return() {
+        assert!(compact::TermParser::new().parse(r#"
+        pure circuit unique_vector(v: Vector<17, Coord>): Boolean {
+  return (v[0] != v[1] && v[0] != v[2] && v[0] != v[3] && v[0] != v[4] && v[0] != v[5] && v[0] != v[6] && v[0] != v[7] && v[0] != v[8] && v[0] != v[9] && v[0] != v[10] && v[0] != v[11] && v[0] != v[12] && v[0] != v[13] && v[0] != v[14] && v[0] != v[15] && v[0] != v[16] &&
+          v[1] != v[2] && v[1] != v[3] && v[1] != v[4] && v[1] != v[5] && v[1] != v[6] && v[1] != v[7] && v[1] != v[8] && v[1] != v[9] && v[1] != v[10] && v[1] != v[11] && v[1] != v[12] && v[1] != v[13] && v[1] != v[14] && v[1] != v[15] && v[1] != v[16] &&
+          v[2] != v[3] && v[2] != v[4] && v[2] != v[5] && v[2] != v[6] && v[2] != v[7] && v[2] != v[8] && v[2] != v[9] && v[2] != v[10] && v[2] != v[11] && v[2] != v[12] && v[2] != v[13] && v[2] != v[14] && v[2] != v[15] && v[2] != v[16] &&
+          v[3] != v[4] && v[3] != v[5] && v[3] != v[6] && v[3] != v[7] && v[3] != v[8] && v[3] != v[9] && v[3] != v[10] && v[3] != v[11] && v[3] != v[12] && v[3] != v[13] && v[3] != v[14] && v[3] != v[15] && v[3] != v[16] &&
+          v[4] != v[5] && v[4] != v[6] && v[4] != v[7] && v[4] != v[8] && v[4] != v[9] && v[4] != v[10] && v[4] != v[11] && v[4] != v[12] && v[4] != v[13] && v[4] != v[14] && v[4] != v[15] && v[4] != v[16] &&
+          v[5] != v[6] && v[5] != v[7] && v[5] != v[8] && v[5] != v[9] && v[5] != v[10] && v[5] != v[11] && v[5] != v[12] && v[5] != v[13] && v[5] != v[14] && v[5] != v[15] && v[5] != v[16] &&
+          v[6] != v[7] && v[6] != v[8] && v[6] != v[9] && v[6] != v[10] && v[6] != v[11] && v[6] != v[12] && v[6] != v[13] && v[6] != v[14] && v[6] != v[15] && v[6] != v[16] &&
+          v[7] != v[8] && v[7] != v[9] && v[7] != v[10] && v[7] != v[11] && v[7] != v[12] && v[7] != v[13] && v[7] != v[14] && v[7] != v[15] && v[7] != v[16] &&
+          v[8] != v[9] && v[8] != v[10] && v[8] != v[11] && v[8] != v[12] && v[8] != v[13] && v[8] != v[14] && v[8] != v[15] && v[8] != v[16] &&
+          v[9] != v[10] && v[9] != v[11] && v[9] != v[12] && v[9] != v[13] && v[9] != v[14] && v[9] != v[15] && v[9] != v[16] &&
+          v[10] != v[11] && v[10] != v[12] && v[10] != v[13] && v[10] != v[14] && v[10] != v[15] && v[10] != v[16] &&
+          v[11] != v[12] && v[11] != v[13] && v[11] != v[14] && v[11] != v[15] && v[11] != v[16] &&
+          v[12] != v[13] && v[12] != v[14] && v[12] != v[15] && v[12] != v[16] &&
+          v[13] != v[14] && v[13] != v[15] && v[13] != v[16] &&
+          v[14] != v[15] && v[14] != v[16] &&
+          v[15] != v[16]);}"#).is_ok());
+    }
+
+}
