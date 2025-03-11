@@ -2,20 +2,27 @@
   {
     "type": "arg",
     "named": true,
-    "fields": {},
-    "children": {
-      "multiple": true,
-      "required": true,
-      "types": [
-        {
-          "type": "id",
-          "named": true
-        },
-        {
-          "type": "type",
-          "named": true
-        }
-      ]
+    "fields": {
+      "id": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "id",
+            "named": true
+          }
+        ]
+      },
+      "type": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "type",
+            "named": true
+          }
+        ]
+      }
     }
   },
   {
@@ -37,12 +44,62 @@
     "type": "cdefn",
     "named": true,
     "fields": {
+      "body": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "block",
+            "named": true
+          }
+        ]
+      },
+      "export": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "export",
+            "named": true
+          }
+        ]
+      },
+      "gparams": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "gparams",
+            "named": true
+          }
+        ]
+      },
       "id": {
         "multiple": false,
         "required": true,
         "types": [
           {
             "type": "function_name",
+            "named": true
+          }
+        ]
+      },
+      "parg": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": "parg",
+            "named": true
+          }
+        ]
+      },
+      "pure": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "pure",
             "named": true
           }
         ]
@@ -57,32 +114,6 @@
           }
         ]
       }
-    },
-    "children": {
-      "multiple": true,
-      "required": true,
-      "types": [
-        {
-          "type": "block",
-          "named": true
-        },
-        {
-          "type": "export",
-          "named": true
-        },
-        {
-          "type": "gparams",
-          "named": true
-        },
-        {
-          "type": "parg",
-          "named": true
-        },
-        {
-          "type": "pure",
-          "named": true
-        }
-      ]
     }
   },
   {
@@ -116,28 +147,47 @@
   {
     "type": "ecdecl_circuit",
     "named": true,
-    "fields": {},
-    "children": {
-      "multiple": true,
-      "required": true,
-      "types": [
-        {
-          "type": "arg",
-          "named": true
-        },
-        {
-          "type": "id",
-          "named": true
-        },
-        {
-          "type": "pure",
-          "named": true
-        },
-        {
-          "type": "type",
-          "named": true
-        }
-      ]
+    "fields": {
+      "arg": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": "arg",
+            "named": true
+          }
+        ]
+      },
+      "id": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "id",
+            "named": true
+          }
+        ]
+      },
+      "pure": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "pure",
+            "named": true
+          }
+        ]
+      },
+      "type": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "type",
+            "named": true
+          }
+        ]
+      }
     }
   },
   {
@@ -374,16 +424,17 @@
   {
     "type": "gargs",
     "named": true,
-    "fields": {},
-    "children": {
-      "multiple": true,
-      "required": true,
-      "types": [
-        {
-          "type": "garg",
-          "named": true
-        }
-      ]
+    "fields": {
+      "garg": {
+        "multiple": true,
+        "required": true,
+        "types": [
+          {
+            "type": "garg",
+            "named": true
+          }
+        ]
+      }
     }
   },
   {
@@ -404,16 +455,17 @@
   {
     "type": "gparams",
     "named": true,
-    "fields": {},
-    "children": {
-      "multiple": true,
-      "required": true,
-      "types": [
-        {
-          "type": "generic_param",
-          "named": true
-        }
-      ]
+    "fields": {
+      "gparam": {
+        "multiple": true,
+        "required": true,
+        "types": [
+          {
+            "type": "generic_param",
+            "named": true
+          }
+        ]
+      }
     }
   },
   {
@@ -514,12 +566,32 @@
     "type": "ldecl",
     "named": true,
     "fields": {
+      "export": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "export",
+            "named": true
+          }
+        ]
+      },
       "name": {
         "multiple": false,
         "required": true,
         "types": [
           {
             "type": "id",
+            "named": true
+          }
+        ]
+      },
+      "sealed": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "sealed",
             "named": true
           }
         ]
@@ -534,20 +606,6 @@
           }
         ]
       }
-    },
-    "children": {
-      "multiple": true,
-      "required": false,
-      "types": [
-        {
-          "type": "export",
-          "named": true
-        },
-        {
-          "type": "sealed",
-          "named": true
-        }
-      ]
     }
   },
   {
@@ -662,62 +720,133 @@
   {
     "type": "parg",
     "named": true,
-    "fields": {},
-    "children": {
-      "multiple": true,
-      "required": true,
-      "types": [
-        {
-          "type": "pattern",
-          "named": true
-        },
-        {
-          "type": "type",
-          "named": true
-        }
-      ]
+    "fields": {
+      "pattern": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "pattern",
+            "named": true
+          }
+        ]
+      },
+      "type": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "type",
+            "named": true
+          }
+        ]
+      }
     }
   },
   {
     "type": "pattern",
     "named": true,
-    "fields": {},
-    "children": {
-      "multiple": true,
-      "required": false,
-      "types": [
-        {
-          "type": "id",
-          "named": true
-        },
-        {
-          "type": "pattern_struct_elt",
-          "named": true
-        },
-        {
-          "type": "pattern_tuple_elt",
-          "named": true
-        }
-      ]
+    "fields": {
+      "id": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "id",
+            "named": true
+          }
+        ]
+      },
+      "pattern_struct": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": ",",
+            "named": false
+          },
+          {
+            "type": "pattern_struct_elt",
+            "named": true
+          },
+          {
+            "type": "{",
+            "named": false
+          },
+          {
+            "type": "}",
+            "named": false
+          }
+        ]
+      },
+      "pattern_struct_elt": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": "pattern_struct_elt",
+            "named": true
+          }
+        ]
+      },
+      "pattern_tuple": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": ",",
+            "named": false
+          },
+          {
+            "type": "[",
+            "named": false
+          },
+          {
+            "type": "]",
+            "named": false
+          },
+          {
+            "type": "pattern_tuple_elt",
+            "named": true
+          }
+        ]
+      },
+      "pattern_tuple_elt": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": "pattern_tuple_elt",
+            "named": true
+          }
+        ]
+      }
     }
   },
   {
     "type": "pattern_struct_elt",
     "named": true,
-    "fields": {},
-    "children": {
-      "multiple": true,
-      "required": true,
-      "types": [
-        {
-          "type": "id",
-          "named": true
-        },
-        {
-          "type": "pattern",
-          "named": true
-        }
-      ]
+    "fields": {
+      "id": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "id",
+            "named": true
+          }
+        ]
+      },
+      "pattern": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "pattern",
+            "named": true
+          }
+        ]
+      }
     }
   },
   {
@@ -1035,20 +1164,27 @@
   {
     "type": "tref",
     "named": true,
-    "fields": {},
-    "children": {
-      "multiple": true,
-      "required": true,
-      "types": [
-        {
-          "type": "gargs",
-          "named": true
-        },
-        {
-          "type": "id",
-          "named": true
-        }
-      ]
+    "fields": {
+      "gargs": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "gargs",
+            "named": true
+          }
+        ]
+      },
+      "id": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "id",
+            "named": true
+          }
+        ]
+      }
     }
   },
   {
@@ -1078,7 +1214,28 @@
   {
     "type": "type",
     "named": true,
-    "fields": {},
+    "fields": {
+      "tsize": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": "tsize",
+            "named": true
+          }
+        ]
+      },
+      "type": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "type",
+            "named": true
+          }
+        ]
+      }
+    },
     "children": {
       "multiple": true,
       "required": false,
@@ -1092,10 +1249,6 @@
           "named": true
         },
         {
-          "type": "tsize",
-          "named": true
-        },
-        {
           "type": "type",
           "named": true
         }
@@ -1106,6 +1259,50 @@
     "type": "wdecl",
     "named": true,
     "fields": {
+      "arg": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": "arg",
+            "named": true
+          }
+        ]
+      },
+      "args": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": ",",
+            "named": false
+          },
+          {
+            "type": "arg",
+            "named": true
+          }
+        ]
+      },
+      "export": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "export",
+            "named": true
+          }
+        ]
+      },
+      "gparams": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "gparams",
+            "named": true
+          }
+        ]
+      },
       "id": {
         "multiple": false,
         "required": true,
@@ -1126,24 +1323,6 @@
           }
         ]
       }
-    },
-    "children": {
-      "multiple": true,
-      "required": false,
-      "types": [
-        {
-          "type": "arg",
-          "named": true
-        },
-        {
-          "type": "export",
-          "named": true
-        },
-        {
-          "type": "gparams",
-          "named": true
-        }
-      ]
     }
   },
   {

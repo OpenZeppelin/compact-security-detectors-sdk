@@ -4,7 +4,7 @@ use std::rc::Rc;
 use crate::{ast_enum, ast_nodes};
 
 use super::{
-    declaration::Argument,
+    declaration::PArgument,
     expression::Identifier,
     node::{Node, NodeKind},
     program::CompactNode,
@@ -31,7 +31,7 @@ ast_nodes! {
 
     pub struct Circuit {
         pub name: Rc<Identifier>,
-        pub arguments: Vec<Rc<Argument>>,
+        pub arguments: Vec<Rc<PArgument>>,
         pub generic_parameters: Option<Vec<Rc<Identifier>>>,
         pub is_exported: bool,
         pub is_pure: bool,

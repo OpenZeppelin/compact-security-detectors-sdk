@@ -8,11 +8,16 @@ use crate::ast::{
     statement::{Block, Statement},
     ty::{Ref, Type},
 };
-use anyhow::{anyhow, bail, Result};
-use ast::declaration::{Export, Ledger};
+use anyhow::{anyhow, bail, Ok, Result};
+use ast::declaration::{
+    Export, Ledger, PArgument, StructPattern, StructPatternField, TuplePattern, Witness,
+};
 use ast::directive::VersionExpr;
-use ast::literal::{Nat, Version, VersionOperator};
+use ast::expression::{Expression, Sequence};
+use ast::literal::{Bool, Nat, Str, Version, VersionOperator};
 use ast::node::Location;
+use ast::statement::If;
+use ast::ty::{Bytes, Opaque, Sum, TypeBool, TypeField, Uint, Vector};
 use std::rc::Rc;
 use tree_sitter::Node;
 pub mod ast;
@@ -69,15 +74,15 @@ pub fn build_ast(root: &Node, source: &str) -> Result<Program> {
                 declarations.push(Declaration::Ledger(Rc::new(ledger_decl)));
             }
             // // witness declaration
-            // "wdecl" => {
-            //     let witness_decl = build_witness(&child, source)?;
-            //     declarations.push(Declaration::Witness(Rc::new(witness_decl)));
-            // }
-            // // circuit definition
-            // "cdefn" => {
-            //     let circuit = build_circuit(&child, source)?;
-            //     definitions.push(Definition::Circuit(Rc::new(circuit)));
-            // }
+            "wdecl" => {
+                let witness_decl = build_witness(&child, source)?;
+                declarations.push(Declaration::Witness(Rc::new(witness_decl)));
+            }
+            // circuit definition
+            "cdefn" => {
+                let circuit = build_circuit(&child, source)?;
+                definitions.push(Definition::Circuit(Rc::new(circuit)));
+            }
             // // struct definition
             // "struct" => {
             //     let structure = build_structure(&child, source)?;
@@ -231,9 +236,9 @@ fn build_export(node: &Node, source: &str) -> Result<Export> {
 }
 
 fn build_ledger(node: &Node, source: &str) -> Result<Ledger> {
-    let ledger_name_node = node.child_by_field_name("id").ok_or_else(|| {
+    let ledger_name_node = node.child_by_field_name("name").ok_or_else(|| {
         anyhow!(
-            "Missing 'id' field in ledger declaration: {:?}",
+            "Missing 'name' field in ledger declaration: {:?}",
             node.utf8_text(source.as_bytes())
         )
     })?;
@@ -257,446 +262,416 @@ fn build_ledger(node: &Node, source: &str) -> Result<Ledger> {
     })
 }
 
-fn build_type(node: &Node, source: &str) -> Result<Type> {
-    let ref_node = node.child_by_field_name("ref").ok_or_else(|| {
+fn build_witness(node: &Node, source: &str) -> Result<Witness> {
+    let witness_name_node = node.child_by_field_name("id").ok_or_else(|| {
         anyhow!(
-            "Missing 'ref' field in type declaration: {:?}",
+            "Missing 'name' field in witness declaration: {:?}",
             node.utf8_text(source.as_bytes())
         )
     })?;
-    let ref_name_node = ref_node.child_by_field_name("id").ok_or_else(|| {
+    let is_exported = node.child_by_field_name("export").is_some();
+    let name = build_identifier(&witness_name_node, source)?;
+    let generic_parameters_node = node.child_by_field_name("gparams");
+    let generic_parameters = generic_parameters_node
+        .as_ref()
+        .map(|generic_node| build_generic_parameters(generic_node, source));
+
+    let cursor = &mut node.walk();
+    let arguments = node
+        .children_by_field_name("arg", cursor)
+        .map(|arg_node| build_argument(&arg_node, source))
+        .collect::<Result<Vec<_>>>()?;
+
+    let type_node = node.child_by_field_name("type").ok_or_else(|| {
         anyhow!(
-            "Missing 'id' field in type declaration: {:?}",
-            ref_node.utf8_text(source.as_bytes())
+            "Missing 'type' field in witness declaration: {:?}",
+            node.utf8_text(source.as_bytes())
         )
     })?;
-    let ref_name = build_identifier(&ref_name_node, source)?;
-    Ok(Type::Ref(Rc::new(Ref {
+    let ty = build_type(&type_node, source)?;
+    Ok(Witness {
         id: node_id(),
         location: location(node),
-        name: ref_name,
-        generic_parameters: None,
-    })))
+        name,
+        generic_parameters,
+        arguments,
+        ty,
+        is_exported,
+    })
 }
 
-// /// Parse a module definition node.
-// /// Grammar: mdefn → export^opt "module" module-name gparams^opt "{" pelt* "}"
-// fn build_module(node: &Node, source: &str) -> Result<Module> {
-//     let mut cursor = node.walk();
-//     let mut children = Vec::new();
-//     for i in 0..node.named_child_count() {
-//         children.push(node.named_child(i).unwrap());
-//     }
-//     let mut index = 0;
-//     let mut is_exported = false;
-//     if let Ok(text) = children[index].utf8_text(source.as_bytes()) {
-//         if text == "export" {
-//             is_exported = true;
-//             index += 1;
-//         }
-//     }
-//     // Expect "module"
-//     if children
-//         .get(index)
-//         .and_then(|n| n.utf8_text(source.as_bytes()).ok())
-//         != Some("module")
-//     {
-//         bail!("Expected 'module' keyword");
-//     }
-//     index += 1;
-//     // Module name (an identifier)
-//     let module_name_node = children
-//         .get(index)
-//         .ok_or_else(|| anyhow!("Missing module name"))?;
-//     let module_name = module_name_node.utf8_text(source.as_bytes())?.to_string();
-//     let name = Rc::new(Identifier { name: module_name });
-//     index += 1;
-//     // Optional generic parameters – we assume they are delimited by “<” and “>”
-//     let mut generic_parameters = None;
-//     if children
-//         .get(index)
-//         .and_then(|n| n.utf8_text(source.as_bytes()).ok())
-//         == Some("<")
-//     {
-//         index += 1; // skip "<"
-//         let mut params = Vec::new();
-//         while index < children.len() {
-//             let text = children[index].utf8_text(source.as_bytes())?;
-//             if text == ">" {
-//                 index += 1;
-//                 break;
-//             }
-//             if text != "," {
-//                 params.push(Rc::new(Identifier {
-//                     name: text.to_string(),
-//                 }));
-//             }
-//             index += 1;
-//         }
-//         generic_parameters = Some(params);
-//     }
-//     // Expect "{" then module body then "}"
-//     if children
-//         .get(index)
-//         .and_then(|n| n.utf8_text(source.as_bytes()).ok())
-//         != Some("{")
-//     {
-//         bail!("Expected '{{' in module definition");
-//     }
-//     index += 1;
-//     let mut body_nodes = Vec::new();
-//     while index < children.len() {
-//         let text = children[index].utf8_text(source.as_bytes())?;
-//         if text == "}" {
-//             break;
-//         }
-//         let child_node = children[index];
-//         let compact_node = build_compact_node(&child_node, source)?;
-//         body_nodes.push(compact_node);
-//         index += 1;
-//     }
-//     Ok(Module {
-//         is_exported,
-//         name,
-//         generic_parameters,
-//         nodes: body_nodes,
-//     })
-// }
+fn build_circuit(node: &Node, source: &str) -> Result<Circuit> {
+    let circuit_name_node = node.child_by_field_name("id").ok_or_else(|| {
+        anyhow!(
+            "Missing 'id' field in circuit definition: {:?}",
+            node.utf8_text(source.as_bytes())
+        )
+    })?;
+    let name = build_identifier(&circuit_name_node, source)?;
+    let is_exported = node.child_by_field_name("export").is_some();
+    let is_pure = node.child_by_field_name("pure").is_some();
 
-// /// Parse a circuit definition node.
-// /// Grammar: cdefn → export^opt pure^opt "circuit" function-name gparams^opt "(" parg* ")" ":" type block
-// fn build_circuit(node: &Node, source: &str) -> Result<Circuit> {
-//     let mut cursor = node.walk();
-//     let mut children = Vec::new();
-//     for i in 0..node.named_child_count() {
-//         children.push(node.named_child(i).unwrap());
-//     }
-//     let mut index = 0;
-//     let mut is_exported = false;
-//     let mut is_pure = false;
-//     if children
-//         .get(index)
-//         .and_then(|n| n.utf8_text(source.as_bytes()).ok())
-//         == Some("export")
-//     {
-//         is_exported = true;
-//         index += 1;
-//     }
-//     if children
-//         .get(index)
-//         .and_then(|n| n.utf8_text(source.as_bytes()).ok())
-//         == Some("pure")
-//     {
-//         is_pure = true;
-//         index += 1;
-//     }
-//     if children
-//         .get(index)
-//         .and_then(|n| n.utf8_text(source.as_bytes()).ok())
-//         != Some("circuit")
-//     {
-//         bail!("Expected 'circuit' keyword");
-//     }
-//     index += 1;
-//     // Function name (an identifier)
-//     let func_name_node = children
-//         .get(index)
-//         .ok_or_else(|| anyhow!("Missing function name"))?;
-//     let func_name = func_name_node.utf8_text(source.as_bytes())?.to_string();
-//     let name = Rc::new(Identifier { name: func_name });
-//     index += 1;
-//     // Optional generic parameters (if present)
-//     let mut generic_parameters = None;
-//     if children
-//         .get(index)
-//         .and_then(|n| n.utf8_text(source.as_bytes()).ok())
-//         == Some("<")
-//     {
-//         index += 1;
-//         let mut params = Vec::new();
-//         while index < children.len() {
-//             let text = children[index].utf8_text(source.as_bytes())?;
-//             if text == ">" {
-//                 index += 1;
-//                 break;
-//             }
-//             if text != "," {
-//                 params.push(Rc::new(Identifier {
-//                     name: text.to_string(),
-//                 }));
-//             }
-//             index += 1;
-//         }
-//         generic_parameters = Some(params);
-//     }
-//     // Expect "(" then parameters then ")"
-//     if children
-//         .get(index)
-//         .and_then(|n| n.utf8_text(source.as_bytes()).ok())
-//         != Some("(")
-//     {
-//         bail!("Expected '(' in circuit definition");
-//     }
-//     index += 1;
-//     let mut arguments = Vec::new();
-//     // For simplicity, assume each parameter is a simple “id : type” without extra punctuation.
-//     while index < children.len() {
-//         let token = children[index].utf8_text(source.as_bytes())?;
-//         if token == ")" {
-//             index += 1;
-//             break;
-//         }
-//         // Parameter pattern (an identifier)
-//         let pattern = Rc::new(Pattern::Identifier(Rc::new(Identifier {
-//             name: token.to_string(),
-//         })));
-//         index += 1;
-//         // Expect ":"
-//         if children
-//             .get(index)
-//             .and_then(|n| n.utf8_text(source.as_bytes()).ok())
-//             != Some(":")
-//         {
-//             bail!("Expected ':' in circuit parameter");
-//         }
-//         index += 1;
-//         // Type (for simplicity, a single identifier token)
-//         let type_token = children
-//             .get(index)
-//             .ok_or_else(|| anyhow!("Missing type in circuit parameter"))?
-//             .utf8_text(source.as_bytes())?
-//             .to_string();
-//         let ty = Type::Ref(Rc::new(Ref {
-//             name: Rc::new(Identifier { name: type_token }),
-//             generic_parameters: None,
-//         }));
-//         index += 1;
-//         arguments.push(Rc::new(Argument { pattern, ty }));
-//         // Skip an optional comma.
-//         if index < children.len()
-//             && children
-//                 .get(index)
-//                 .and_then(|n| n.utf8_text(source.as_bytes()).ok())
-//                 == Some(",")
-//         {
-//             index += 1;
-//         }
-//     }
-//     // Expect ":" then return type.
-//     if children
-//         .get(index)
-//         .and_then(|n| n.utf8_text(source.as_bytes()).ok())
-//         != Some(":")
-//     {
-//         bail!("Expected ':' before circuit return type");
-//     }
-//     index += 1;
-//     let ret_type_token = children
-//         .get(index)
-//         .ok_or_else(|| anyhow!("Missing circuit return type"))?
-//         .utf8_text(source.as_bytes())?
-//         .to_string();
-//     let ret_type = Type::Ref(Rc::new(Ref {
-//         name: Rc::new(Identifier {
-//             name: ret_type_token,
-//         }),
-//         generic_parameters: None,
-//     }));
-//     index += 1;
-//     // Expect block start ("{") – here we create an empty block for simplicity.
-//     if children
-//         .get(index)
-//         .and_then(|n| n.utf8_text(source.as_bytes()).ok())
-//         != Some("{")
-//     {
-//         bail!("Expected '{{' for circuit block");
-//     }
-//     let body = Some(Rc::new(Block { statements: vec![] }));
-//     Ok(Circuit {
-//         name,
-//         arguments,
-//         generic_parameters,
-//         is_exported,
-//         is_pure,
-//         ty: ret_type,
-//         body,
-//     })
-// }
+    let generic_parameters_node = node.child_by_field_name("gparams");
+    let generic_parameters = generic_parameters_node
+        .as_ref()
+        .map(|generic_node| build_generic_parameters(generic_node, source));
 
-// /// Parse a struct definition node.
-// /// Grammar: struct → export^opt "struct" struct-name gparams^opt "{" field* "}" ";"^opt
-// fn build_structure(node: &Node, source: &str) -> Result<Structure> {
-//     let mut cursor = node.walk();
-//     let mut children = Vec::new();
-//     for i in 0..node.named_child_count() {
-//         children.push(node.named_child(i).unwrap());
-//     }
-//     let mut index = 0;
-//     let mut is_exported = false;
-//     if children
-//         .get(index)
-//         .and_then(|n| n.utf8_text(source.as_bytes()).ok())
-//         == Some("export")
-//     {
-//         is_exported = true;
-//         index += 1;
-//     }
-//     if children
-//         .get(index)
-//         .and_then(|n| n.utf8_text(source.as_bytes()).ok())
-//         != Some("struct")
-//     {
-//         bail!("Expected 'struct' keyword");
-//     }
-//     index += 1;
-//     let struct_name_node = children
-//         .get(index)
-//         .ok_or_else(|| anyhow!("Missing struct name"))?;
-//     let struct_name = struct_name_node.utf8_text(source.as_bytes())?.to_string();
-//     let name = Rc::new(Identifier { name: struct_name });
-//     index += 1;
-//     // Optional generic parameters.
-//     let mut generic_parameters = None;
-//     if children
-//         .get(index)
-//         .and_then(|n| n.utf8_text(source.as_bytes()).ok())
-//         == Some("<")
-//     {
-//         index += 1;
-//         let mut params = Vec::new();
-//         while index < children.len() {
-//             let token = children[index].utf8_text(source.as_bytes())?;
-//             if token == ">" {
-//                 index += 1;
-//                 break;
-//             }
-//             if token != "," {
-//                 params.push(Rc::new(Identifier {
-//                     name: token.to_string(),
-//                 }));
-//             }
-//             index += 1;
-//         }
-//         generic_parameters = Some(params);
-//     }
-//     if children
-//         .get(index)
-//         .and_then(|n| n.utf8_text(source.as_bytes()).ok())
-//         != Some("{")
-//     {
-//         bail!("Expected '{{' in struct definition");
-//     }
-//     index += 1;
-//     let mut fields = Vec::new();
-//     // For each field, expect: id ":" type ";"
-//     while index < children.len() {
-//         let token = children[index].utf8_text(source.as_bytes())?;
-//         if token == "}" {
-//             break;
-//         }
-//         // Field name.
-//         let field_name = token.to_string();
-//         let field_name_rc = Rc::new(Identifier { name: field_name });
-//         index += 1;
-//         if children
-//             .get(index)
-//             .and_then(|n| n.utf8_text(source.as_bytes()).ok())
-//             != Some(":")
-//         {
-//             bail!("Expected ':' in struct field");
-//         }
-//         index += 1;
-//         let type_token = children
-//             .get(index)
-//             .ok_or_else(|| anyhow!("Missing type in struct field"))?
-//             .utf8_text(source.as_bytes())?
-//             .to_string();
-//         let ty = Type::Ref(Rc::new(Ref {
-//             name: Rc::new(Identifier { name: type_token }),
-//             generic_parameters: None,
-//         }));
-//         index += 1;
-//         // Skip an optional ";".
-//         if index < children.len()
-//             && children
-//                 .get(index)
-//                 .and_then(|n| n.utf8_text(source.as_bytes()).ok())
-//                 == Some(";")
-//         {
-//             index += 1;
-//         }
-//         fields.push(Rc::new(Field {
-//             name: field_name_rc,
-//             ty,
-//         }));
-//     }
-//     Ok(Structure {
-//         is_exported,
-//         name,
-//         generic_parameters,
-//         fields,
-//     })
-// }
+    let arguments = node
+        .children_by_field_name("parg", &mut node.walk())
+        .map(|arg_node| build_pargument(&arg_node, source))
+        .collect::<Result<Vec<_>>>()?;
 
-// /// Parse an enum definition node.
-// /// Grammar: enumdef → export^opt "enum" enum-name "{" id ("," id)* (",")? "}" ";"^opt
-// fn build_enum(node: &Node, source: &str) -> Result<AstEnum> {
-//     let mut cursor = node.walk();
-//     let mut children = Vec::new();
-//     for i in 0..node.named_child_count() {
-//         children.push(node.named_child(i).unwrap());
-//     }
-//     let mut index = 0;
-//     let mut is_exported = false;
-//     if children
-//         .get(index)
-//         .and_then(|n| n.utf8_text(source.as_bytes()).ok())
-//         == Some("export")
-//     {
-//         is_exported = true;
-//         index += 1;
-//     }
-//     if children
-//         .get(index)
-//         .and_then(|n| n.utf8_text(source.as_bytes()).ok())
-//         != Some("enum")
-//     {
-//         bail!("Expected 'enum' keyword");
-//     }
-//     index += 1;
-//     let enum_name_node = children
-//         .get(index)
-//         .ok_or_else(|| anyhow!("Missing enum name"))?;
-//     let enum_name = enum_name_node.utf8_text(source.as_bytes())?.to_string();
-//     let name = Rc::new(Identifier { name: enum_name });
-//     index += 1;
-//     if children
-//         .get(index)
-//         .and_then(|n| n.utf8_text(source.as_bytes()).ok())
-//         != Some("{")
-//     {
-//         bail!("Expected '{{' in enum definition");
-//     }
-//     index += 1;
-//     let mut options = Vec::new();
-//     while index < children.len() {
-//         let token = children[index].utf8_text(source.as_bytes())?;
-//         if token == "}" {
-//             break;
-//         }
-//         if token != "," {
-//             options.push(Rc::new(Identifier {
-//                 name: token.to_string(),
-//             }));
-//         }
-//         index += 1;
-//     }
-//     Ok(AstEnum {
-//         is_exported,
-//         name,
-//         options,
-//     })
-// }
+    let body_node = node.child_by_field_name("body").ok_or_else(|| {
+        anyhow!(
+            "Missing 'body' field in circuit definition: {:?}",
+            node.utf8_text(source.as_bytes())
+        )
+    })?;
+
+    let body = build_block(&body_node, source)?;
+    let type_node = node.child_by_field_name("type").ok_or_else(|| {
+        anyhow!(
+            "Missing 'type' field in circuit definition: {:?}",
+            node.utf8_text(source.as_bytes())
+        )
+    })?;
+    let ty = build_type(&type_node, source)?;
+
+    Ok(Circuit {
+        id: node_id(),
+        location: location(node),
+        name,
+        is_exported,
+        is_pure,
+        generic_parameters,
+        arguments,
+        body: Some(body),
+        ty,
+    })
+}
+
+fn build_statement(node: &Node, source: &str) -> Result<Statement> {
+    let kind = node.kind();
+    let statement = match kind {
+        "block" => Statement::Block(build_block(&node, source)?),
+        "if" => Statement::If(build_if_statement(&node, source)?),
+        "while" => build_while(&node, source),
+        "return" => build_return(&node, source),
+        "expression" => build_expression(&node, source),
+        "declaration" => build_declaration(&node, source),
+        _ => bail!("Unhandled statement kind: {}", kind),
+    };
+    Ok(statement)
+}
+
+fn build_if_statement(node: &Node, source: &str) -> Result<Rc<If>> {
+    let condition_node = node.child_by_field_name("condition").ok_or_else(|| {
+        anyhow!(
+            "Missing 'condition' field in if statement: {:?}",
+            node.utf8_text(source.as_bytes())
+        )
+    })?;
+    let condition = build_expression_sequence(&condition_node, source)?;
+    let then_branch_node = node.child_by_field_name("then_branch").ok_or_else(|| {
+        anyhow!(
+            "Missing 'then' field in if statement: {:?}",
+            node.utf8_text(source.as_bytes())
+        )
+    })?;
+    let then_branch = build_block(&then_branch_node, source)?;
+    let else_branch_node = node.child_by_field_name("else_branch");
+    let else_branch = else_branch_node
+        .map(|node| build_block(&node, source))
+        .transpose()?;
+    Ok(Rc::new(If {
+        id: node_id(),
+        location: location(node),
+        condition: Expression::Sequence(condition),
+        then_branch,
+        else_branch,
+    }))
+}
+
+fn build_block(node: &Node, source: &str) -> Result<Rc<Block>> {
+    let mut cursor = node.walk();
+    let statements: Result<Vec<_>> = node
+        .children_by_field_name("stmt", &mut cursor)
+        .map(|stmt_node| build_statement(&stmt_node, source))
+        .collect();
+    Ok(Rc::new(Block {
+        id: node_id(),
+        location: location(node),
+        statements: statements?,
+    }))
+}
+
+fn build_expression(node: &Node, source: &str) -> Result<Expression> {
+    let expression_node = node.child(0).unwrap();
+    let kind = expression_node.kind();
+    let expression = match kind {};
+    Ok(expression)
+}
+
+fn build_expression_sequence(node: &Node, source: &str) -> Result<Rc<Sequence>> {
+    let mut cursor = node.walk();
+    let expressions: Result<Vec<_>> = node
+        .children_by_field_name("expr", &mut cursor)
+        .map(|expr_node| build_expression(&expr_node, source))
+        .collect();
+    Ok(Rc::new(Sequence {
+        id: node_id(),
+        location: location(node),
+        expressions: expressions?,
+    }))
+}
+
+#[allow(clippy::too_many_lines)]
+fn build_type(node: &Node, source: &str) -> Result<Type> {
+    let node = if node.kind() == "type" {
+        &node.child(0).unwrap()
+    } else {
+        node
+    };
+    let kind = node.kind();
+    match kind {
+        "tref" => {
+            let ref_node = node.child_by_field_name("id").ok_or_else(|| {
+                anyhow!(
+                    "Missing 'id' field in type reference: {:?}",
+                    node.utf8_text(source.as_bytes())
+                )
+            })?;
+            let ref_name = build_identifier(&ref_node, source)?;
+            let generic_parameters_node = node.child_by_field_name("gargs");
+            let mut generic_parameters: Option<Vec<Type>> = None;
+            if let Some(generics_node) = generic_parameters_node {
+                let cursor = &mut generics_node.walk();
+                let generic_nodes: Result<Vec<_>> = generics_node
+                    .children_by_field_name("garg", cursor)
+                    .map(|type_node| build_type(&type_node.child(0).unwrap(), source))
+                    .collect();
+                generic_parameters = Some(generic_nodes?);
+            }
+
+            Ok(Type::Ref(Rc::new(Ref {
+                id: node_id(),
+                location: location(node),
+                name: ref_name,
+                generic_parameters,
+            })))
+        }
+        "Boolean" => Ok(Type::Bool(Rc::new(TypeBool {
+            id: node_id(),
+            location: location(node),
+        }))),
+        "Field" => Ok(Type::Field(Rc::new(TypeField {
+            id: node_id(),
+            location: location(node),
+        }))),
+        "Uint" => {
+            let cursor = &mut node.walk();
+            let size_nodes = node
+                .children_by_field_name("tsize", cursor)
+                .map(|size_node| build_nat(&size_node, source).unwrap())
+                .collect::<Vec<_>>();
+            let start = size_nodes.first().cloned().ok_or_else(|| {
+                anyhow!(
+                    "Missing 'tsize' field in Uint type: {:?}",
+                    node.utf8_text(source.as_bytes())
+                )
+            })?;
+            let end = if size_nodes.len() > 1 {
+                size_nodes.last().cloned()
+            } else {
+                None
+            };
+            Ok(Type::Uint(Rc::new(Uint {
+                id: node_id(),
+                location: location(node),
+                start,
+                end,
+            })))
+        }
+        "Bytes" => {
+            let size_node = node.next_sibling().unwrap().next_sibling().unwrap();
+            let nat = build_nat(&size_node, source)?;
+            Ok(Type::Bytes(Rc::new(Bytes {
+                id: node_id(),
+                location: location(node),
+                size: nat,
+            })))
+        }
+        "Opaque" => {
+            let size_node = node.child_by_field_name("str").ok_or_else(|| {
+                anyhow!(
+                    "Missing 'str' field in Opaque type: {:?}",
+                    node.utf8_text(source.as_bytes())
+                )
+            })?;
+            let str = build_str(&size_node, source)?;
+            Ok(Type::Opaque(Rc::new(Opaque {
+                id: node_id(),
+                location: location(node),
+                value: str,
+            })))
+        }
+        "Vector" => {
+            let size_node = node.child_by_field_name("tsize").ok_or_else(|| {
+                anyhow!(
+                    "Missing 'tsize' field in Vector type: {:?}",
+                    node.utf8_text(source.as_bytes())
+                )
+            })?;
+            let size = build_nat(&size_node, source)?;
+            let element_node = node.child_by_field_name("type").ok_or_else(|| {
+                anyhow!(
+                    "Missing 'type' field in Vector type: {:?}",
+                    node.utf8_text(source.as_bytes())
+                )
+            })?;
+            let element_type = build_type(&element_node, source)?;
+            Ok(Type::Vector(Rc::new(Vector {
+                id: node_id(),
+                location: location(node),
+                size,
+                ty: element_type,
+            })))
+        }
+        "[" => {
+            let mut cursor = node.walk();
+            let type_nodes: Result<Vec<_>> = node
+                .children_by_field_name("type", &mut cursor)
+                .map(|size_node| build_type(&size_node, source))
+                .collect();
+            let sizes = type_nodes?;
+            Ok(Type::Sum(Rc::new(Sum {
+                id: node_id(),
+                location: location(node),
+                types: sizes,
+            })))
+        }
+        _ => bail!("Unhandled type kind: {}", kind),
+    }
+}
+
+fn build_argument(node: &Node, source: &str) -> Result<Rc<Argument>> {
+    let name_node = node.child_by_field_name("id").ok_or_else(|| {
+        anyhow!(
+            "Missing 'id' field in argument: {:?}",
+            node.utf8_text(source.as_bytes())
+        )
+    })?;
+    let name = build_identifier(&name_node, source)?;
+    let type_node = node.child_by_field_name("type").ok_or_else(|| {
+        anyhow!(
+            "Missing 'type' field in argument: {:?}",
+            node.utf8_text(source.as_bytes())
+        )
+    })?;
+    let ty = build_type(&type_node, source)?;
+    Ok(Rc::new(Argument {
+        id: node_id(),
+        location: location(node),
+        name,
+        ty,
+    }))
+}
+
+fn build_pargument(node: &Node, source: &str) -> Result<Rc<PArgument>> {
+    let pattern_node = node.child_by_field_name("pattern").ok_or_else(|| {
+        anyhow!(
+            "Missing 'pattern' field in argument: {:?}",
+            node.utf8_text(source.as_bytes())
+        )
+    })?;
+    let pattern = build_pattern(&pattern_node, source)?;
+    let type_node = node.child_by_field_name("type").ok_or_else(|| {
+        anyhow!(
+            "Missing 'type' field in argument: {:?}",
+            node.utf8_text(source.as_bytes())
+        )
+    })?;
+    let ty = build_type(&type_node, source)?;
+    Ok(Rc::new(PArgument {
+        id: node_id(),
+        location: location(node),
+        pattern,
+        ty,
+    }))
+}
+
+fn build_pattern(node: &Node, source: &str) -> Result<Rc<Pattern>> {
+    let kind = node.kind();
+    match kind {
+        "id" => {
+            let name_node = node.child_by_field_name("id").ok_or_else(|| {
+                anyhow!(
+                    "Missing 'id' field in pattern: {:?}",
+                    node.utf8_text(source.as_bytes())
+                )
+            })?;
+            let name = build_identifier(&name_node, source)?;
+            Ok(Rc::new(Pattern::Identifier(name)))
+        }
+        "pattern_tuple" => {
+            let cursor = &mut node.walk();
+            let patterns: Result<Vec<_>> = node
+                .children_by_field_name("pattern_tuple_elt", cursor)
+                .map(|pattern_node| build_pattern(&pattern_node, source))
+                .collect();
+            let patterns = patterns?;
+            Ok(Rc::new(Pattern::Tuple(Rc::new(TuplePattern {
+                id: node_id(),
+                location: location(node),
+                patterns,
+            }))))
+        }
+        "pattern_struct" => {
+            let mut cursor = node.walk();
+            let field_nodes = node
+                .children_by_field_name("pattern_struct_elt", &mut cursor)
+                .collect::<Vec<_>>();
+            let mut fields = Vec::new();
+            for field_node in field_nodes {
+                let name_node = field_node.child_by_field_name("id").ok_or_else(|| {
+                    anyhow!(
+                        "Missing 'id' field in struct pattern field: {:?}",
+                        field_node.utf8_text(source.as_bytes())
+                    )
+                })?;
+                let name = build_identifier(&name_node, source)?;
+                let pattern_node = field_node.child_by_field_name("pattern").ok_or_else(|| {
+                    anyhow!(
+                        "Missing 'pattern' field in struct pattern field: {:?}",
+                        field_node.utf8_text(source.as_bytes())
+                    )
+                })?;
+                let pattern = build_pattern(&pattern_node, source)?;
+                fields.push(Rc::new(StructPatternField {
+                    id: node_id(),
+                    location: location(&field_node),
+                    name,
+                    pattern,
+                }));
+            }
+            Ok(Rc::new(Pattern::Struct(Rc::new(StructPattern {
+                id: node_id(),
+                location: location(node),
+                fields,
+            }))))
+        }
+        _ => bail!("Unhandled pattern kind: {}", kind),
+    }
+}
+
+fn build_generic_parameters(node: &Node, source: &str) -> Vec<Rc<Identifier>> {
+    let mut cursor = node.walk();
+    let generic_nodes: Result<Vec<_>> = node
+        .children_by_field_name("gparam", &mut cursor)
+        .map(|ident_node| build_identifier(&ident_node, source))
+        .collect();
+    generic_nodes.unwrap()
+}
 
 fn build_identifier(node: &Node, source: &str) -> Result<Rc<Identifier>> {
     let text = node.utf8_text(source.as_bytes())?.to_string();
@@ -704,6 +679,27 @@ fn build_identifier(node: &Node, source: &str) -> Result<Rc<Identifier>> {
         id: node_id(),
         location: location(node),
         name: text,
+    }))
+}
+
+fn build_nat(node: &Node, source: &str) -> Result<Rc<Nat>> {
+    let text = node.utf8_text(source.as_bytes())?.to_string();
+    let value = text
+        .parse::<u64>()
+        .map_err(|_| anyhow!("Invalid Nat value: {}", text))?;
+    Ok(Rc::new(Nat {
+        id: node_id(),
+        location: location(node),
+        value,
+    }))
+}
+
+fn build_str(node: &Node, source: &str) -> Result<Rc<Str>> {
+    let text = node.utf8_text(source.as_bytes())?.to_string();
+    Ok(Rc::new(Str {
+        id: node_id(),
+        location: location(node),
+        value: text,
     }))
 }
 
@@ -851,25 +847,6 @@ mod tests {
 
     #[test]
     fn test_ledger() {
-//         export ledger game_state: GAME_STATE;              // tracks the current game state according to the game state machine
-// export ledger shot_attempt: Coord;                 // coordinate of the opponent's shot to be validated during the player's turn
-// export ledger last_shot_result: Maybe<ShotResult>; // validated shot result
-// export sealed ledger reward_coin_color: Bytes<32>; // identifier of the coins used for rewards
-// export ledger reward: QualifiedCoinInfo;           // reference to the funds locked in the contract
-
-// // Player 1 public state
-// export ledger p1: Maybe<Bytes<32>>;                     // hash of player 1 secret, used to uniquely identify the player
-// export ledger p1_public_key: Maybe<ZswapCoinPublicKey>; // public key of player 1, where to send the reward
-// export ledger p1_ship_positions_hash: Bytes<32>;        // hash of player's board layout, to ensure that it is not changed
-// export ledger p1_ship_state_hash: Bytes<32>;            // hash of player's ships current state, to ensure it is not changed between turns
-// export ledger p1_hit_counter: Counter;                        // counter of hits on player's ships to determine the winner
-
-// // Player 2 public state
-// export ledger p2: Maybe<Bytes<32>>;
-// export ledger p2_public_key: Maybe<ZswapCoinPublicKey>;
-// export ledger p2_ship_positions_hash: Bytes<32>;
-// export ledger p2_ship_state_hash: Bytes<32>;
-// export ledger p2_hit_counter: Counter;
         let source = "export ledger game_state: GAME_STATE;";
         let source_file = parse_content("dummy", source).unwrap();
         assert_eq!(source_file.ast.declarations.len(), 1);
@@ -881,12 +858,160 @@ mod tests {
                 assert!(matches!(ledger.ty, Type::Ref(_)));
                 match &ledger.ty {
                     Type::Ref(rt) => {
+                        assert!(rt.generic_parameters.is_none());
                         assert_eq!(rt.name.name, "GAME_STATE");
                     },
                     _ => panic!("Expected a reference type"),
                 }
             }
             _ => panic!("Expected a ledger declaration"),
+        }
+
+        let source = "export ledger last_shot_result: Maybe<ShotResult>;";
+        let source_file = parse_content("dummy", source).unwrap();
+        assert_eq!(source_file.ast.declarations.len(), 1);
+        match &source_file.ast.declarations.first().unwrap() {
+            Declaration::Ledger(ledger) => {
+                assert_eq!(ledger.name(), "last_shot_result");
+                assert!(ledger.is_exported);
+                assert!(!ledger.is_sealed);
+                assert!(matches!(ledger.ty, Type::Ref(_)));
+                match &ledger.ty {
+                    Type::Ref(rt) => {
+                        assert_eq!(rt.name.name, "Maybe");
+                        assert!(rt.generic_parameters.is_some());
+                        assert_eq!(rt.generic_parameters.as_ref().unwrap().len(), 1);
+                        match rt.generic_parameters.as_ref().unwrap().first().unwrap() {
+                            Type::Ref(rt) => {
+                                assert!(rt.generic_parameters.is_none());
+                                assert_eq!(rt.name.name, "ShotResult");
+                            },
+                            _ => panic!("Expected a reference type"),
+                        }
+                    },
+                    _ => panic!("Expected a reference type"),
+                }
+            }
+            _ => panic!("Expected a ledger declaration"),
+        }
+
+        let source = "export sealed ledger reward_coin_color: Bytes<32>;";
+        let source_file = parse_content("dummy", source).unwrap();
+        assert_eq!(source_file.ast.declarations.len(), 1);
+        match &source_file.ast.declarations.first().unwrap() {
+            Declaration::Ledger(ledger) => {
+                assert_eq!(ledger.name(), "reward_coin_color");
+                assert!(ledger.is_exported);
+                assert!(ledger.is_sealed);
+                assert!(matches!(ledger.ty, Type::Bytes(_)));
+                match &ledger.ty {
+                    Type::Bytes(bt) => {
+                        assert!(matches!(bt.size.value, 32));
+                    },
+                    _ => panic!("Expected a bytes type"),
+                }
+            }
+            _ => panic!("Expected a ledger declaration"),
+        }
+
+        let source = "export ledger p1_public_key: Maybe<ZswapCoinPublicKey>;";
+        let source_file = parse_content("dummy", source).unwrap();
+        assert_eq!(source_file.ast.declarations.len(), 1);
+        match &source_file.ast.declarations.first().unwrap() {
+            Declaration::Ledger(ledger) => {
+                assert_eq!(ledger.name(), "p1_public_key");
+                assert!(ledger.is_exported);
+                assert!(!ledger.is_sealed);
+                assert!(matches!(ledger.ty, Type::Ref(_)));
+                match &ledger.ty {
+                    Type::Ref(rt) => {
+                        assert_eq!(rt.name.name, "Maybe");
+                        assert!(rt.generic_parameters.is_some());
+                        assert_eq!(rt.generic_parameters.as_ref().unwrap().len(), 1);
+                        match rt.generic_parameters.as_ref().unwrap().first().unwrap() {
+                            Type::Ref(rt) => {
+                                assert!(rt.generic_parameters.is_none());
+                                assert_eq!(rt.name.name, "ZswapCoinPublicKey");
+                            },
+                            _ => panic!("Expected a reference type"),
+                        }
+                    },
+                    _ => panic!("Expected a reference type"),
+                }
+            }
+            _ => panic!("Expected a ledger declaration"),
+        }
+    }
+
+    #[test]
+    fn test_witness() {
+        let source = "witness local_secret_key(): Bytes<32>;";
+        let source_file = parse_content("dummy", source).unwrap();
+        assert_eq!(source_file.ast.declarations.len(), 1);
+        match &source_file.ast.declarations.first().unwrap() {
+            Declaration::Witness(witness) => {
+                assert_eq!(witness.name.name, "local_secret_key");
+                assert!(!witness.is_exported);
+                assert!(witness.generic_parameters.is_none());
+                assert_eq!(witness.arguments.len(), 0);
+                assert!(matches!(witness.ty, Type::Bytes(_)));
+                match &witness.ty {
+                    Type::Bytes(bt) => {
+                        assert!(matches!(bt.size.value, 32));
+                    },
+                    _ => panic!("Expected a bytes type"),
+                }
+            }
+            _ => panic!("Expected a witness declaration"),
+        }
+
+        let source = "export witness player_ship_positions(): Ships;";
+        let source_file = parse_content("dummy", source).unwrap();
+        assert_eq!(source_file.ast.declarations.len(), 1);
+        match &source_file.ast.declarations.first().unwrap() {
+            Declaration::Witness(witness) => {
+                assert_eq!(witness.name.name, "player_ship_positions");
+                assert!(witness.is_exported);
+                assert!(witness.generic_parameters.is_none());
+                assert_eq!(witness.arguments.len(), 0);
+                assert!(matches!(witness.ty, Type::Ref(_)));
+                match &witness.ty {
+                    Type::Ref(rt) => {
+                        assert!(rt.generic_parameters.is_none());
+                        assert_eq!(rt.name.name, "Ships");
+                    },
+                    _ => panic!("Expected a reference type"),
+                }
+            }
+            _ => panic!("Expected a witness declaration"),
+        }
+
+        let source = "witness set_player_ship_state(ship_state: ShipState): [];";
+        let source_file = parse_content("dummy", source).unwrap();
+        assert_eq!(source_file.ast.declarations.len(), 1);
+        match &source_file.ast.declarations.first().unwrap() {
+            Declaration::Witness(witness) => {
+                assert_eq!(witness.name.name, "set_player_ship_state");
+                assert!(!witness.is_exported);
+                assert!(witness.generic_parameters.is_none());
+                assert_eq!(witness.arguments.len(), 1);
+                let arg = witness.arguments.first().unwrap();
+                assert_eq!(arg.name.name, "ship_state");
+                assert!(matches!(arg.ty, Type::Ref(_)));
+                match &arg.ty {
+                    Type::Ref(rt) => {
+                        assert!(rt.generic_parameters.is_none());
+                        assert_eq!(rt.name.name, "ShipState");
+                    },
+                    _ => panic!("Expected a reference type"),
+                }
+                assert!(matches!(witness.ty, Type::Sum(_)));
+                match &witness.ty {
+                    Type::Sum(_) => {},
+                    _ => panic!("Expected a sum type"),
+                }
+            }
+            _ => panic!("Expected a witness declaration"),
         }
     }
 

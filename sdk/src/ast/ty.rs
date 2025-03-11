@@ -21,13 +21,6 @@ ast_enum! {
     }
 }
 
-ast_enum! {
-    pub enum TypeRefGenericParam {
-        @raw Type(Type),
-        Nat(Rc<Nat>),
-    }
-}
-
 impl Type {
     #[must_use]
     pub fn matches(&self, ty: &Type) -> bool {
@@ -72,7 +65,7 @@ ast_nodes! {
     }
     pub struct Ref {
         pub name: Rc<Identifier>,
-        pub generic_parameters: Option<Vec<TypeRefGenericParam>>,
+        pub generic_parameters: Option<Vec<Type>>,
     }
     pub struct Sum {
         pub types: Vec<Type>,
