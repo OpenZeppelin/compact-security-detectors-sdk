@@ -337,16 +337,17 @@
   {
     "type": "expr_seq",
     "named": true,
-    "fields": {},
-    "children": {
-      "multiple": true,
-      "required": true,
-      "types": [
-        {
-          "type": "expr",
-          "named": true
-        }
-      ]
+    "fields": {
+      "expr": {
+        "multiple": true,
+        "required": true,
+        "types": [
+          {
+            "type": "expr",
+            "named": true
+          }
+        ]
+      }
     }
   },
   {
@@ -357,41 +358,88 @@
   {
     "type": "fun",
     "named": true,
-    "fields": {},
+    "fields": {
+      "block": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "block",
+            "named": true
+          }
+        ]
+      },
+      "expr": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "expr",
+            "named": true
+          }
+        ]
+      },
+      "gargs": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "gargs",
+            "named": true
+          }
+        ]
+      },
+      "id": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "id",
+            "named": true
+          }
+        ]
+      },
+      "parg": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": "parg",
+            "named": true
+          }
+        ]
+      },
+      "pattern": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": "pattern",
+            "named": true
+          }
+        ]
+      },
+      "return": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": ":",
+            "named": false
+          },
+          {
+            "type": "type",
+            "named": true
+          }
+        ]
+      }
+    },
     "children": {
-      "multiple": true,
-      "required": true,
+      "multiple": false,
+      "required": false,
       "types": [
         {
-          "type": "block",
-          "named": true
-        },
-        {
-          "type": "expr",
-          "named": true
-        },
-        {
           "type": "fun",
-          "named": true
-        },
-        {
-          "type": "gargs",
-          "named": true
-        },
-        {
-          "type": "id",
-          "named": true
-        },
-        {
-          "type": "parg",
-          "named": true
-        },
-        {
-          "type": "pattern",
-          "named": true
-        },
-        {
-          "type": "type",
           "named": true
         }
       ]
@@ -1018,45 +1066,182 @@
   {
     "type": "stmt",
     "named": true,
-    "fields": {},
+    "fields": {
+      "assign_statement": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": "+=",
+            "named": false
+          },
+          {
+            "type": "-=",
+            "named": false
+          },
+          {
+            "type": ";",
+            "named": false
+          },
+          {
+            "type": "=",
+            "named": false
+          },
+          {
+            "type": "expr",
+            "named": true
+          }
+        ]
+      },
+      "body": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "stmt",
+            "named": true
+          }
+        ]
+      },
+      "condition": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "expr",
+            "named": true
+          },
+          {
+            "type": "expr_seq",
+            "named": true
+          }
+        ]
+      },
+      "counter": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "id",
+            "named": true
+          }
+        ]
+      },
+      "else_branch": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "stmt",
+            "named": true
+          }
+        ]
+      },
+      "expression_statement": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": ";",
+            "named": false
+          },
+          {
+            "type": "expr_seq",
+            "named": true
+          }
+        ]
+      },
+      "limit": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "expr_seq",
+            "named": true
+          }
+        ]
+      },
+      "message": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "str",
+            "named": true
+          }
+        ]
+      },
+      "pattern": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "pattern",
+            "named": true
+          }
+        ]
+      },
+      "range_end": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "nat",
+            "named": true
+          }
+        ]
+      },
+      "range_start": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "nat",
+            "named": true
+          }
+        ]
+      },
+      "then_branch": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "stmt",
+            "named": true
+          }
+        ]
+      },
+      "type": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "type",
+            "named": true
+          }
+        ]
+      },
+      "value": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "expr",
+            "named": true
+          },
+          {
+            "type": "expr_seq",
+            "named": true
+          }
+        ]
+      }
+    },
     "children": {
-      "multiple": true,
+      "multiple": false,
       "required": false,
       "types": [
         {
           "type": "block",
-          "named": true
-        },
-        {
-          "type": "expr",
-          "named": true
-        },
-        {
-          "type": "expr_seq",
-          "named": true
-        },
-        {
-          "type": "id",
-          "named": true
-        },
-        {
-          "type": "nat",
-          "named": true
-        },
-        {
-          "type": "pattern",
-          "named": true
-        },
-        {
-          "type": "stmt",
-          "named": true
-        },
-        {
-          "type": "str",
-          "named": true
-        },
-        {
-          "type": "type",
           "named": true
         }
       ]
@@ -1121,7 +1306,28 @@
   {
     "type": "term",
     "named": true,
-    "fields": {},
+    "fields": {
+      "init_value": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "expr",
+            "named": true
+          }
+        ]
+      },
+      "struct_arg": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": "struct_arg",
+            "named": true
+          }
+        ]
+      }
+    },
     "children": {
       "multiple": true,
       "required": false,
@@ -1144,10 +1350,6 @@
         },
         {
           "type": "lit",
-          "named": true
-        },
-        {
-          "type": "struct_arg",
           "named": true
         },
         {

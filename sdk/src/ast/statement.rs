@@ -41,7 +41,7 @@ ast_nodes! {
     }
 
     pub struct Const {
-        pub pattern: Rc<Pattern>,
+        pub pattern: Pattern,
         pub value: Expression,
         pub ty: Option<Expression>,
     }
@@ -88,7 +88,7 @@ impl Node for Assign {
 impl Node for Const {
     fn children(&self) -> Vec<Rc<NodeKind>> {
         vec![
-            Rc::new(NodeKind::from(&*self.pattern)),
+            Rc::new(NodeKind::from(&self.pattern)),
             Rc::new(NodeKind::from(&self.value.clone())),
         ]
     }

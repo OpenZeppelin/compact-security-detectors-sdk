@@ -3,6 +3,7 @@ use std::rc::Rc;
 use crate::{ast_enum, ast_nodes};
 
 use super::{
+    function::Function,
     literal::Literal,
     node::{Node, NodeKind, SameScopeNode, SymbolNode},
     ty::Type,
@@ -14,11 +15,15 @@ ast_enum! {
         Binary(Rc<Binary>),
         Unary(Rc<Unary>),
         Cast(Rc<Cast>),
+        Disclose(Rc<Disclose>),
         IndexAccess(Rc<IndexAccess>),
         Sequence(Rc<Sequence>),
+        Map(Rc<Map>),
+        Fold(Rc<Fold>),
         MemberAccess(Rc<MemberAccess>),
         FunctionCall(Rc<FunctionCall>),
         @raw TypeExpression(Type),
+        @raw Default(Type),
         @raw Literal(Literal),
         @symbol Identifier(Rc<Identifier>),
     }
@@ -84,14 +89,29 @@ ast_nodes! {
         pub target_type: Type,
     }
 
+    pub struct Disclose {
+        pub expression: Expression,
+    }
+
     pub struct IndexAccess {
         pub base: Expression,
         pub index: Expression,
     }
 
+    pub struct Map {
+        pub function: Function,
+        pub expressions: Vec<Expression>,
+    }
+
     pub struct MemberAccess {
         pub base: Expression,
         pub member: Rc<Identifier>,
+    }
+
+    pub struct Fold {
+        pub function: Function,
+        pub initial_value: Expression,
+        pub expressions: Vec<Expression>,
     }
 
     pub struct FunctionCall {
@@ -172,6 +192,12 @@ impl Node for Cast {
     }
 }
 
+impl Node for Disclose {
+    fn children(&self) -> Vec<Rc<NodeKind>> {
+        vec![Rc::new(NodeKind::from(&self.expression))]
+    }
+}
+
 impl Node for IndexAccess {
     fn children(&self) -> Vec<Rc<NodeKind>> {
         vec![
@@ -190,9 +216,34 @@ impl Node for Sequence {
     }
 }
 
+impl Node for Map {
+    fn children(&self) -> Vec<Rc<NodeKind>> {
+        let mut children = vec![Rc::new(NodeKind::from(&self.function))];
+        children.extend(
+            self.expressions
+                .iter()
+                .map(|expr| Rc::new(NodeKind::from(expr))),
+        );
+        children
+    }
+}
+
 impl Node for MemberAccess {
     fn children(&self) -> Vec<Rc<NodeKind>> {
         vec![Rc::new(NodeKind::from(&self.base))]
+    }
+}
+
+impl Node for Fold {
+    fn children(&self) -> Vec<Rc<NodeKind>> {
+        let mut children = vec![Rc::new(NodeKind::from(&self.function))];
+        children.push(Rc::new(NodeKind::from(&self.initial_value)));
+        children.extend(
+            self.expressions
+                .iter()
+                .map(|expr| Rc::new(NodeKind::from(expr))),
+        );
+        children
     }
 }
 

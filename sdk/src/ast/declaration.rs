@@ -34,13 +34,11 @@ ast_enum! {
     }
 }
 
-impl Node for Pattern {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        match self {
-            Pattern::Identifier(i) => i.children(),
-            Pattern::Tuple(pattern) => pattern.children(),
-            Pattern::Struct(pattern) => pattern.children(),
-        }
+ast_enum! {
+    pub enum StructArgument {
+        StructField(Rc<StructField>),
+        @raw StructPatternField(Expression),
+        @raw DestructExpression(Expression),
     }
 }
 
@@ -81,6 +79,11 @@ ast_nodes! {
         pub circuits: Vec<Rc<Circuit>>,
     }
 
+    pub struct StructField {
+        pub name: Rc<Identifier>,
+        pub expression: Expression,
+    }
+
     pub struct Struct {}
 
     pub struct Enum {}
@@ -90,22 +93,22 @@ ast_nodes! {
         pub ty: Type,
     }
 
-    pub struct PArgument {
-        pub pattern: Rc<Pattern>,
+    pub struct PatternArgument {
+        pub pattern: Pattern,
         pub ty: Type,
+    }
+
+    pub struct StructPatternField {
+        pub name: Rc<Identifier>,
+        pub pattern: Pattern,
     }
 
     pub struct StructPattern {
         pub fields: Vec<Rc<StructPatternField>>,
     }
 
-    pub struct StructPatternField {
-        pub name: Rc<Identifier>,
-        pub pattern: Rc<Pattern>,
-    }
-
     pub struct TuplePattern {
-        pub patterns: Vec<Rc<Pattern>>,
+        pub patterns: Vec<Pattern>,
     }
 
 }
@@ -179,10 +182,10 @@ impl Node for Argument {
     }
 }
 
-impl Node for PArgument {
+impl Node for PatternArgument {
     fn children(&self) -> Vec<Rc<NodeKind>> {
         vec![
-            Rc::new(NodeKind::from(&*self.pattern)),
+            Rc::new(NodeKind::from(&self.pattern)),
             Rc::new(NodeKind::from(&self.ty)),
         ]
     }
@@ -192,7 +195,7 @@ impl Node for StructPatternField {
     fn children(&self) -> Vec<Rc<NodeKind>> {
         vec![
             Rc::new(NodeKind::from(&Expression::Identifier(self.name.clone()))),
-            Rc::new(NodeKind::from(&*self.pattern)),
+            Rc::new(NodeKind::from(&self.pattern)),
         ]
     }
 }
@@ -207,11 +210,20 @@ impl Node for StructPattern {
     }
 }
 
+impl Node for StructField {
+    fn children(&self) -> Vec<Rc<NodeKind>> {
+        vec![
+            Rc::new(NodeKind::from(&Expression::Identifier(self.name.clone()))),
+            Rc::new(NodeKind::from(&self.expression)),
+        ]
+    }
+}
+
 impl Node for TuplePattern {
     fn children(&self) -> Vec<Rc<NodeKind>> {
         self.patterns
             .iter()
-            .map(|pattern| Rc::new(NodeKind::from(&**pattern)))
+            .map(|pattern| Rc::new(NodeKind::from(&*pattern)))
             .collect()
     }
 }

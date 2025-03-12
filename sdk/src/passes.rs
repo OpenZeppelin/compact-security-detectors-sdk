@@ -196,6 +196,10 @@ fn infer_expr(expr: &Expression, env: &Rc<SymbolTable>) -> Option<Type> {
                 types: tv,
             })))
         }
+        Expression::Disclose(disclose) => infer_expr(&disclose.expression, env),
+        Expression::Map(_) => None,
+        Expression::Fold(_) => None,
+        Expression::Default(t) => infer_expr(&Expression::TypeExpression(t.clone()), env),
     }
 }
 
