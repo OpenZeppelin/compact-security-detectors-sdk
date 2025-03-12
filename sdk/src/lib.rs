@@ -623,13 +623,17 @@ fn build_expression(node: &Node, source: &str) -> Result<Expression> {
                 operator: BinaryExpressionOperator::And,
             }))
         }
-        "equals" | "not_equals" => {
-            let left = build_expression(&node.named_child(0).unwrap(), source)?;
-            let right = build_expression(&node.named_child(1).unwrap(), source)?;
-            let operator = if node.kind() == "equals" {
-                BinaryExpressionOperator::Eq
-            } else {
-                BinaryExpressionOperator::Ne
+        "comparison_expr" => {
+            let left = build_expression(&node.child_by_field_name("left").unwrap(), source)?;
+            let right = build_expression(&node.child_by_field_name("right").unwrap(), source)?;
+            let operator_node = node.child_by_field_name("operator").unwrap();
+            let operator = match operator_node.utf8_text(source.as_bytes())? {
+                "==" => BinaryExpressionOperator::Eq,
+                "!=" => BinaryExpressionOperator::Ne,
+                _ => bail!(
+                    "Invalid comparison operator: {:?}",
+                    operator_node.utf8_text(source.as_bytes())?
+                ),
             };
             Expression::Binary(Rc::new(Binary {
                 id: node_id(),
@@ -1572,6 +1576,73 @@ mod tests {
             }
             _ => panic!("Expected a circuit declaration"),
         }
+    }
+
+    #[test]
+    fn test_statements_1() {
+        // assert game_state == GAME_STATE.waiting_p1 "Attempted to join a game that is not waiting for player 1";
+        // assert !p1.is_some "Already in the game";
+        // const sk = local_secret_key();
+        // // we hash the secret key and the contract address to get a unique hash for the state for each game
+        // const secret_key = persistent_hash<Vector<2, Bytes<32>>>([sk, kernel.self().bytes]);
+        // const me = public_key(sk);
+        // p1 = disclose(some<Bytes<32>>(me));
+      
+        // const ship_positions = player_ship_positions();
+        // const cells = occupied_cells(ship_positions);
+        // assert_valid_ship_position(ship_positions, cells);
+      
+        // assert_neighbour_is_not_1ship(neighbour1_cells(ship_positions.s11), cells);
+        // assert_neighbour_is_not_1ship(neighbour1_cells(ship_positions.s12), cells);
+        // assert_neighbour_is_not_1ship(neighbour1_cells(ship_positions.s13), cells);
+        // assert_neighbour_is_not_1ship(neighbour1_cells(ship_positions.s14), cells);
+        // assert_no_adjacent_neighbour_for_2ship(neighbour2_cells(ship_positions.s21, ship_positions.v21), cells);
+        // assert_no_adjacent_neighbour_for_2ship(neighbour2_cells(ship_positions.s22, ship_positions.v22), cells);
+        // assert_no_adjacent_neighbour_for_2ship(neighbour2_cells(ship_positions.s23, ship_positions.v23), cells);
+        // assert_no_adjacent_neighbour_for_3ship(neighbour3_cells(ship_positions.s31, ship_positions.v31), cells);
+        // assert_no_adjacent_neighbour_for_3ship(neighbour3_cells(ship_positions.s32, ship_positions.v32), cells);
+        // assert_no_adjacent_neighbour_for_4ship(neighbour4_cells(ship_positions.s41, ship_positions.v41), cells);
+      
+        // const ship_state = create_ship_state(ship_positions);
+        // p1_ship_positions_hash = persistent_commit<Ships>(ship_positions, secret_key);
+        // p1_ship_state_hash = update_ship_state(ship_state, secret_key);
+      
+        // game_state = GAME_STATE.waiting_p2;
+        let source = "circuit join_p1(): [] { assert game_state == GAME_STATE.waiting_p1 \"Attempted to join a game that is not waiting for player 1\";}";
+        let source_file = parse_content("dummy", source).unwrap();
+        assert_eq!(source_file.ast.definitions.len(), 1);
+        match &source_file.ast.definitions.first().unwrap() {
+            Definition::Circuit(circuit) => {
+                assert_eq!(circuit.name.name, "join_p1");
+                assert!(!circuit.is_exported);
+                assert_eq!(circuit.arguments.len(), 0);
+                assert!(circuit.generic_parameters.is_none());
+                assert!(matches!(circuit.ty, Type::Sum(_)));
+                match &circuit.ty {
+                    Type::Sum(_) => {},
+                    _ => panic!("Expected a sum type"),
+                }
+                assert!(circuit.body.is_some());
+                let body = circuit.body.as_ref().unwrap();
+                assert_eq!(body.statements.len(), 1);
+                let statement = body.statements.first().unwrap();
+                assert!(matches!(statement, Statement::Assert(_)));
+                let Statement::Assert(assert_statement) = &statement else {
+                  panic!("Expected an assert statement");  
+                };
+                assert!(matches!(assert_statement.condition, Expression::Binary(_)));
+                let Expression::Binary(binary_expr) = &assert_statement.condition else {
+                    panic!("Expected a binary expression");
+                };
+                assert!(matches!(binary_expr.left, Expression::Identifier(_)));
+                assert!(matches!(binary_expr.right, Expression::Identifier(_)));
+                assert!(matches!(binary_expr.operator, BinaryExpressionOperator::Eq));
+                assert!(assert_statement.msg.is_some());
+                assert_eq!(assert_statement.msg.as_ref().unwrap().value, "\"Attempted to join a game that is not waiting for player 1\"");
+            }
+            _ => panic!("Expected a circuit declaration"),
+        }
+
     }
 
 }

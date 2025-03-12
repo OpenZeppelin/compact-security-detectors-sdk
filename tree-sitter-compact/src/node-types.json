@@ -178,6 +178,202 @@
     }
   },
   {
+    "type": "comparison_expr",
+    "named": true,
+    "fields": {
+      "left": {
+        "multiple": true,
+        "required": true,
+        "types": [
+          {
+            "type": "(",
+            "named": false
+          },
+          {
+            "type": ")",
+            "named": false
+          },
+          {
+            "type": "*",
+            "named": false
+          },
+          {
+            "type": "+",
+            "named": false
+          },
+          {
+            "type": ",",
+            "named": false
+          },
+          {
+            "type": "-",
+            "named": false
+          },
+          {
+            "type": ".",
+            "named": false
+          },
+          {
+            "type": "[",
+            "named": false
+          },
+          {
+            "type": "]",
+            "named": false
+          },
+          {
+            "type": "as",
+            "named": false
+          },
+          {
+            "type": "comparison_expr",
+            "named": true
+          },
+          {
+            "type": "expr",
+            "named": true
+          },
+          {
+            "type": "greater_than",
+            "named": true
+          },
+          {
+            "type": "greater_than_or_equal",
+            "named": true
+          },
+          {
+            "type": "id",
+            "named": true
+          },
+          {
+            "type": "less_than",
+            "named": true
+          },
+          {
+            "type": "less_than_or_equal",
+            "named": true
+          },
+          {
+            "type": "nat",
+            "named": true
+          },
+          {
+            "type": "not_expr",
+            "named": true
+          },
+          {
+            "type": "term",
+            "named": true
+          },
+          {
+            "type": "type",
+            "named": true
+          }
+        ]
+      },
+      "operator": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "equals",
+            "named": true
+          },
+          {
+            "type": "not_equals",
+            "named": true
+          }
+        ]
+      },
+      "right": {
+        "multiple": true,
+        "required": true,
+        "types": [
+          {
+            "type": "(",
+            "named": false
+          },
+          {
+            "type": ")",
+            "named": false
+          },
+          {
+            "type": "*",
+            "named": false
+          },
+          {
+            "type": "+",
+            "named": false
+          },
+          {
+            "type": ",",
+            "named": false
+          },
+          {
+            "type": "-",
+            "named": false
+          },
+          {
+            "type": ".",
+            "named": false
+          },
+          {
+            "type": "[",
+            "named": false
+          },
+          {
+            "type": "]",
+            "named": false
+          },
+          {
+            "type": "as",
+            "named": false
+          },
+          {
+            "type": "expr",
+            "named": true
+          },
+          {
+            "type": "greater_than",
+            "named": true
+          },
+          {
+            "type": "greater_than_or_equal",
+            "named": true
+          },
+          {
+            "type": "id",
+            "named": true
+          },
+          {
+            "type": "less_than",
+            "named": true
+          },
+          {
+            "type": "less_than_or_equal",
+            "named": true
+          },
+          {
+            "type": "nat",
+            "named": true
+          },
+          {
+            "type": "not_expr",
+            "named": true
+          },
+          {
+            "type": "term",
+            "named": true
+          },
+          {
+            "type": "type",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
     "type": "conditional_expr",
     "named": true,
     "fields": {
@@ -230,7 +426,7 @@
             "named": false
           },
           {
-            "type": "equals",
+            "type": "comparison_expr",
             "named": true
           },
           {
@@ -259,10 +455,6 @@
           },
           {
             "type": "nat",
-            "named": true
-          },
-          {
-            "type": "not_equals",
             "named": true
           },
           {
@@ -521,11 +713,11 @@
           "named": true
         },
         {
-          "type": "conditional_expr",
+          "type": "comparison_expr",
           "named": true
         },
         {
-          "type": "equals",
+          "type": "conditional_expr",
           "named": true
         },
         {
@@ -554,10 +746,6 @@
         },
         {
           "type": "nat",
-          "named": true
-        },
-        {
-          "type": "not_equals",
           "named": true
         },
         {
@@ -1159,7 +1347,7 @@
             "named": false
           },
           {
-            "type": "equals",
+            "type": "comparison_expr",
             "named": true
           },
           {
@@ -1188,10 +1376,6 @@
           },
           {
             "type": "nat",
-            "named": true
-          },
-          {
-            "type": "not_equals",
             "named": true
           },
           {
@@ -1261,7 +1445,7 @@
             "named": false
           },
           {
-            "type": "equals",
+            "type": "comparison_expr",
             "named": true
           },
           {
@@ -1290,10 +1474,6 @@
           },
           {
             "type": "nat",
-            "named": true
-          },
-          {
-            "type": "not_equals",
             "named": true
           },
           {
