@@ -22,6 +22,7 @@ ast_enum! {
         Fold(Rc<Fold>),
         MemberAccess(Rc<MemberAccess>),
         FunctionCall(Rc<FunctionCall>),
+        @raw Function(Function),
         @raw TypeExpression(Type),
         @raw Default(Type),
         @raw Literal(Literal),

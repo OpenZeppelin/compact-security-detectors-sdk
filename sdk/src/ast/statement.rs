@@ -7,6 +7,7 @@ use super::{
     expression::{Expression, Identifier, Sequence},
     literal::{Literal, Nat, Str},
     node::{Node, NodeKind, SymbolNode},
+    ty::Type,
 };
 
 ast_enum! {
@@ -43,7 +44,7 @@ ast_nodes! {
     pub struct Const {
         pub pattern: Pattern,
         pub value: Expression,
-        pub ty: Option<Expression>,
+        pub ty: Option<Type>,
     }
 
     pub struct If {

@@ -20,7 +20,7 @@ use ast::expression::{
 use ast::function::{AnonymousFunction, Function, FunctionArgument, NamedFunction};
 use ast::literal::{Bool, Literal, Nat, Str, Version, VersionOperator};
 use ast::node::Location;
-use ast::statement::{For, If, Return};
+use ast::statement::{Assert, Assign, AssignOperator, Const, For, If, Return};
 use ast::ty::{Bytes, Opaque, Sum, TypeBool, TypeField, Uint, Vector};
 use std::rc::Rc;
 use tree_sitter::Node;
@@ -355,18 +355,95 @@ fn build_circuit(node: &Node, source: &str) -> Result<Circuit> {
 }
 
 fn build_statement(node: &Node, source: &str) -> Result<Statement> {
+    let node = if node.kind() == "stmt" {
+        &node.child(0).unwrap()
+    } else {
+        node
+    };
     let kind = node.kind();
     let statement = match kind {
+        "assign_stmt" => Statement::Assign(build_assign_statement(node, source)?),
         "block" => Statement::Block(build_block(node, source)?),
         "if" => Statement::If(build_if_statement(node, source)?),
         "for" => Statement::For(build_for_statement(node, source)?),
         "return" => Statement::Return(build_return_statement(node, source)?),
-        "expression_statement" => {
+        "assert" => Statement::Assert(build_assert_statement(&node.parent().unwrap(), source)?),
+        "const_stmt" => Statement::Const(build_const_statement(node, source)?),
+        "expression_sequence_stmt" => {
             Statement::ExpressionSequence(build_expression_sequence(node, source)?)
         }
-        _ => bail!("Unhandled statement kind: {}", kind),
+        _ => bail!("Unhandled statement kind: {} {:}", kind, node),
     };
     Ok(statement)
+}
+
+fn build_assign_statement(node: &Node, source: &str) -> Result<Rc<Assign>> {
+    let target_node = node.child_by_field_name("target").ok_or_else(|| {
+        anyhow!(
+            "Missing 'target' field in assign statement: {:?}",
+            node.utf8_text(source.as_bytes())
+        )
+    })?;
+    let target = build_expression(&target_node, source)?;
+    let value_node = node.child_by_field_name("value").ok_or_else(|| {
+        anyhow!(
+            "Missing 'value' field in assign statement: {:?}",
+            node.utf8_text(source.as_bytes())
+        )
+    })?;
+    let value = build_expression(&value_node, source)?;
+    let operator_node = node.child_by_field_name("operator").ok_or_else(|| {
+        anyhow!(
+            "Missing 'operator' field in assign statement: {:?}",
+            node.utf8_text(source.as_bytes())
+        )
+    })?;
+    let operator = match operator_node.utf8_text(source.as_bytes())? {
+        "=" => AssignOperator::Simple,
+        "+=" => AssignOperator::Add,
+        "-=" => AssignOperator::Sub,
+        _ => bail!(
+            "Invalid assign operator: {:?}",
+            operator_node.utf8_text(source.as_bytes())?
+        ),
+    };
+    Ok(Rc::new(Assign {
+        id: node_id(),
+        location: location(node),
+        target,
+        value,
+        operator,
+    }))
+}
+
+fn build_const_statement(node: &Node, source: &str) -> Result<Rc<Const>> {
+    let pattern_node = node.child_by_field_name("pattern").ok_or_else(|| {
+        anyhow!(
+            "Missing 'pattern' field in const statement: {:?}",
+            node.utf8_text(source.as_bytes())
+        )
+    })?;
+    let pattern = build_pattern(&pattern_node, source)?;
+    let ty_node = node.child_by_field_name("type");
+    let ty = if let Some(ty_n) = ty_node {
+        Some(build_type(&ty_n, source)?)
+    } else {
+        None
+    };
+    let value_node = node.child_by_field_name("value").ok_or_else(|| {
+        anyhow!(
+            "Missing 'value' field in const statement: {:?}",
+            node.utf8_text(source.as_bytes())
+        )
+    })?;
+    let value = build_expression(&value_node, source)?;
+    Ok(Rc::new(Const {
+        id: node_id(),
+        location: location(node),
+        pattern,
+        value,
+        ty,
+    }))
 }
 
 fn build_if_statement(node: &Node, source: &str) -> Result<Rc<If>> {
@@ -454,6 +531,28 @@ fn build_return_statement(node: &Node, source: &str) -> Result<Rc<Return>> {
     }))
 }
 
+fn build_assert_statement(node: &Node, source: &str) -> Result<Rc<Assert>> {
+    let condition_node = node.child_by_field_name("condition").ok_or_else(|| {
+        anyhow!(
+            "Missing 'condition' field in assert statement: {:?}",
+            node.utf8_text(source.as_bytes())
+        )
+    })?;
+    let condition = build_expression(&condition_node, source)?;
+    let message_node = node.child_by_field_name("message");
+    let message = if message_node.is_some() {
+        Some(build_str(&message_node.unwrap(), source)?)
+    } else {
+        None
+    };
+    Ok(Rc::new(Assert {
+        id: node_id(),
+        location: location(node),
+        condition,
+        msg: message,
+    }))
+}
+
 fn build_block(node: &Node, source: &str) -> Result<Rc<Block>> {
     let mut cursor = node.walk();
     let statements: Result<Vec<_>> = node
@@ -470,22 +569,38 @@ fn build_block(node: &Node, source: &str) -> Result<Rc<Block>> {
 #[allow(clippy::too_many_lines)]
 fn build_expression(node: &Node, source: &str) -> Result<Expression> {
     let expression = match node.kind() {
-        "expr" => {
-            if node.named_child_count() == 3 {
-                let condition = build_expression(&node.named_child(0).unwrap(), source)?;
-                let then_branch = build_expression(&node.named_child(1).unwrap(), source)?;
-                let else_branch = build_expression(&node.named_child(2).unwrap(), source)?;
-                Expression::Conditional(Rc::new(Conditional {
-                    id: node_id(),
-                    location: location(node),
-                    condition,
-                    then_branch,
-                    else_branch,
-                }))
-            } else {
-                build_expression(&node.named_child(0).unwrap(), source)?
-            }
+        "conditional_expr" => {
+            let condition = build_expression(
+                &node
+                    .child_by_field_name("condition")
+                    .ok_or_else(|| anyhow!("Missing 'condition' field in conditional_expr"))?,
+                source,
+            )?;
+            let then_branch = build_expression(
+                &node
+                    .child_by_field_name("then_branch")
+                    .ok_or_else(|| anyhow!("Missing 'then_branch' field in conditional_expr"))?,
+                source,
+            )?;
+            let else_branch = build_expression(
+                &node
+                    .child_by_field_name("else_branch")
+                    .ok_or_else(|| anyhow!("Missing 'else_branch' field in conditional_expr"))?,
+                source,
+            )?;
+            Expression::Conditional(Rc::new(Conditional {
+                id: node_id(),
+                location: location(node),
+                condition,
+                then_branch,
+                else_branch,
+            }))
         }
+        "expr" => {
+            // Otherwise, delegate to the next level.
+            build_expression(&node.named_child(0).unwrap(), source)?
+        }
+        // Binary operators: we assume the node has two named children.
         "or" => {
             let left = build_expression(&node.named_child(0).unwrap(), source)?;
             let right = build_expression(&node.named_child(1).unwrap(), source)?;
@@ -559,8 +674,8 @@ fn build_expression(node: &Node, source: &str) -> Result<Expression> {
                 operator,
             }))
         }
-        "not" => {
-            let expr = build_expression(&node.named_child(0).unwrap(), source)?;
+        "not_expr" => {
+            let expr = build_expression(&node.child_by_field_name("expr").unwrap(), source)?;
             Expression::Unary(Rc::new(Unary {
                 id: node_id(),
                 location: location(node),
@@ -568,119 +683,128 @@ fn build_expression(node: &Node, source: &str) -> Result<Expression> {
                 operand: expr,
             }))
         }
-        "term" => build_term(&node, source)?,
+        "term" => build_term(node, source)?,
         _ => bail!("Unhandled expression kind: {}", node.kind()),
     };
     Ok(expression)
 }
 
+#[allow(clippy::too_many_lines)]
 fn build_term(node: &Node, source: &str) -> Result<Expression> {
-    let term = match node.kind() {
-        "lit" => build_literal(node, source)?,
+    // If the node is a wrapper (kind "term"), descend to its first child.
+    let term_node = if node.kind() == "term" {
+        &node.child(0).ok_or_else(|| anyhow!("Empty term node"))?
+    } else {
+        node
+    };
+
+    let term = match term_node.kind() {
+        "lit" => build_literal(term_node, source)?,
         "default" => {
-            let type_node = node.child_by_field_name("type").ok_or_else(|| {
+            // Grammar: seq("default", "<", $.type, ">")
+            // The type is at child index 2.
+            let type_node = term_node.child(2).ok_or_else(|| {
                 anyhow!(
-                    "Missing 'type' field in default term: {:?}",
-                    node.utf8_text(source.as_bytes())
+                    "Missing type in default term: {:?}",
+                    term_node.utf8_text(source.as_bytes())
                 )
             })?;
             let ty = build_type(&type_node, source)?;
             Expression::Default(ty)
         }
         "map" => {
-            let fun_node = node.child_by_field_name("fun").ok_or_else(|| {
+            // Grammar: seq("map", "(", $.fun, ",", commaSep1($.expr), ")")
+            // We expect the function at index 2 and the list of expressions starting at index 4.
+            let fun_node = term_node.child(2).ok_or_else(|| {
                 anyhow!(
-                    "Missing 'fun' field in map term: {:?}",
-                    node.utf8_text(source.as_bytes())
+                    "Missing function in map term: {:?}",
+                    term_node.utf8_text(source.as_bytes())
                 )
             })?;
             let fun = build_function(&fun_node, source)?;
-            let mut cursor = node.walk();
-            let exprs: Result<Vec<_>> = node
-                .children_by_field_name("expr", &mut cursor)
-                .map(|expr_node| build_expression(&expr_node, source))
+            let exprs: Vec<_> = term_node
+                .children(&mut term_node.walk())
+                .filter(tree_sitter::Node::is_named)
+                .skip(4) // assuming index 4 onward holds expressions
+                .take_while(|child| child.kind() != ")")
+                .collect();
+            let expressions: Result<Vec<_>> = exprs
+                .into_iter()
+                .map(|n| build_expression(&n, source))
                 .collect();
             Expression::Map(Rc::new(Map {
                 id: node_id(),
-                location: location(node),
+                location: location(term_node),
                 function: fun,
-                expressions: exprs?,
+                expressions: expressions?,
             }))
         }
         "fold" => {
-            let fun_node = node.child_by_field_name("fun").ok_or_else(|| {
+            // Grammar: seq("fold", "(", $.fun, ",", field("init_value", $.expr), ",", commaSep1($.expr), ")")
+            let fun_node = term_node.child(2).ok_or_else(|| {
                 anyhow!(
-                    "Missing 'fun' field in fold term: {:?}",
-                    node.utf8_text(source.as_bytes())
+                    "Missing function in fold term: {:?}",
+                    term_node.utf8_text(source.as_bytes())
                 )
             })?;
             let fun = build_function(&fun_node, source)?;
-            let init_value_node = node.child_by_field_name("expr").ok_or_else(|| {
-                anyhow!(
-                    "Missing 'expr' field in fold term: {:?}",
-                    node.utf8_text(source.as_bytes())
-                )
-            })?;
+            // Use the labeled field "init_value" if available; otherwise assume it is at index 4.
+            let init_value_node = term_node
+                .child_by_field_name("init_value")
+                .or_else(|| term_node.child(4))
+                .ok_or_else(|| {
+                    anyhow!(
+                        "Missing init_value in fold term: {:?}",
+                        term_node.utf8_text(source.as_bytes())
+                    )
+                })?;
             let initial_value = build_expression(&init_value_node, source)?;
-            let mut cursor = node.walk();
-            let exprs: Result<Vec<_>> = node
-                .children_by_field_name("expr", &mut cursor)
-                .map(|expr_node| build_expression(&expr_node, source))
+            let exprs: Vec<_> = term_node
+                .children(&mut term_node.walk())
+                .filter(tree_sitter::Node::is_named)
+                .skip(6) // assuming expressions start at index 6
+                .take_while(|child| child.kind() != ")")
+                .collect();
+            let expressions: Result<Vec<_>> = exprs
+                .into_iter()
+                .map(|n| build_expression(&n, source))
                 .collect();
             Expression::Fold(Rc::new(Fold {
                 id: node_id(),
-                location: location(node),
+                location: location(term_node),
                 function: fun,
                 initial_value,
-                expressions: exprs?,
+                expressions: expressions?,
             }))
         }
-        "disclose" => {
-            let expr_node = node.child_by_field_name("expr").ok_or_else(|| {
+        "disclose_term" => {
+            // Grammar: seq("disclose", "(", $.expr, ")")
+            let expr_node = term_node.child_by_field_name("expr").ok_or_else(|| {
                 anyhow!(
-                    "Missing 'expr' field in disclose term: {:?}",
-                    node.utf8_text(source.as_bytes())
+                    "Missing expression in disclose term: {:?}",
+                    term_node.utf8_text(source.as_bytes())
                 )
             })?;
             let expr = build_expression(&expr_node, source)?;
             Expression::Disclose(Rc::new(Disclose {
                 id: node_id(),
-                location: location(node),
+                location: location(term_node),
                 expression: expr,
             }))
         }
-        // "tref" => {
-        //     let tref_node = node.child_by_field_name("tref").ok_or_else(|| {
-        //         anyhow!(
-        //             "Missing 'tref' field in tref term: {:?}",
-        //             node.utf8_text(source.as_bytes())
-        //         )
-        //     })?;
-        //     let tref = build_type(&tref_node, source)?;
-        //     let mut cursor = node.walk();
-        //     let struct_args: Result<Vec<_>> = node
-        //         .children_by_field_name("struct_arg", &mut cursor)
-        //         .map(|arg_node| build_expression(&arg_node, source))
-        //         .collect();
-        //     Expression::Tref(tref, struct_args?)
-        // }
-        // "[" => {
-        //     let mut cursor = node.walk();
-        //     let exprs: Result<Vec<_>> = node
-        //         .children_by_field_name("expr", &mut cursor)
-        //         .map(|expr_node| build_expression(&expr_node, source))
-        //         .collect();
-        //     Expression::Array(exprs?)
-        // }
         "id" => {
-            let id = build_identifier(node, source)?;
+            let id = build_identifier(term_node, source)?;
             Expression::Identifier(id)
         }
         "expr_seq" => {
-            let seq = build_expression_sequence(node, source)?;
+            let seq = build_expression_sequence(term_node, source)?;
             Expression::Sequence(seq)
         }
-        _ => bail!("Unhandled term kind: {}", node.kind()),
+        "fun" => {
+            let fun = build_function(term_node, source)?;
+            Expression::Function(fun)
+        }
+        _ => bail!("Unhandled term kind: {}", term_node.kind()),
     };
     Ok(term)
 }
@@ -846,7 +970,7 @@ fn build_type(node: &Node, source: &str) -> Result<Type> {
             id: node_id(),
             location: location(node),
         }))),
-        "Uint" => {
+        "uint_type" => {
             let cursor = &mut node.walk();
             let size_nodes = node
                 .children_by_field_name("tsize", cursor)
@@ -870,8 +994,13 @@ fn build_type(node: &Node, source: &str) -> Result<Type> {
                 end,
             })))
         }
-        "Bytes" => {
-            let size_node = node.next_sibling().unwrap().next_sibling().unwrap();
+        "bytes_type" => {
+            let size_node = node.child_by_field_name("tsize").ok_or_else(|| {
+                anyhow!(
+                    "Missing 'tsize' field in Bytes type: {:?}",
+                    node.utf8_text(source.as_bytes())
+                )
+            })?;
             let nat = build_nat(&size_node, source)?;
             Ok(Type::Bytes(Rc::new(Bytes {
                 id: node_id(),
@@ -879,7 +1008,7 @@ fn build_type(node: &Node, source: &str) -> Result<Type> {
                 size: nat,
             })))
         }
-        "Opaque" => {
+        "opaque_type" => {
             let size_node = node.child_by_field_name("str").ok_or_else(|| {
                 anyhow!(
                     "Missing 'str' field in Opaque type: {:?}",
@@ -893,7 +1022,7 @@ fn build_type(node: &Node, source: &str) -> Result<Type> {
                 value: str,
             })))
         }
-        "Vector" => {
+        "vector_type" => {
             let size_node = node.child_by_field_name("tsize").ok_or_else(|| {
                 anyhow!(
                     "Missing 'tsize' field in Vector type: {:?}",
@@ -979,16 +1108,15 @@ fn build_pargument(node: &Node, source: &str) -> Result<Rc<PatternArgument>> {
 }
 
 fn build_pattern(node: &Node, source: &str) -> Result<Pattern> {
+    let node = if node.kind() == "pattern" {
+        &node.child(0).unwrap()
+    } else {
+        node
+    };
     let kind = node.kind();
     match kind {
         "id" => {
-            let name_node = node.child_by_field_name("id").ok_or_else(|| {
-                anyhow!(
-                    "Missing 'id' field in pattern: {:?}",
-                    node.utf8_text(source.as_bytes())
-                )
-            })?;
-            let name = build_identifier(&name_node, source)?;
+            let name = build_identifier(node, source)?;
             Ok(Pattern::Identifier(name))
         }
         "pattern_tuple" => {
@@ -1440,7 +1568,7 @@ mod tests {
                 }
                 assert!(circuit.body.is_some());
                 let body = circuit.body.as_ref().unwrap();
-                assert_eq!(body.statements.len(), 16);
+                assert_eq!(body.statements.len(), 23);
             }
             _ => panic!("Expected a circuit declaration"),
         }
