@@ -3340,21 +3340,8 @@
           "name": "id"
         },
         {
-          "type": "SEQ",
-          "members": [
-            {
-              "type": "STRING",
-              "value": "("
-            },
-            {
-              "type": "SYMBOL",
-              "name": "expr_seq"
-            },
-            {
-              "type": "STRING",
-              "value": ")"
-            }
-          ]
+          "type": "SYMBOL",
+          "name": "expr_seq_term"
         }
       ]
     },
@@ -3380,12 +3367,8 @@
               "type": "SEQ",
               "members": [
                 {
-                  "type": "FIELD",
-                  "name": "struct_arg",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "struct_arg"
-                  }
+                  "type": "SYMBOL",
+                  "name": "struct_arg"
                 },
                 {
                   "type": "REPEAT",
@@ -3397,12 +3380,8 @@
                         "value": ","
                       },
                       {
-                        "type": "FIELD",
-                        "name": "struct_arg",
-                        "content": {
-                          "type": "SYMBOL",
-                          "name": "struct_arg"
-                        }
+                        "type": "SYMBOL",
+                        "name": "struct_arg"
                       }
                     ]
                   }
@@ -3524,6 +3503,23 @@
             "type": "SYMBOL",
             "name": "expr"
           }
+        },
+        {
+          "type": "STRING",
+          "value": ")"
+        }
+      ]
+    },
+    "expr_seq_term": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "("
+        },
+        {
+          "type": "SYMBOL",
+          "name": "expr_seq"
         },
         {
           "type": "STRING",

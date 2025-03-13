@@ -6,6 +6,7 @@ use crate::{ast::expression::Expression, ast_enum, ast_nodes};
 use super::{
     definition::{Circuit, Definition},
     expression::Identifier,
+    literal::Nat,
     node::{Node, NodeKind},
     statement::Block,
     ty::Type,
@@ -39,6 +40,13 @@ ast_enum! {
         // StructField(Rc<StructField>),
         @raw StructPatternField(Expression),
         @raw DestructExpression(Expression),
+    }
+}
+
+ast_enum! {
+    pub enum GArgument {
+        @raw Type(Type),
+        Nat(Rc<Nat>),
     }
 }
 

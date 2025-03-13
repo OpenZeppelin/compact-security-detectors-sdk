@@ -3,7 +3,7 @@ use std::rc::Rc;
 use crate::{ast_enum, ast_nodes};
 
 use super::{
-    declaration::{Pattern, PatternArgument},
+    declaration::{GArgument, Pattern, PatternArgument},
     expression::{Expression, Identifier},
     node::{Node, NodeKind},
     statement::Block,
@@ -28,7 +28,7 @@ ast_nodes! {
 
     pub struct NamedFunction {
         pub name: Rc<Identifier>,
-        pub generic_parameters: Option<Vec<Type>>,
+        pub generic_parameters: Option<Vec<GArgument>>,
     }
 
     pub struct AnonymousFunction {

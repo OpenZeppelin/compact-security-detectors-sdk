@@ -1,4 +1,5 @@
 use super::{
+    declaration::GArgument,
     expression::Identifier,
     literal::{Bool, Nat, Str},
     node::{Node, NodeKind},
@@ -65,7 +66,7 @@ ast_nodes! {
     }
     pub struct Ref {
         pub name: Rc<Identifier>,
-        pub generic_parameters: Option<Vec<Type>>,
+        pub generic_parameters: Option<Vec<GArgument>>,
     }
     pub struct Sum {
         pub types: Vec<Type>,

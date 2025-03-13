@@ -720,6 +720,21 @@
     }
   },
   {
+    "type": "expr_seq_term",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "expr_seq",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "expression_sequence_stmt",
     "named": true,
     "fields": {},
@@ -2050,16 +2065,6 @@
     "type": "struct_term",
     "named": true,
     "fields": {
-      "struct_arg": {
-        "multiple": true,
-        "required": false,
-        "types": [
-          {
-            "type": "struct_arg",
-            "named": true
-          }
-        ]
-      },
       "tref": {
         "multiple": false,
         "required": true,
@@ -2070,6 +2075,16 @@
           }
         ]
       }
+    },
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "struct_arg",
+          "named": true
+        }
+      ]
     }
   },
   {
@@ -2126,7 +2141,7 @@
           "named": true
         },
         {
-          "type": "expr_seq",
+          "type": "expr_seq_term",
           "named": true
         },
         {

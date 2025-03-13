@@ -10,8 +10,8 @@ use crate::ast::{
 };
 use anyhow::{anyhow, bail, Ok, Result};
 use ast::declaration::{
-    Constructor, Export, Ledger, PatternArgument, StructPattern, StructPatternField, TuplePattern,
-    Witness,
+    Constructor, Export, GArgument, Ledger, PatternArgument, StructPattern, StructPatternField,
+    TuplePattern, Witness,
 };
 use ast::definition::Structure;
 use ast::directive::VersionExpr;
@@ -881,7 +881,7 @@ fn build_term(node: &Node, source: &str) -> Result<Expression> {
             let id = build_identifier(term_node, source)?;
             Expression::Identifier(id)
         }
-        "expr_seq" => {
+        "expr_seq_term" => {
             let seq = build_expression_sequence(term_node, source)?;
             Expression::Sequence(seq)
         }
@@ -943,7 +943,7 @@ fn build_function(node: &Node, source: &str) -> Result<Function> {
             let cursor = &mut generics_node.walk();
             let generic_nodes: Result<Vec<_>> = generics_node
                 .children_by_field_name("garg", cursor)
-                .map(|type_node| build_type(&type_node.child(0).unwrap(), source))
+                .map(|type_node| build_gargument(&type_node.child(0).unwrap(), source))
                 .collect();
             generic_parameters = Some(generic_nodes?);
         }
@@ -1042,43 +1042,48 @@ fn build_struct_expression(node: &Node, source: &str) -> Result<Rc<StructExpr>> 
         .child_by_field_name("tref")
         .ok_or_else(|| anyhow!("Missing 'tref' field in struct expression: {:?}", node))?;
     let tref = build_type(&tref_node, source)?;
-    let struct_arg_nodes = node
-        .children_by_field_name("struct_arg", &mut node.walk())
-        .collect::<Vec<_>>();
+    let cursor = &mut node.walk();
     let mut struct_args = Vec::new();
-    for struct_arg_node in struct_arg_nodes {
-        match struct_arg_node.kind() {
-            "expr" => {
-                let expr = build_expression(node, source)?;
-                struct_args.push(StructExprArg::Expression(expr));
+    for child in node.children(cursor) {
+        if child.kind() == "struct_arg" {
+            let struct_arg_node = child.named_child(0).unwrap();
+            match struct_arg_node.kind() {
+                "expr" => {
+                    let expr = build_expression(&struct_arg_node, source)?;
+                    struct_args.push(StructExprArg::Expression(expr));
+                }
+                "struct_named_filed_initializer" => {
+                    let id_node = struct_arg_node.child_by_field_name("id").ok_or_else(|| {
+                        anyhow!(
+                            "Missing 'id' field in struct_named_filed_initializer {:?}",
+                            struct_arg_node
+                        )
+                    })?;
+                    let expr_node =
+                        struct_arg_node.child_by_field_name("expr").ok_or_else(|| {
+                            anyhow!("Missing 'expr' field in struct_named_filed_initializer")
+                        })?;
+                    let name = build_identifier(&id_node, source)?;
+                    let expr = build_expression(&expr_node, source)?;
+                    struct_args.push(StructExprArg::NamedField(Rc::new(StructNamedField {
+                        id: node_id(),
+                        location: location(&struct_arg_node),
+                        name,
+                        value: expr,
+                    })));
+                }
+                "struct_update_field" => {
+                    let expr_node = struct_arg_node
+                        .child_by_field_name("expr")
+                        .ok_or_else(|| anyhow!("Missing 'expr' field in struct_update_field"))?;
+                    let expr = build_expression(&expr_node, source)?;
+                    struct_args.push(StructExprArg::Update(expr));
+                }
+                _ => bail!("Unhandled struct_arg node: {}", struct_arg_node.kind()),
             }
-            "struct_named_filed_initializer" => {
-                let id_node = node.child_by_field_name("id").ok_or_else(|| {
-                    anyhow!("Missing 'id' field in struct_named_filed_initializer")
-                })?;
-                let expr_node = node.child_by_field_name("expr").ok_or_else(|| {
-                    anyhow!("Missing 'expr' field in struct_named_filed_initializer")
-                })?;
-                let name = build_identifier(&id_node, source)?;
-                let expr = build_expression(&expr_node, source)?;
-                struct_args.push(StructExprArg::NamedField(Rc::new(StructNamedField {
-                    id: node_id(),
-                    location: location(&struct_arg_node),
-                    name,
-                    value: expr,
-                })));
-            }
-            // For update fields, the node begins with "..." and then has an "expr" field.
-            "struct_update_field" => {
-                let expr_node = node
-                    .child_by_field_name("expr")
-                    .ok_or_else(|| anyhow!("Missing 'expr' field in struct_update_field"))?;
-                let expr = build_expression(&expr_node, source)?;
-                struct_args.push(StructExprArg::Update(expr));
-            }
-            _ => bail!("Unhandled struct_arg node: {}", node.kind()),
         }
     }
+
     Ok(Rc::new(StructExpr {
         id: node_id(),
         location: location(node),
@@ -1118,12 +1123,12 @@ fn build_type(node: &Node, source: &str) -> Result<Type> {
             })?;
             let ref_name = build_identifier(&ref_node, source)?;
             let generic_parameters_node = node.child_by_field_name("gargs");
-            let mut generic_parameters: Option<Vec<Type>> = None;
+            let mut generic_parameters: Option<Vec<GArgument>> = None;
             if let Some(generics_node) = generic_parameters_node {
                 let cursor = &mut generics_node.walk();
                 let generic_nodes: Result<Vec<_>> = generics_node
                     .children_by_field_name("garg", cursor)
-                    .map(|type_node| build_type(&type_node.child(0).unwrap(), source))
+                    .map(|type_node| build_gargument(&type_node.child(0).unwrap(), source))
                     .collect();
                 generic_parameters = Some(generic_nodes?);
             }
@@ -1231,6 +1236,23 @@ fn build_type(node: &Node, source: &str) -> Result<Type> {
             })))
         }
         _ => bail!("Unhandled type kind: {}", kind),
+    }
+}
+
+fn build_gargument(node: &Node, source: &str) -> Result<GArgument> {
+    match node.kind() {
+        "nat" => {
+            let nat = build_nat(node, source)?;
+            Ok(GArgument::Nat(nat))
+        }
+        "type" => {
+            let ty = build_type(node, source)?;
+            Ok(GArgument::Type(ty))
+        }
+        _ => bail!(
+            "Unhandled generic argument kind: {:?}",
+            node.child(0).unwrap().kind()
+        ),
     }
 }
 
@@ -1561,11 +1583,17 @@ mod tests {
                         assert!(rt.generic_parameters.is_some());
                         assert_eq!(rt.generic_parameters.as_ref().unwrap().len(), 1);
                         match rt.generic_parameters.as_ref().unwrap().first().unwrap() {
-                            Type::Ref(rt) => {
-                                assert!(rt.generic_parameters.is_none());
-                                assert_eq!(rt.name.name, "ShotResult");
+                            GArgument::Type(ty) => {
+                                assert!(matches!(ty, Type::Ref(_)));
+                                match ty {
+                                    Type::Ref(rt) => {
+                                        assert!(rt.generic_parameters.is_none());
+                                        assert_eq!(rt.name.name, "ShotResult");
+                                    },
+                                    _ => panic!("Expected a reference type"),
+                                }
                             },
-                            _ => panic!("Expected a reference type"),
+                            _ => panic!("Expected a type argument"),
                         }
                     },
                     _ => panic!("Expected a reference type"),
@@ -1608,11 +1636,17 @@ mod tests {
                         assert!(rt.generic_parameters.is_some());
                         assert_eq!(rt.generic_parameters.as_ref().unwrap().len(), 1);
                         match rt.generic_parameters.as_ref().unwrap().first().unwrap() {
-                            Type::Ref(rt) => {
-                                assert!(rt.generic_parameters.is_none());
-                                assert_eq!(rt.name.name, "ZswapCoinPublicKey");
+                            GArgument::Type(ty) => {
+                                assert!(matches!(ty, Type::Ref(_)));
+                                match ty {
+                                    Type::Ref(rt) => {
+                                        assert!(rt.generic_parameters.is_none());
+                                        assert_eq!(rt.name.name, "ZswapCoinPublicKey");
+                                    },
+                                    _ => panic!("Expected a reference type"),
+                                }
                             },
-                            _ => panic!("Expected a reference type"),
+                            _ => panic!("Expected a type argument"),
                         }
                     },
                     _ => panic!("Expected a reference type"),
@@ -1896,17 +1930,23 @@ mod tests {
                 assert!(named_function.generic_parameters.is_some());
                 assert_eq!(named_function.generic_parameters.as_ref().unwrap().len(), 1);
                 match named_function.generic_parameters.as_ref().unwrap().first().unwrap() {
-                    Type::Vector(t) => {
-                        assert!(matches!(t.size.value, 2));
-                        assert!(matches!(t.ty, Type::Bytes(_)));
-                        match &t.ty {
-                            Type::Bytes(bt) => {
-                                assert!(matches!(bt.size.value, 32));
+                    GArgument::Type(vector) => {
+                        assert!(matches!(vector, Type::Vector(_)));
+                        match vector {
+                            Type::Vector(vector) => {
+                                assert!(matches!(vector.size.value, 2));
+                                assert!(matches!(vector.ty, Type::Bytes(_)));
+                                match &vector.ty {
+                                    Type::Bytes(bt) => {
+                                        assert!(matches!(bt.size.value, 32));
+                                    },
+                                    _ => panic!("Expected a bytes type"),
+                                }
                             },
-                            _ => panic!("Expected a bytes type"),
+                            _ => panic!("Expected a vector type"),
                         }
                     },
-                    _ => panic!("Expected a sum type"),
+                    _ => panic!("Expected a nat argument"),
                 }
                 assert_eq!(call_expr.arguments.len(), 1);
                 let arg = call_expr.arguments.first().unwrap();
@@ -2040,7 +2080,6 @@ mod tests {
             _ => panic!("Expected a constructor declaration"),
         }
     }
-
 
     #[test]
     fn test_battleship_east() {
