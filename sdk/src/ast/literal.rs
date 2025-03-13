@@ -3,10 +3,14 @@ use std::rc::Rc;
 
 use crate::{ast_enum, ast_nodes};
 
-use super::node::{Node, NodeKind};
+use super::{
+    expression::Expression,
+    node::{Node, NodeKind},
+};
 
 ast_enum! {
     pub enum Literal {
+        Array(Rc<Array>),
         Nat(Rc<Nat>),
         Bool(Rc<Bool>),
         Str(Rc<Str>),
@@ -15,6 +19,9 @@ ast_enum! {
 }
 
 ast_nodes! {
+    pub struct Array {
+        pub elements: Vec<Expression>,
+    }
     pub struct Nat {
         pub value: u64,
     }
@@ -40,6 +47,16 @@ pub enum VersionOperator {
     Le,
     Eq,
     Neq,
+}
+
+impl Node for Array {
+    fn children(&self) -> Vec<Rc<NodeKind>> {
+        let mut res = vec![];
+        for element in &self.elements {
+            res.push(Rc::new(NodeKind::from(&element.clone())));
+        }
+        res
+    }
 }
 
 impl Node for Nat {

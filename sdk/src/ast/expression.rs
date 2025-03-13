@@ -22,6 +22,7 @@ ast_enum! {
         Fold(Rc<Fold>),
         MemberAccess(Rc<MemberAccess>),
         FunctionCall(Rc<FunctionCall>),
+        Struct(Rc<StructExpr>),
         @raw Function(Function),
         @raw TypeExpression(Type),
         @raw Default(Type),
@@ -66,6 +67,14 @@ impl From<&NodeKind> for Expression {
     }
 }
 
+ast_enum! {
+    pub enum StructExprArg {
+        @raw Expression(Expression),
+        NamedField(Rc<StructNamedField>),
+        @raw Update(Expression),
+    }
+}
+
 ast_nodes! {
     /// E.g. `const a = bool ? 1 : 2`
     pub struct Conditional {
@@ -107,6 +116,7 @@ ast_nodes! {
     pub struct MemberAccess {
         pub base: Expression,
         pub member: Rc<Identifier>,
+        pub arguments: Option<Vec<Expression>>,
     }
 
     pub struct Fold {
@@ -126,6 +136,16 @@ ast_nodes! {
 
     pub struct Identifier {
         pub name: String,
+    }
+
+    pub struct StructExpr {
+        pub ty: Type,
+        pub args: Vec<StructExprArg>,
+    }
+
+    pub struct StructNamedField {
+        pub name: Rc<Identifier>,
+        pub value: Expression,
     }
 }
 
@@ -273,5 +293,22 @@ impl SymbolNode for Identifier {
 
     fn type_expr(&self) -> Option<&Expression> {
         None
+    }
+}
+
+impl Node for StructExpr {
+    fn children(&self) -> Vec<Rc<NodeKind>> {
+        let mut children = vec![Rc::new(NodeKind::from(&self.ty))];
+        children.extend(self.args.iter().map(|field| Rc::new(NodeKind::from(field))));
+        children
+    }
+}
+
+impl Node for StructNamedField {
+    fn children(&self) -> Vec<Rc<NodeKind>> {
+        vec![
+            Rc::new(NodeKind::from(&Expression::Identifier(self.name.clone()))),
+            Rc::new(NodeKind::from(&self.value)),
+        ]
     }
 }

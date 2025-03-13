@@ -132,7 +132,7 @@ fn infer_expr(expr: &Expression, env: &Rc<SymbolTable>) -> Option<Type> {
             Literal::Nat(n) => Some(Type::Nat(Rc::new(TypeNat::new(n)))),
             Literal::Bool(b) => Some(Type::Bool(Rc::new(TypeBool::new(b)))),
             Literal::Str(s) => Some(Type::String(Rc::new(TypeString::new(s)))),
-            Literal::Version(_) => None,
+            Literal::Version(_) | Literal::Array(_) => None,
         },
         Expression::Unary(un_expr) => infer_expr(&un_expr.operand, env),
         Expression::Binary(bin_expr) => {
@@ -199,6 +199,7 @@ fn infer_expr(expr: &Expression, env: &Rc<SymbolTable>) -> Option<Type> {
         Expression::Disclose(disclose) => infer_expr(&disclose.expression, env),
         Expression::Map(_) | Expression::Fold(_) | Expression::Function(_) => None,
         Expression::Default(t) => infer_expr(&Expression::TypeExpression(t.clone()), env),
+        Expression::Struct(struct_expr) => Some(struct_expr.ty.clone()),
     }
 }
 
@@ -511,11 +512,8 @@ mod test {
             id: 15,
             location: default_location(),
             base: Expression::Identifier(mock_identifier(16, "a")),
-            member: Rc::new(Identifier {
-                id: 17,
-                location: default_location(),
-                name: "member".to_string(),
-            }),
+            member: mock_identifier(37, "name"),
+            arguments: None,
         };
         let expr = Expression::MemberAccess(Rc::new(member_access));
         let ty = infer_expr(&expr, &env).unwrap();
@@ -773,10 +771,6 @@ mod test {
             name: mock_identifier(2123, "c"),
             circuits: vec![],
         };
-        let struc = crate::ast::declaration::Struct {
-            id: 52,
-            location: default_location(),
-        };
         let enm = crate::ast::declaration::Enum {
             id: 53,
             location: default_location(),
@@ -790,7 +784,7 @@ mod test {
             Declaration::Ledger(Rc::new(ledger)),
             Declaration::Constructor(Rc::new(ctor)),
             Declaration::Contract(Rc::new(contract)),
-            Declaration::Struct(Rc::new(struc)),
+            // Declaration::Struct(Rc::new(struc)),
             Declaration::Enum(Rc::new(enm)),
             Declaration::Definition(Definition::Module(Rc::new(
                 crate::ast::definition::Module {

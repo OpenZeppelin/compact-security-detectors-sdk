@@ -4,7 +4,7 @@ use std::rc::Rc;
 use crate::{ast_enum, ast_nodes};
 
 use super::{
-    declaration::PatternArgument,
+    declaration::{Argument, PatternArgument},
     expression::Identifier,
     node::{Node, NodeKind},
     program::CompactNode,
@@ -43,12 +43,7 @@ ast_nodes! {
         pub is_exported: bool,
         pub name: Rc<Identifier>,
         pub generic_parameters: Option<Vec<Rc<Identifier>>>,
-        pub fields: Vec<Rc<Field>>,
-    }
-
-    pub struct Field {
-        pub name: Rc<Identifier>,
-        pub ty: Type,
+        pub fields: Vec<Rc<Argument>>,
     }
 
     pub struct Enum {
@@ -71,12 +66,6 @@ impl Node for Circuit {
 }
 
 impl Node for Structure {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        vec![]
-    }
-}
-
-impl Node for Field {
     fn children(&self) -> Vec<Rc<NodeKind>> {
         vec![]
     }

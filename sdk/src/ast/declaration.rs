@@ -20,7 +20,7 @@ ast_enum! {
         Ledger(Rc<Ledger>),
         @scope Constructor(Rc<Constructor>),
         @scope Contract(Rc<Contract>),
-        @scope Struct(Rc<Struct>),
+        // @scope Struct(Rc<Struct>),
         @scope Enum(Rc<Enum>),
         @raw Definition(Definition),
     }
@@ -36,7 +36,7 @@ ast_enum! {
 
 ast_enum! {
     pub enum StructArgument {
-        StructField(Rc<StructField>),
+        // StructField(Rc<StructField>),
         @raw StructPatternField(Expression),
         @raw DestructExpression(Expression),
     }
@@ -69,7 +69,7 @@ ast_nodes! {
     }
 
     pub struct Constructor {
-        pub arguments: Vec<Rc<Argument>>,
+        pub arguments: Vec<Rc<PatternArgument>>,
         pub body: Rc<Block>
     }
 
@@ -79,12 +79,12 @@ ast_nodes! {
         pub circuits: Vec<Rc<Circuit>>,
     }
 
-    pub struct StructField {
-        pub name: Rc<Identifier>,
-        pub expression: Expression,
-    }
+    // pub struct StructField {
+    //     pub name: Rc<Identifier>,
+    //     pub expression: Expression,
+    // }
 
-    pub struct Struct {}
+    // pub struct Struct {}
 
     pub struct Enum {}
 
@@ -162,11 +162,11 @@ impl Node for Contract {
         vec![]
     }
 }
-impl Node for Struct {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        vec![]
-    }
-}
+// impl Node for Struct {
+//     fn children(&self) -> Vec<Rc<NodeKind>> {
+//         vec![]
+//     }
+// }
 impl Node for Enum {
     fn children(&self) -> Vec<Rc<NodeKind>> {
         vec![]
@@ -210,14 +210,14 @@ impl Node for StructPattern {
     }
 }
 
-impl Node for StructField {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        vec![
-            Rc::new(NodeKind::from(&Expression::Identifier(self.name.clone()))),
-            Rc::new(NodeKind::from(&self.expression)),
-        ]
-    }
-}
+// impl Node for StructField {
+//     fn children(&self) -> Vec<Rc<NodeKind>> {
+//         vec![
+//             Rc::new(NodeKind::from(&Expression::Identifier(self.name.clone()))),
+//             Rc::new(NodeKind::from(&self.expression)),
+//         ]
+//     }
+// }
 
 impl Node for TuplePattern {
     fn children(&self) -> Vec<Rc<NodeKind>> {

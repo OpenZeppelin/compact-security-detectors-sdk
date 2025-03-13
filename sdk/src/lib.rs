@@ -10,15 +10,18 @@ use crate::ast::{
 };
 use anyhow::{anyhow, bail, Ok, Result};
 use ast::declaration::{
-    Export, Ledger, PatternArgument, StructPattern, StructPatternField, TuplePattern, Witness,
+    Constructor, Export, Ledger, PatternArgument, StructPattern, StructPatternField, TuplePattern,
+    Witness,
 };
+use ast::definition::Structure;
 use ast::directive::VersionExpr;
 use ast::expression::{
-    Binary, BinaryExpressionOperator, Conditional, Disclose, Expression, Fold, Map, Sequence,
-    Unary, UnaryExpressionOperator,
+    Binary, BinaryExpressionOperator, Conditional, Disclose, Expression, Fold, FunctionCall, Map,
+    MemberAccess, Sequence, StructExpr, StructExprArg, StructNamedField, Unary,
+    UnaryExpressionOperator,
 };
 use ast::function::{AnonymousFunction, Function, FunctionArgument, NamedFunction};
-use ast::literal::{Bool, Literal, Nat, Str, Version, VersionOperator};
+use ast::literal::{Array, Bool, Literal, Nat, Str, Version, VersionOperator};
 use ast::node::Location;
 use ast::statement::{Assert, Assign, AssignOperator, Const, For, If, Return};
 use ast::ty::{Bytes, Opaque, Sum, TypeBool, TypeField, Uint, Vector};
@@ -88,15 +91,16 @@ pub fn build_ast(root: &Node, source: &str) -> Result<Program> {
                 definitions.push(Definition::Circuit(Rc::new(circuit)));
             }
             // // struct definition
-            // "struct" => {
-            //     let structure = build_structure(&child, source)?;
-            //     definitions.push(Definition::Structure(Rc::new(structure)));
-            // }
+            "struct" => {
+                let structure = build_structure(&child, source)?;
+                definitions.push(Definition::Structure(Rc::new(structure)));
+            }
             // // constructor definition
-            // "lconstructor" => {
-            //     let constructor = build_constructor(&child, source)?;
-            //     definitions.push(Definition::Constructor(Rc::new(constructor)));
-            // }
+            "lconstructor" => {
+                let constructor = build_constructor(&child, source)?;
+                declarations.push(Declaration::Constructor(Rc::new(constructor)));
+            }
+            "comment" => {}
             other => bail!("Unhandled node kind: {}", other),
         }
     }
@@ -354,6 +358,58 @@ fn build_circuit(node: &Node, source: &str) -> Result<Circuit> {
     })
 }
 
+fn build_constructor(node: &Node, source: &str) -> Result<Constructor> {
+    let arguments = node
+        .children_by_field_name("parg", &mut node.walk())
+        .map(|arg_node| build_pargument(&arg_node, source))
+        .collect::<Result<Vec<_>>>()?;
+
+    let body_node = node.child_by_field_name("body").ok_or_else(|| {
+        anyhow!(
+            "Missing 'body' field in constructor declaration: {:?}",
+            node.utf8_text(source.as_bytes())
+        )
+    })?;
+
+    let body = build_block(&body_node, source)?;
+
+    Ok(Constructor {
+        id: node_id(),
+        location: location(node),
+        arguments,
+        body,
+    })
+}
+
+fn build_structure(node: &Node, source: &str) -> Result<Structure> {
+    let structure_name_node = node.child_by_field_name("name").ok_or_else(|| {
+        anyhow!(
+            "Missing 'name' field in structure definition: {:?}",
+            node.utf8_text(source.as_bytes())
+        )
+    })?;
+    let name = build_identifier(&structure_name_node, source)?;
+    let is_exported = node.child_by_field_name("export").is_some();
+    let generic_parameters_node = node.child_by_field_name("gparams");
+    let generic_parameters = generic_parameters_node
+        .as_ref()
+        .map(|generic_node| build_generic_parameters(generic_node, source));
+
+    let fields = node
+        .children_by_field_name("arg", &mut node.walk())
+        .map(|field_node| build_argument(&field_node, source))
+        .collect::<Result<Vec<_>>>()?;
+
+    Ok(Structure {
+        id: node_id(),
+        location: location(node),
+        name,
+        is_exported,
+        generic_parameters,
+        fields,
+    })
+}
+
 fn build_statement(node: &Node, source: &str) -> Result<Statement> {
     let node = if node.kind() == "stmt" {
         &node.child(0).unwrap()
@@ -364,8 +420,8 @@ fn build_statement(node: &Node, source: &str) -> Result<Statement> {
     let statement = match kind {
         "assign_stmt" => Statement::Assign(build_assign_statement(node, source)?),
         "block" => Statement::Block(build_block(node, source)?),
-        "if" => Statement::If(build_if_statement(node, source)?),
-        "for" => Statement::For(build_for_statement(node, source)?),
+        "if_stmt" => Statement::If(build_if_statement(node, source)?),
+        "for_stmt" => Statement::For(build_for_statement(node, source)?),
         "return" => Statement::Return(build_return_statement(node, source)?),
         "assert" => Statement::Assert(build_assert_statement(&node.parent().unwrap(), source)?),
         "const_stmt" => Statement::Const(build_const_statement(node, source)?),
@@ -687,6 +743,31 @@ fn build_expression(node: &Node, source: &str) -> Result<Expression> {
                 operand: expr,
             }))
         }
+        "member_access_expr" => {
+            let base = build_expression(&node.child_by_field_name("base").unwrap(), source)?;
+            let member = build_identifier(&node.child_by_field_name("member").unwrap(), source)?;
+            let arguments_node = node.child_by_field_name("arguments");
+            let arguments = if let Some(arguments_node) = arguments_node {
+                let arguments: Result<Vec<_>> = arguments_node
+                    .children_by_field_name("expr", &mut arguments_node.walk())
+                    .map(|arg_node| build_expression(&arg_node, source))
+                    .collect();
+                Some(arguments?)
+            } else {
+                None
+            };
+            Expression::MemberAccess(Rc::new(MemberAccess {
+                id: node_id(),
+                location: location(node),
+                base,
+                member,
+                arguments,
+            }))
+        }
+        "expr_seq" => {
+            let seq = build_expression_sequence(node, source)?;
+            Expression::Sequence(seq)
+        }
         "term" => build_term(node, source)?,
         _ => bail!("Unhandled expression kind: {}", node.kind()),
     };
@@ -703,7 +784,7 @@ fn build_term(node: &Node, source: &str) -> Result<Expression> {
     };
 
     let term = match term_node.kind() {
-        "lit" => build_literal(term_node, source)?,
+        "lit" => build_literal(&term_node.child(0).unwrap(), source)?,
         "default" => {
             // Grammar: seq("default", "<", $.type, ">")
             // The type is at child index 2.
@@ -804,9 +885,47 @@ fn build_term(node: &Node, source: &str) -> Result<Expression> {
             let seq = build_expression_sequence(term_node, source)?;
             Expression::Sequence(seq)
         }
-        "fun" => {
-            let fun = build_function(term_node, source)?;
-            Expression::Function(fun)
+        "function_call_term" => {
+            let fun_node = term_node.child_by_field_name("fun").ok_or_else(|| {
+                anyhow!(
+                    "Missing 'fun' field in function_call_term: {:?}",
+                    term_node.utf8_text(source.as_bytes())
+                )
+            })?;
+            let fun = build_function(&fun_node, source)?;
+            let expr_nodes = term_node
+                .children_by_field_name("expr", &mut term_node.walk())
+                .collect::<Vec<_>>();
+            let arguments = expr_nodes
+                .into_iter()
+                .map(|expr_node| build_expression(&expr_node, source))
+                .collect::<Result<Vec<_>>>()?;
+            Expression::FunctionCall(Rc::new(FunctionCall {
+                id: node_id(),
+                location: location(term_node),
+                function: Expression::Function(fun),
+                arguments,
+            }))
+        }
+        "struct_term" => {
+            let struct_expr = build_struct_expression(term_node, source)?;
+            Expression::Struct(struct_expr)
+        }
+        "[" => {
+            let expr_nodes = term_node
+                .parent()
+                .unwrap()
+                .children_by_field_name("expr", &mut term_node.walk())
+                .collect::<Vec<_>>();
+            let elements = expr_nodes
+                .into_iter()
+                .map(|expr_node| build_expression(&expr_node, source))
+                .collect::<Result<Vec<_>>>()?;
+            Expression::Literal(Literal::Array(Rc::new(Array {
+                id: node_id(),
+                location: location(term_node),
+                elements,
+            })))
         }
         _ => bail!("Unhandled term kind: {}", term_node.kind()),
     };
@@ -913,9 +1032,59 @@ fn build_literal(node: &Node, source: &str) -> Result<Expression> {
             let str = build_str(node, source)?;
             Expression::Literal(Literal::Str(str))
         }
-        _ => bail!("Unhandled literal kind: {}", kind),
+        _ => bail!("Unhandled literal kind: {:?}", node),
     };
     Ok(literal)
+}
+
+fn build_struct_expression(node: &Node, source: &str) -> Result<Rc<StructExpr>> {
+    let tref_node = node
+        .child_by_field_name("tref")
+        .ok_or_else(|| anyhow!("Missing 'tref' field in struct expression: {:?}", node))?;
+    let tref = build_type(&tref_node, source)?;
+    let struct_arg_nodes = node
+        .children_by_field_name("struct_arg", &mut node.walk())
+        .collect::<Vec<_>>();
+    let mut struct_args = Vec::new();
+    for struct_arg_node in struct_arg_nodes {
+        match struct_arg_node.kind() {
+            "expr" => {
+                let expr = build_expression(node, source)?;
+                struct_args.push(StructExprArg::Expression(expr));
+            }
+            "struct_named_filed_initializer" => {
+                let id_node = node.child_by_field_name("id").ok_or_else(|| {
+                    anyhow!("Missing 'id' field in struct_named_filed_initializer")
+                })?;
+                let expr_node = node.child_by_field_name("expr").ok_or_else(|| {
+                    anyhow!("Missing 'expr' field in struct_named_filed_initializer")
+                })?;
+                let name = build_identifier(&id_node, source)?;
+                let expr = build_expression(&expr_node, source)?;
+                struct_args.push(StructExprArg::NamedField(Rc::new(StructNamedField {
+                    id: node_id(),
+                    location: location(&struct_arg_node),
+                    name,
+                    value: expr,
+                })));
+            }
+            // For update fields, the node begins with "..." and then has an "expr" field.
+            "struct_update_field" => {
+                let expr_node = node
+                    .child_by_field_name("expr")
+                    .ok_or_else(|| anyhow!("Missing 'expr' field in struct_update_field"))?;
+                let expr = build_expression(&expr_node, source)?;
+                struct_args.push(StructExprArg::Update(expr));
+            }
+            _ => bail!("Unhandled struct_arg node: {}", node.kind()),
+        }
+    }
+    Ok(Rc::new(StructExpr {
+        id: node_id(),
+        location: location(node),
+        ty: tref,
+        args: struct_args,
+    }))
 }
 
 fn build_expression_sequence(node: &Node, source: &str) -> Result<Rc<Sequence>> {
@@ -1580,34 +1749,6 @@ mod tests {
 
     #[test]
     fn test_statements_1() {
-        // assert game_state == GAME_STATE.waiting_p1 "Attempted to join a game that is not waiting for player 1";
-        // assert !p1.is_some "Already in the game";
-        // const sk = local_secret_key();
-        // // we hash the secret key and the contract address to get a unique hash for the state for each game
-        // const secret_key = persistent_hash<Vector<2, Bytes<32>>>([sk, kernel.self().bytes]);
-        // const me = public_key(sk);
-        // p1 = disclose(some<Bytes<32>>(me));
-      
-        // const ship_positions = player_ship_positions();
-        // const cells = occupied_cells(ship_positions);
-        // assert_valid_ship_position(ship_positions, cells);
-      
-        // assert_neighbour_is_not_1ship(neighbour1_cells(ship_positions.s11), cells);
-        // assert_neighbour_is_not_1ship(neighbour1_cells(ship_positions.s12), cells);
-        // assert_neighbour_is_not_1ship(neighbour1_cells(ship_positions.s13), cells);
-        // assert_neighbour_is_not_1ship(neighbour1_cells(ship_positions.s14), cells);
-        // assert_no_adjacent_neighbour_for_2ship(neighbour2_cells(ship_positions.s21, ship_positions.v21), cells);
-        // assert_no_adjacent_neighbour_for_2ship(neighbour2_cells(ship_positions.s22, ship_positions.v22), cells);
-        // assert_no_adjacent_neighbour_for_2ship(neighbour2_cells(ship_positions.s23, ship_positions.v23), cells);
-        // assert_no_adjacent_neighbour_for_3ship(neighbour3_cells(ship_positions.s31, ship_positions.v31), cells);
-        // assert_no_adjacent_neighbour_for_3ship(neighbour3_cells(ship_positions.s32, ship_positions.v32), cells);
-        // assert_no_adjacent_neighbour_for_4ship(neighbour4_cells(ship_positions.s41, ship_positions.v41), cells);
-      
-        // const ship_state = create_ship_state(ship_positions);
-        // p1_ship_positions_hash = persistent_commit<Ships>(ship_positions, secret_key);
-        // p1_ship_state_hash = update_ship_state(ship_state, secret_key);
-      
-        // game_state = GAME_STATE.waiting_p2;
         let source = "circuit join_p1(): [] { assert game_state == GAME_STATE.waiting_p1 \"Attempted to join a game that is not waiting for player 1\";}";
         let source_file = parse_content("dummy", source).unwrap();
         assert_eq!(source_file.ast.definitions.len(), 1);
@@ -1635,14 +1776,600 @@ mod tests {
                     panic!("Expected a binary expression");
                 };
                 assert!(matches!(binary_expr.left, Expression::Identifier(_)));
-                assert!(matches!(binary_expr.right, Expression::Identifier(_)));
+                assert!(matches!(binary_expr.right, Expression::MemberAccess(_)));
                 assert!(matches!(binary_expr.operator, BinaryExpressionOperator::Eq));
+                let Expression::Identifier(identifier) = &binary_expr.left else {
+                    panic!("Expected an identifier expression");
+                };
+                assert_eq!(identifier.name, "game_state");
+                let Expression::MemberAccess(member_access_expr) = &binary_expr.right else {
+                    panic!("Expected a member access expression");
+                };
+                assert_eq!(member_access_expr.member.name, "waiting_p1");
+                assert!(matches!(member_access_expr.base, Expression::Identifier(_)));
+                let Expression::Identifier(identifier) = &member_access_expr.base else {
+                    panic!("Expected an identifier expression");
+                };
+                assert_eq!(identifier.name, "GAME_STATE");
                 assert!(assert_statement.msg.is_some());
                 assert_eq!(assert_statement.msg.as_ref().unwrap().value, "\"Attempted to join a game that is not waiting for player 1\"");
             }
             _ => panic!("Expected a circuit declaration"),
         }
-
+        
     }
 
+    #[test]
+    fn test_statements_2() {
+        let source = "circuit join_p1(): [] { assert !p1.is_some \"Already in the game\";}";
+        let source_file = parse_content("dummy", source).unwrap();
+        assert_eq!(source_file.ast.definitions.len(), 1);
+        match &source_file.ast.definitions.first().unwrap() {
+            Definition::Circuit(circuit) => {
+                assert_eq!(circuit.name.name, "join_p1");
+                assert!(!circuit.is_exported);
+                assert_eq!(circuit.arguments.len(), 0);
+                assert!(circuit.generic_parameters.is_none());
+                assert!(matches!(circuit.ty, Type::Sum(_)));
+                match &circuit.ty {
+                    Type::Sum(_) => {},
+                    _ => panic!("Expected a sum type"),
+                }
+                assert!(circuit.body.is_some());
+                let body = circuit.body.as_ref().unwrap();
+                assert_eq!(body.statements.len(), 1);
+                let statement = body.statements.first().unwrap();
+                assert!(matches!(statement, Statement::Assert(_)));
+                let Statement::Assert(assert_statement) = &statement else {
+                    panic!("Expected an assert statement");  
+                };
+                assert!(matches!(assert_statement.condition, Expression::Unary(_)));
+                let Expression::Unary(unary_expr) = &assert_statement.condition else {
+                    panic!("Expected a unary expression");
+                };
+                assert!(matches!(unary_expr.operator, UnaryExpressionOperator::Not));
+                assert!(matches!(unary_expr.operand, Expression::MemberAccess(_)));
+                let Expression::MemberAccess(member_access_expr) = &unary_expr.operand else {
+                    panic!("Expected a member access expression");
+                };
+                assert_eq!(member_access_expr.member.name, "is_some");
+                assert!(matches!(member_access_expr.base, Expression::Identifier(_)));
+                let Expression::Identifier(identifier) = &member_access_expr.base else {
+                    panic!("Expected an identifier expression");
+                };
+                assert_eq!(identifier.name, "p1");
+                assert!(assert_statement.msg.is_some());
+                assert_eq!(assert_statement.msg.as_ref().unwrap().value, "\"Already in the game\"");
+            }
+            _ => panic!("Expected a circuit declaration"),
+        }
+    }
+
+    #[test]
+    fn test_const_statements() {
+        let source = r"circuit join_p1(): [] {
+            const secret_key = persistent_hash<Vector<2, Bytes<32>>>([sk, kernel.self().bytes]);
+            const ship_positions = player_ship_positions();
+            const cells = occupied_cells(ship_positions);
+        }";
+        let source_file = parse_content("dummy", source).unwrap();
+        assert_eq!(source_file.ast.definitions.len(), 1);
+        match &source_file.ast.definitions.first().unwrap() {
+            Definition::Circuit(circuit) => {
+                assert_eq!(circuit.name.name, "join_p1");
+                assert!(!circuit.is_exported);
+                assert_eq!(circuit.arguments.len(), 0);
+                assert!(circuit.generic_parameters.is_none());
+                assert!(matches!(circuit.ty, Type::Sum(_)));
+                match &circuit.ty {
+                    Type::Sum(_) => {},
+                    _ => panic!("Expected a sum type"),
+                }
+                assert!(circuit.body.is_some());
+                let body = circuit.body.as_ref().unwrap();
+                assert_eq!(body.statements.len(), 3);
+                let statement = body.statements.first().unwrap();
+                assert!(matches!(statement, Statement::Const(_)));
+                let Statement::Const(const_statement) = &statement else {
+                    panic!("Expected a const statement");  
+                };
+                assert!(matches!(const_statement.pattern, Pattern::Identifier(_)));
+                let Pattern::Identifier(identifier) = &const_statement.pattern else {
+                    panic!("Expected an identifier pattern");
+                };
+                assert_eq!(identifier.name, "secret_key");
+                assert!(const_statement.ty.is_none());
+
+                assert!(matches!(const_statement.value, Expression::FunctionCall(_)));
+                let Expression::FunctionCall(call_expr) = &const_statement.value else {
+                    panic!("Expected a function call expression");
+                };
+                assert!(matches!(call_expr.function, Expression::Function(_)));
+                let Expression::Function(function_expr) = &call_expr.function else {
+                    panic!("Expected a function expression");
+                };
+                assert!(matches!(function_expr, Function::Named(_)));
+                let Function::Named(named_function) = function_expr else {
+                    panic!("Expected a named function");
+                };
+                assert_eq!(named_function.name.name, "persistent_hash");
+                assert!(named_function.generic_parameters.is_some());
+                assert_eq!(named_function.generic_parameters.as_ref().unwrap().len(), 1);
+                match named_function.generic_parameters.as_ref().unwrap().first().unwrap() {
+                    Type::Vector(t) => {
+                        assert!(matches!(t.size.value, 2));
+                        assert!(matches!(t.ty, Type::Bytes(_)));
+                        match &t.ty {
+                            Type::Bytes(bt) => {
+                                assert!(matches!(bt.size.value, 32));
+                            },
+                            _ => panic!("Expected a bytes type"),
+                        }
+                    },
+                    _ => panic!("Expected a sum type"),
+                }
+                assert_eq!(call_expr.arguments.len(), 1);
+                let arg = call_expr.arguments.first().unwrap();
+                assert!(matches!(arg, Expression::Literal(Literal::Array(_))));
+                let Expression::Literal(Literal::Array(array_expr)) = arg else {
+                    panic!("Expected an array expression");
+                };
+                assert_eq!(array_expr.elements.len(), 2);
+                let element = array_expr.elements.last().unwrap();
+                assert!(matches!(element, Expression::MemberAccess(_)));
+                let Expression::MemberAccess(member_access) = element else {
+                    panic!("Expected an identifier expression");
+                };
+                assert_eq!(member_access.member.name, "bytes");
+                assert!(matches!(member_access.base, Expression::MemberAccess(_)));
+                let Expression::MemberAccess(member_access) = &member_access.base else {
+                    panic!("Expected an identifier expression");
+                };
+                assert_eq!(member_access.member.name, "self");
+                assert!(matches!(member_access.base, Expression::Identifier(_)));
+                let Expression::Identifier(identifier) = &member_access.base else {
+                    panic!("Expected an identifier expression");
+                };
+                assert_eq!(identifier.name, "kernel");
+                println!("{:?}", member_access.arguments);
+                assert!(member_access.arguments.is_some());
+                assert_eq!(member_access.arguments.as_ref().unwrap().len(), 0);
+            }
+            _ => panic!("Expected a circuit declaration"),
+        }
+    }
+
+    #[test]
+    fn test_structure() {
+        let source = "export struct ShotResult {
+            cell: Coord;
+            result: SHOT_RESULT;
+            player: Bytes<32>;
+            ship_def: ShipDef;
+        }";
+        let source_file = parse_content("dummy", source).unwrap();
+        assert_eq!(source_file.ast.definitions.len(), 1);
+        match &source_file.ast.definitions.first().unwrap() {
+            Definition::Structure(struct_decl) => {
+                assert_eq!(struct_decl.name.name, "ShotResult");
+                assert!(struct_decl.is_exported);
+                assert_eq!(struct_decl.fields.len(), 4);
+                let field = struct_decl.fields.first().unwrap();
+                assert_eq!(field.name.name, "cell");
+                assert!(matches!(field.ty, Type::Ref(_)));
+                match &field.ty {
+                    Type::Ref(rt) => {
+                        assert!(rt.generic_parameters.is_none());
+                        assert_eq!(rt.name.name, "Coord");
+                    },
+                    _ => panic!("Expected a reference type"),
+                }
+                let field = struct_decl.fields.get(1).unwrap();
+                assert_eq!(field.name.name, "result");
+                assert!(matches!(field.ty, Type::Ref(_)));
+                match &field.ty {
+                    Type::Ref(rt) => {
+                        assert!(rt.generic_parameters.is_none());
+                        assert_eq!(rt.name.name, "SHOT_RESULT");
+                    },
+                    _ => panic!("Expected a reference type"),
+                }
+                let field = struct_decl.fields.get(2).unwrap();
+                assert_eq!(field.name.name, "player");
+                assert!(matches!(field.ty, Type::Bytes(_)));
+                match &field.ty {
+                    Type::Bytes(bt) => {
+                        assert!(matches!(bt.size.value, 32));
+                    },
+                    _ => panic!("Expected a bytes type"),
+                }
+                let field = struct_decl.fields.get(3).unwrap();
+                assert_eq!(field.name.name, "ship_def");
+                assert!(matches!(field.ty, Type::Ref(_)));
+                match &field.ty {
+                    Type::Ref(rt) => {
+                        assert!(rt.generic_parameters.is_none());
+                        assert_eq!(rt.name.name, "ShipDef");
+                    },
+                    _ => panic!("Expected a reference type"),
+                }
+            }
+            _ => panic!("Expected a struct declaration"),
+        }
+    }
+
+    #[test]
+    fn test_constructor() {
+        let source = "constructor(initNonce: Bytes<32>) { nonce = initNonce; }";
+        let source_file = parse_content("dummy", source).unwrap();
+        assert_eq!(source_file.ast.declarations.len(), 1);
+        match &source_file.ast.declarations.first().unwrap() {
+            Declaration::Constructor(constructor) => {
+                assert_eq!(constructor.arguments.len(), 1);
+                let arg = constructor.arguments.first().unwrap();
+                assert!(matches!(arg.pattern, Pattern::Identifier(_)));
+                let Pattern::Identifier(identifier) = &arg.pattern else {
+                    panic!("Expected an identifier pattern");
+                };
+                assert_eq!(identifier.name, "initNonce");
+                assert!(matches!(arg.ty, Type::Bytes(_)));
+                match &arg.ty {
+                    Type::Bytes(bt) => {
+                        assert!(matches!(bt.size.value, 32));
+                    },
+                    _ => panic!("Expected a bytes type"),
+                }
+                let body = &constructor.body;
+                assert_eq!(body.statements.len(), 1);
+                let statement = body.statements.first().unwrap();
+                assert!(matches!(statement, Statement::Assign(_)));
+                let Statement::Assign(assignment) = &statement else {
+                    panic!("Expected an assignment statement");  
+                };
+                assert!(matches!(assignment.target, Expression::Identifier(_)));
+                let Expression::Identifier(identifier) = &assignment.target else {
+                    panic!("Expected an identifier expression");
+                };
+                assert_eq!(identifier.name, "nonce");
+                assert!(matches!(assignment.value, Expression::Identifier(_)));
+                let Expression::Identifier(identifier) = &assignment.value else {
+                    panic!("Expected an identifier expression");
+                };
+                assert_eq!(identifier.name, "initNonce");
+            }
+            _ => panic!("Expected a constructor declaration"),
+        }
+    }
+
+
+    #[test]
+    fn test_battleship_east() {
+        let source = r#"pragma language_version >= 0.13.0;
+
+import CompactStandardLibrary;
+import "../../battleship-contract-commons/GameCommons";
+
+export { Maybe }
+export { GAME_STATE }
+export { SHOT_RESULT }
+export { ShotResult }
+export { Coord }
+export { SHIP }
+export { ShipDef }
+export { public_key }
+
+export ledger game_state: GAME_STATE;
+export ledger shot_attempt: Coord; // coordinate of the opponent's shot
+export ledger last_shot_result: Maybe<ShotResult>; // validated shot result
+
+export ledger p1: Maybe<Bytes<32>>; // hash of player 1 secret
+export ledger p1_ship_positions_hash: Bytes<32>;
+export ledger p1_ship_state_hash: Bytes<32>;
+export ledger p1_hit_counter: Counter;
+
+export ledger p2: Maybe<Bytes<32>>; // hash of player 12secret
+export ledger p2_ship_positions_hash: Bytes<32>;
+export ledger p2_ship_state_hash: Bytes<32>;
+export ledger p2_hit_counter: Counter;
+
+witness local_secret_key(): Bytes<32>;
+witness player_ship_positions(): Ships; // ships placement
+witness player_ship_state(): ShipState; // ship game state, i.e. which cell of ships are hit
+witness set_player_ship_state(ship_state: ShipState): [];
+
+export struct IntermediateShotResult {
+  shot_result: ShotResult;
+  updated_ship_state: ShipState;
+}
+
+export struct ShipState {
+  s11: Coord;
+  s12: Coord;
+  s13: Coord;
+  s14: Coord;
+  s21: Vector<2, Coord>;
+  s22: Vector<2, Coord>;
+  s23: Vector<2, Coord>;
+  s31: Vector<3, Coord>;
+  s32: Vector<3, Coord>;
+  s41: Vector<4, Coord>;
+}
+
+// Ship sizes are fixed and encoded in the field names
+// Each coordinate represents the upper left corner of one ship
+// v21 and v31 are vertical or horizontal flags
+export struct Ships {
+  s11: Coord;
+  s12: Coord;
+  s13: Coord;
+  s14: Coord;
+  s21: Coord;
+  s22: Coord;
+  s23: Coord;
+  s31: Coord;
+  s32: Coord;
+  s41: Coord;
+  v21: Boolean;
+  v22: Boolean;
+  v23: Boolean;
+  v31: Boolean;
+  v32: Boolean;
+  v41: Boolean;
+}
+
+constructor() {
+  game_state = GAME_STATE.waiting_p1;
+}
+
+export circuit join_p1(): [] {
+  assert game_state == GAME_STATE.waiting_p1 "Attempted to join a game that is not waiting for player 1";
+  assert !p1.is_some "Already in the game";
+  const sk = local_secret_key();
+  // we hash the secret key and the contract address to get a unique hash for the state for each game
+  const secret_key = persistent_hash<Vector<2, Bytes<32>>>([sk, kernel.self().bytes]);
+  const me = public_key(sk);
+  p1 = disclose(some<Bytes<32>>(me));
+
+  const ship_positions = player_ship_positions();
+  const cells = occupied_cells(ship_positions);
+  assert_valid_ship_position(ship_positions, cells);
+
+  assert_neighbour_is_not_1ship(neighbour1_cells(ship_positions.s11), cells);
+  assert_neighbour_is_not_1ship(neighbour1_cells(ship_positions.s12), cells);
+  assert_neighbour_is_not_1ship(neighbour1_cells(ship_positions.s13), cells);
+  assert_neighbour_is_not_1ship(neighbour1_cells(ship_positions.s14), cells);
+  assert_no_adjacent_neighbour_for_2ship(neighbour2_cells(ship_positions.s21, ship_positions.v21), cells);
+  assert_no_adjacent_neighbour_for_2ship(neighbour2_cells(ship_positions.s22, ship_positions.v22), cells);
+  assert_no_adjacent_neighbour_for_2ship(neighbour2_cells(ship_positions.s23, ship_positions.v23), cells);
+  assert_no_adjacent_neighbour_for_3ship(neighbour3_cells(ship_positions.s31, ship_positions.v31), cells);
+  assert_no_adjacent_neighbour_for_3ship(neighbour3_cells(ship_positions.s32, ship_positions.v32), cells);
+  assert_no_adjacent_neighbour_for_4ship(neighbour4_cells(ship_positions.s41, ship_positions.v41), cells);
+
+  const ship_state = create_ship_state(ship_positions);
+  p1_ship_positions_hash = persistent_commit<Ships>(ship_positions, secret_key);
+  p1_ship_state_hash = update_ship_state(ship_state, secret_key);
+
+  game_state = GAME_STATE.waiting_p2;
+}
+
+export circuit join_p2(): [] {
+  assert game_state == GAME_STATE.waiting_p2 "Attempted to join a game that is not waiting for player 2";
+  assert !p2.is_some "Already in the game";
+  const sk = local_secret_key();
+  // we hash the secret key and the contract address to get a unique hash for the state for each game
+  const secret_key = persistent_hash<Vector<2, Bytes<32>>>([sk, kernel.self().bytes]);
+  const me = public_key(sk);
+
+  assert p1.value != me "Already in the game";
+  p2 = disclose(some<Bytes<32>>(me));
+  const ship_state = create_ship_state(ship_positions);
+  p2_ship_positions_hash = persistent_commit<Ships>(ship_positions, secret_key);
+  p2_ship_state_hash = update_ship_state(ship_state, secret_key);
+
+  game_state = GAME_STATE.p1_turn;
+}
+
+export circuit turn_player1(value: Coord): [] {
+  assert game_state == GAME_STATE.p1_turn "It is not 1st player's turn";
+
+  const sk = local_secret_key();
+  const secret_key = persistent_hash<Vector<2, Bytes<32>>>([sk, kernel.self().bytes]);
+  assert p1.value == public_key(sk) "You are not the 1st player";
+
+  assert_valid_coordinate(value);
+
+  const ships = get_ships(secret_key, p1_ship_positions_hash);
+  const ship_state = get_ship_state(secret_key, p1_ship_state_hash);
+
+  const result = calculate_shot_result(shot_attempt, ship_state, ships, p1.value);
+  p1_ship_state_hash = update_ship_state(result.updated_ship_state, secret_key);
+  last_shot_result = some<ShotResult>(result.shot_result);
+  if (result.shot_result.result != SHOT_RESULT.miss) {
+    p1_hit_counter.increment(1);
+  }
+
+  shot_attempt = value;
+
+  game_state = check_winner(GAME_STATE.p2_turn);
+}
+
+export circuit turn_player2(value: Coord): [] {
+  assert game_state == GAME_STATE.p2_turn "It is not 2nd player's turn";
+
+  const sk = local_secret_key();
+  const secret_key = persistent_hash<Vector<2, Bytes<32>>>([sk, kernel.self().bytes]);
+  assert p2.value == public_key(sk) "You are not the 2nd player";
+
+  assert_valid_coordinate(value);
+
+  const ships = get_ships(secret_key, p2_ship_positions_hash);
+  const ship_state = get_ship_state(secret_key, p2_ship_state_hash);
+
+  const result = calculate_shot_result(shot_attempt, ship_state, ships, p2.value);
+  p2_ship_state_hash = update_ship_state(result.updated_ship_state, secret_key);
+  last_shot_result = some<ShotResult>(result.shot_result);
+  if (result.shot_result.result != SHOT_RESULT.miss) {
+    p2_hit_counter.increment(1);
+  }
+
+  shot_attempt = value;
+
+  game_state = check_winner(GAME_STATE.p1_turn);
+}
+
+pure circuit assert_valid_ship_position(ship_positions: Ships, cells: Vector<20, Coord>): [] {
+  for (const cell of cells) {
+    assert_valid_coordinate(cell);
+  }
+  assert unique_vector(cells) "Ship cells must be unique";
+}
+
+pure circuit occupied_cells(ship_positions: Ships): Vector<20, Coord> {
+  const s21 = ship2_cells(ship_positions.s21, ship_positions.v21);
+  const s22 = ship2_cells(ship_positions.s22, ship_positions.v22);
+  const s23 = ship2_cells(ship_positions.s23, ship_positions.v23);
+  const s31 = ship3_cells(ship_positions.s31, ship_positions.v31);
+  const s32 = ship3_cells(ship_positions.s32, ship_positions.v32);
+  const s41 = ship4_cells(ship_positions.s41, ship_positions.v41);
+
+  return [
+    ship_positions.s11, ship_positions.s12, ship_positions.s13, ship_positions.s14,
+    s21[0], s21[1], s22[0], s22[1],  s23[0], s23[1],
+    s31[0], s31[1], s31[2], s32[0], s32[1], s32[2],
+    s41[0], s41[1], s41[2], s41[3]
+  ];
+}
+
+pure circuit unique_vector(v: Vector<20, Coord>): Boolean {
+  return (v[0] != v[1] && v[0] != v[2] && v[0] != v[3] && v[0] != v[4] && v[0] != v[5] && v[0] != v[6] && v[0] != v[7] && v[0] != v[8] && v[0] != v[9] && v[0] != v[10] && v[0] != v[11] && v[0] != v[12] && v[0] != v[13] && v[0] != v[14] && v[0] != v[15] && v[0] != v[16] && v[0] != v[17] && v[0] != v[18] && v[0] != v[19] &&
+          v[1] != v[2] && v[1] != v[3] && v[1] != v[4] && v[1] != v[5] && v[1] != v[6] && v[1] != v[7] && v[1] != v[8] && v[1] != v[9] && v[1] != v[10] && v[1] != v[11] && v[1] != v[12] && v[1] != v[13] && v[1] != v[14] && v[1] != v[15] && v[1] != v[16] && v[1] != v[17] && v[1] != v[18] && v[1] != v[19] &&
+          v[2] != v[3] && v[2] != v[4] && v[2] != v[5] && v[2] != v[6] && v[2] != v[7] && v[2] != v[8] && v[2] != v[9] && v[2] != v[10] && v[2] != v[11] && v[2] != v[12] && v[2] != v[13] && v[2] != v[14] && v[2] != v[15] && v[2] != v[16] && v[2] != v[17] && v[2] != v[18] && v[2] != v[19] &&
+          v[3] != v[4] && v[3] != v[5] && v[3] != v[6] && v[3] != v[7] && v[3] != v[8] && v[3] != v[9] && v[3] != v[10] && v[3] != v[11] && v[3] != v[12] && v[3] != v[13] && v[3] != v[14] && v[3] != v[15] && v[3] != v[16] && v[3] != v[17] && v[3] != v[18] && v[3] != v[19] &&
+          v[4] != v[5] && v[4] != v[6] && v[4] != v[7] && v[4] != v[8] && v[4] != v[9] && v[4] != v[10] && v[4] != v[11] && v[4] != v[12] && v[4] != v[13] && v[4] != v[14] && v[4] != v[15] && v[4] != v[16] && v[4] != v[17] && v[4] != v[18] && v[4] != v[19] &&
+          v[5] != v[6] && v[5] != v[7] && v[5] != v[8] && v[5] != v[9] && v[5] != v[10] && v[5] != v[11] && v[5] != v[12] && v[5] != v[13] && v[5] != v[14] && v[5] != v[15] && v[5] != v[16] && v[5] != v[17] && v[5] != v[18] && v[5] != v[19] &&
+          v[6] != v[7] && v[6] != v[8] && v[6] != v[9] && v[6] != v[10] && v[6] != v[11] && v[6] != v[12] && v[6] != v[13] && v[6] != v[14] && v[6] != v[15] && v[6] != v[16] && v[6] != v[17] && v[6] != v[18] && v[6] != v[19] &&
+          v[7] != v[8] && v[7] != v[9] && v[7] != v[10] && v[7] != v[11] && v[7] != v[12] && v[7] != v[13] && v[7] != v[14] && v[7] != v[15] && v[7] != v[16] && v[7] != v[17] && v[7] != v[18] && v[7] != v[19] &&
+          v[8] != v[9] && v[8] != v[10] && v[8] != v[11] && v[8] != v[12] && v[8] != v[13] && v[8] != v[14] && v[8] != v[15] && v[8] != v[16] && v[8] != v[17] && v[8] != v[18] && v[8] != v[19] &&
+          v[9] != v[10] && v[9] != v[11] && v[9] != v[12] && v[9] != v[13] && v[9] != v[14] && v[9] != v[15] && v[9] != v[16] && v[9] != v[17] && v[9] != v[18] && v[9] != v[19] &&
+          v[10] != v[11] && v[10] != v[12] && v[10] != v[13] && v[10] != v[14] && v[10] != v[15] && v[10] != v[16] && v[10] != v[17] && v[10] != v[18] && v[10] != v[19] &&
+          v[11] != v[12] && v[11] != v[13] && v[11] != v[14] && v[11] != v[15] && v[11] != v[16] && v[11] != v[17] && v[11] != v[18] && v[11] != v[19] &&
+          v[12] != v[13] && v[12] != v[14] && v[12] != v[15] && v[12] != v[16] && v[12] != v[17] && v[12] != v[18] && v[12] != v[19] &&
+          v[13] != v[14] && v[13] != v[15] && v[13] != v[16] && v[13] != v[17] && v[13] != v[18] && v[13] != v[19] &&
+          v[14] != v[15] && v[14] != v[16] && v[14] != v[17] && v[14] != v[18] && v[14] != v[19] &&
+          v[15] != v[16] && v[15] != v[17] && v[15] != v[18] && v[15] != v[19] &&
+          v[16] != v[17] && v[16] != v[18] && v[16] != v[19] &&
+          v[17] != v[18] && v[17] != v[19] &&
+          v[18] != v[19]);
+}
+
+circuit check_winner(next: GAME_STATE): GAME_STATE {
+  const cell_count = 20; // 4 + 3 + 3 + 2 + 2 + 2 + 1 + 1 + 1 + 1 cells of all ships
+  if (p2_hit_counter == cell_count) {
+    return GAME_STATE.p1_wins;
+  } else if (p1_hit_counter == cell_count) {
+    return GAME_STATE.p2_wins;
+  } else {
+    return next;
+  }
+}
+
+pure circuit create_ship_state(ships: Ships): ShipState {
+  return ShipState {
+    s11: ships.s11,
+    s12: ships.s12,
+    s13: ships.s13,
+    s14: ships.s14,
+    s21: ship2_cells(ships.s21, ships.v21),
+    s22: ship2_cells(ships.s22, ships.v22),
+    s23: ship2_cells(ships.s23, ships.v23),
+    s31: ship3_cells(ships.s31, ships.v31),
+    s32: ship3_cells(ships.s32, ships.v32),
+    s41: ship4_cells(ships.s41, ships.v41)
+  };
+}
+
+circuit get_ship_state(sk: Bytes<32>, expected_state_hash: Bytes<32>): ShipState {
+  const state = player_ship_state();
+  const state_hash = persistent_commit<ShipState>(state, sk);
+  assert state_hash == expected_state_hash "Ship state hash mismatch";
+  return state;
+}
+
+circuit get_ships(sk: Bytes<32>, expected_state_hash: Bytes<32>): Ships {
+  const state = player_ship_positions();
+  const state_hash = persistent_commit<Ships>(state, sk);
+  assert state_hash == expected_state_hash "Ships hash mismatch";
+  return state;
+}
+
+circuit update_ship_state(updated_ship_state: ShipState, sk: Bytes<32>): Bytes<32> {
+  const state_hash = persistent_commit<ShipState>(updated_ship_state, sk);
+  set_player_ship_state(updated_ship_state);
+  return state_hash;
+}
+
+export pure circuit calculate_shot_result(
+  shot_attempt: Coord,
+  ship_state: ShipState,
+  ships: Ships,
+  player: Bytes<32>
+): IntermediateShotResult {
+  // Find the Target: Check if the shot hits any part of a ship.
+  // Update the Ship State: If the shot hits, mark that part of the ship as "damaged." with coordinate set to { 0, 0 }
+  // Check for Ship Sunk: If all parts of the ship are damaged, it's sunk; if no part is hit, it's a miss; otherwise, it's a hit.
+  // Return the Result: Report whether the shot was a miss, a hit, or if a ship was sunk.
+  const updated_ship_state = ShipState {
+    s11: update_hit_cell(ship_state.s11, shot_attempt),
+    s12: update_hit_cell(ship_state.s12, shot_attempt),
+    s13: update_hit_cell(ship_state.s13, shot_attempt),
+    s14: update_hit_cell(ship_state.s14, shot_attempt),
+    s21: update_hit_cell_state<2>(ship_state.s21, shot_attempt),
+    s22: update_hit_cell_state<2>(ship_state.s22, shot_attempt),
+    s23: update_hit_cell_state<2>(ship_state.s23, shot_attempt),
+    s31: update_hit_cell_state<3>(ship_state.s31, shot_attempt),
+    s32: update_hit_cell_state<3>(ship_state.s32, shot_attempt),
+    s41: update_hit_cell_state<4>(ship_state.s41, shot_attempt)
+  };
+  return IntermediateShotResult {
+    disclose(calculate_shot_result(shot_attempt, ship_state, updated_ship_state, ships, player)),
+    updated_ship_state
+  };
+}
+
+pure circuit assert_no_adjacent_ship(cell: Coord, ship: Coord): [] {
+    assert (cell == ship) == false "Ships can't be adjacent";
+}
+
+pure circuit assert_neighbour_is_not_1ship(neighbours: Vector<8, Coord>, coords: Vector<20, Coord>): [] {
+  for (const neighbour of neighbours) {
+    assert_neighbour_is_not_ship(neighbour, coords);
+  }
+}
+
+pure circuit neighbour1_cells(cell: Coord): Vector<8, Coord> {
+    return [
+       Coord { x: cell.x - 1, y: cell.y - 1 },
+       Coord { x: cell.x - 1, y: cell.y },
+       Coord { x: cell.x - 1, y: cell.y + 1 as Uint<4> },
+       Coord { x: cell.x, y: cell.y - 1 },
+       Coord { x: cell.x, y: cell.y + 1 as Uint<4> },
+       Coord { x: cell.x + 1 as Uint<4>, y: cell.y - 1 },
+       Coord { x: cell.x + 1 as Uint<4>, y: cell.y },
+       Coord { x: cell.x + 1 as Uint<4>, y: cell.y + 1 as Uint<4> }
+    ];
+}
+
+
+pure circuit neighbour2_cells(cell: Coord, vertical: Boolean): Vector<10, Coord> {
+  if (vertical) {
+    return vertical_neighbour2_cells(cell);
+  } else {
+    return horizontal_neighbour2_cells(cell);
+  }
+}
+
+"#;
+        let source_file = parse_content("dummy", source).unwrap();
+        
+    }
 }
