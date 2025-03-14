@@ -276,8 +276,12 @@
           "type": "CHOICE",
           "members": [
             {
-              "type": "SYMBOL",
-              "name": "export"
+              "type": "FIELD",
+              "name": "export",
+              "content": {
+                "type": "SYMBOL",
+                "name": "export"
+              }
             },
             {
               "type": "BLANK"
@@ -289,15 +293,23 @@
           "value": "module"
         },
         {
-          "type": "SYMBOL",
-          "name": "module_name"
+          "type": "FIELD",
+          "name": "name",
+          "content": {
+            "type": "SYMBOL",
+            "name": "module_name"
+          }
         },
         {
           "type": "CHOICE",
           "members": [
             {
-              "type": "SYMBOL",
-              "name": "gparams"
+              "type": "FIELD",
+              "name": "gparams",
+              "content": {
+                "type": "SYMBOL",
+                "name": "gparams"
+              }
             },
             {
               "type": "BLANK"
@@ -311,8 +323,12 @@
         {
           "type": "REPEAT",
           "content": {
-            "type": "SYMBOL",
-            "name": "_pelt"
+            "type": "FIELD",
+            "name": "module_element",
+            "content": {
+              "type": "SYMBOL",
+              "name": "_pelt"
+            }
           }
         },
         {
@@ -1494,8 +1510,12 @@
           "type": "CHOICE",
           "members": [
             {
-              "type": "SYMBOL",
-              "name": "export"
+              "type": "FIELD",
+              "name": "export",
+              "content": {
+                "type": "SYMBOL",
+                "name": "export"
+              }
             },
             {
               "type": "BLANK"
@@ -1507,8 +1527,12 @@
           "value": "enum"
         },
         {
-          "type": "SYMBOL",
-          "name": "enum_name"
+          "type": "FIELD",
+          "name": "name",
+          "content": {
+            "type": "SYMBOL",
+            "name": "enum_name"
+          }
         },
         {
           "type": "STRING",
@@ -1518,8 +1542,12 @@
           "type": "SEQ",
           "members": [
             {
-              "type": "SYMBOL",
-              "name": "id"
+              "type": "FIELD",
+              "name": "id",
+              "content": {
+                "type": "SYMBOL",
+                "name": "id"
+              }
             },
             {
               "type": "REPEAT",
@@ -1531,8 +1559,12 @@
                     "value": ","
                   },
                   {
-                    "type": "SYMBOL",
-                    "name": "id"
+                    "type": "FIELD",
+                    "name": "id",
+                    "content": {
+                      "type": "SYMBOL",
+                      "name": "id"
+                    }
                   }
                 ]
               }
@@ -3547,33 +3579,45 @@
           "name": "str"
         },
         {
-          "type": "SEQ",
-          "members": [
-            {
-              "type": "STRING",
-              "value": "pad"
-            },
-            {
-              "type": "STRING",
-              "value": "("
-            },
-            {
-              "type": "SYMBOL",
-              "name": "nat"
-            },
-            {
-              "type": "STRING",
-              "value": ","
-            },
-            {
-              "type": "SYMBOL",
-              "name": "str"
-            },
-            {
-              "type": "STRING",
-              "value": ")"
-            }
-          ]
+          "type": "SYMBOL",
+          "name": "pad"
+        }
+      ]
+    },
+    "pad": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "pad"
+        },
+        {
+          "type": "STRING",
+          "value": "("
+        },
+        {
+          "type": "FIELD",
+          "name": "nat",
+          "content": {
+            "type": "SYMBOL",
+            "name": "nat"
+          }
+        },
+        {
+          "type": "STRING",
+          "value": ","
+        },
+        {
+          "type": "FIELD",
+          "name": "str",
+          "content": {
+            "type": "SYMBOL",
+            "name": "str"
+          }
+        },
+        {
+          "type": "STRING",
+          "value": ")"
         }
       ]
     },

@@ -22,7 +22,7 @@ ast_enum! {
         @scope Constructor(Rc<Constructor>),
         @scope Contract(Rc<Contract>),
         // @scope Struct(Rc<Struct>),
-        @scope Enum(Rc<Enum>),
+        // @scope Enum(Rc<Enum>),
         @raw Definition(Definition),
     }
 }
@@ -94,7 +94,7 @@ ast_nodes! {
 
     // pub struct Struct {}
 
-    pub struct Enum {}
+    // pub struct Enum {}
 
     pub struct Argument {
         pub name: Rc<Identifier>,
@@ -175,11 +175,11 @@ impl Node for Contract {
 //         vec![]
 //     }
 // }
-impl Node for Enum {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        vec![]
-    }
-}
+// impl Node for Enum {
+//     fn children(&self) -> Vec<Rc<NodeKind>> {
+//         vec![]
+//     }
+// }
 
 impl Node for Argument {
     fn children(&self) -> Vec<Rc<NodeKind>> {

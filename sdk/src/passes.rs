@@ -132,7 +132,7 @@ fn infer_expr(expr: &Expression, env: &Rc<SymbolTable>) -> Option<Type> {
             Literal::Nat(n) => Some(Type::Nat(Rc::new(TypeNat::new(n)))),
             Literal::Bool(b) => Some(Type::Bool(Rc::new(TypeBool::new(b)))),
             Literal::Str(s) => Some(Type::String(Rc::new(TypeString::new(s)))),
-            Literal::Version(_) | Literal::Array(_) => None,
+            Literal::Version(_) | Literal::Array(_) | Literal::Pad(_) => None,
         },
         Expression::Unary(un_expr) => infer_expr(&un_expr.operand, env),
         Expression::Binary(bin_expr) => {
@@ -771,10 +771,6 @@ mod test {
             name: mock_identifier(2123, "c"),
             circuits: vec![],
         };
-        let enm = crate::ast::declaration::Enum {
-            id: 53,
-            location: default_location(),
-        };
 
         let decls = vec![
             Declaration::Import(Rc::new(import)),
@@ -785,7 +781,7 @@ mod test {
             Declaration::Constructor(Rc::new(ctor)),
             Declaration::Contract(Rc::new(contract)),
             // Declaration::Struct(Rc::new(struc)),
-            Declaration::Enum(Rc::new(enm)),
+            // Declaration::Enum(Rc::new(enm)),
             Declaration::Definition(Definition::Module(Rc::new(
                 crate::ast::definition::Module {
                     id: 54,

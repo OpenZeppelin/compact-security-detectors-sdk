@@ -4,7 +4,7 @@ resolver = "2"
 
 members = [
     "sdk",
-    "parser",
+    # "parser",
     "tree-sitter-compact"
 ]
 

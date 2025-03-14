@@ -22,6 +22,13 @@ ast_enum! {
     }
 }
 
+ast_enum! {
+    pub enum VectorSize {
+        Nat(Rc<Nat>),
+        Ref(Rc<Identifier>),
+    }
+}
+
 impl Type {
     #[must_use]
     pub fn matches(&self, ty: &Type) -> bool {
@@ -55,7 +62,7 @@ ast_nodes! {
         pub end: Option<Rc<Nat>>,
     }
     pub struct Vector {
-        pub size: Rc<Nat>,
+        pub size: VectorSize,
         pub ty: Type,
     }
     pub struct Opaque {

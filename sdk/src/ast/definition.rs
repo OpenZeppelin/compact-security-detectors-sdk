@@ -14,10 +14,10 @@ use super::{
 
 ast_enum! {
     pub enum Definition {
-        Module(Rc<Module>),
+        @scope Module(Rc<Module>),
         Circuit(Rc<Circuit>),
-        Structure(Rc<Structure>),
-        Enum(Rc<Enum>),
+        @scope Structure(Rc<Structure>),
+        @scope Enum(Rc<Enum>),
     }
 }
 

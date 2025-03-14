@@ -13,7 +13,7 @@ use ast::declaration::{
     Constructor, Export, GArgument, Ledger, PatternArgument, StructPattern, StructPatternField,
     TuplePattern, Witness,
 };
-use ast::definition::Structure;
+use ast::definition::{Enum, Structure};
 use ast::directive::VersionExpr;
 use ast::expression::{
     Binary, BinaryExpressionOperator, Conditional, Disclose, Expression, Fold, FunctionCall, Map,
@@ -21,10 +21,11 @@ use ast::expression::{
     UnaryExpressionOperator,
 };
 use ast::function::{AnonymousFunction, Function, FunctionArgument, NamedFunction};
-use ast::literal::{Array, Bool, Literal, Nat, Str, Version, VersionOperator};
+use ast::literal::{Array, Bool, Literal, Nat, Pad, Str, Version, VersionOperator};
 use ast::node::Location;
+use ast::program::CompactNode;
 use ast::statement::{Assert, Assign, AssignOperator, Const, For, If, Return};
-use ast::ty::{Bytes, Opaque, Sum, TypeBool, TypeField, Uint, Vector};
+use ast::ty::{Bytes, Opaque, Sum, TypeBool, TypeField, Uint, Vector, VectorSize};
 use std::rc::Rc;
 use tree_sitter::Node;
 pub mod ast;
@@ -49,71 +50,159 @@ pub fn parse_content(fname: &str, source_code: &str) -> anyhow::Result<codebase:
 
 pub fn build_ast(root: &Node, source: &str) -> Result<Program> {
     if root.kind() != "source_file" {
-        bail!("Expected source_file as root, found {}", root.kind());
+        bail!("Invalid root node kind: {}", root.kind());
     }
-
     let mut directives: Vec<Directive> = Vec::new();
     let mut declarations: Vec<Declaration> = Vec::new();
     let mut definitions: Vec<Definition> = Vec::new();
-    let mut statements: Vec<Statement> = Vec::new();
     let mut modules: Vec<Rc<Module>> = Vec::new();
 
     for i in 0..root.named_child_count() {
         let child = root.named_child(i).unwrap();
-        match child.kind() {
-            "pragma" => {
-                let pragma = build_pragma(&child, source)?;
-                directives.push(Directive::Pragma(Rc::new(pragma)));
-            }
-            // import declaration
-            "idecl" => {
-                let import_decl = build_import(&child, source)?;
-                declarations.push(Declaration::Import(Rc::new(import_decl)));
-            }
-            // export declaration
-            "xdecl" => {
-                let export_decl = build_export(&child, source)?;
-                declarations.push(Declaration::Export(Rc::new(export_decl)));
-            }
-            // ledger declaration
-            "ldecl" => {
-                let ledger_decl = build_ledger(&child, source)?;
-                declarations.push(Declaration::Ledger(Rc::new(ledger_decl)));
-            }
-            // // witness declaration
-            "wdecl" => {
-                let witness_decl = build_witness(&child, source)?;
-                declarations.push(Declaration::Witness(Rc::new(witness_decl)));
-            }
-            // circuit definition
-            "cdefn" => {
-                let circuit = build_circuit(&child, source)?;
-                definitions.push(Definition::Circuit(Rc::new(circuit)));
-            }
-            // // struct definition
-            "struct" => {
-                let structure = build_structure(&child, source)?;
-                definitions.push(Definition::Structure(Rc::new(structure)));
-            }
-            // // constructor definition
-            "lconstructor" => {
-                let constructor = build_constructor(&child, source)?;
-                declarations.push(Declaration::Constructor(Rc::new(constructor)));
-            }
-            "comment" => {}
-            other => bail!("Unhandled node kind: {}", other),
+        match build_compact_node(&child, source)? {
+            CompactNode::Directive(d) => directives.push(d),
+            CompactNode::Declaration(d) => declarations.push(d),
+            CompactNode::Definition(d) => definitions.push(d),
+            CompactNode::Module(m) => modules.push(m),
+            CompactNode::Comment(_) => {}
+            other => bail!("Unhandled node: {:?}", other),
         }
     }
     Ok(Program {
         directives,
         declarations,
         definitions,
-        statements,
         modules,
     })
 }
 
-pub fn build_pragma(node: &Node, source: &str) -> Result<Pragma> {
+fn build_compact_node(node: &Node, source: &str) -> Result<CompactNode> {
+    match node.kind() {
+        "pragma" => {
+            let pragma = build_pragma(node, source)?;
+            Ok(CompactNode::Directive(Directive::Pragma(Rc::new(pragma))))
+        }
+        // import declaration
+        "idecl" => {
+            let import_decl = build_import(node, source)?;
+            Ok(CompactNode::Declaration(Declaration::Import(Rc::new(
+                import_decl,
+            ))))
+        }
+        // export declaration
+        "xdecl" => {
+            let export_decl = build_export(node, source)?;
+            Ok(CompactNode::Declaration(Declaration::Export(Rc::new(
+                export_decl,
+            ))))
+        }
+        // ledger declaration
+        "ldecl" => {
+            let ledger_decl = build_ledger(node, source)?;
+            Ok(CompactNode::Declaration(Declaration::Ledger(Rc::new(
+                ledger_decl,
+            ))))
+        }
+        // // witness declaration
+        "wdecl" => {
+            let witness_decl = build_witness(node, source)?;
+            Ok(CompactNode::Declaration(Declaration::Witness(Rc::new(
+                witness_decl,
+            ))))
+        }
+        // circuit definition
+        "cdefn" => {
+            let circuit = build_circuit(node, source)?;
+            Ok(CompactNode::Definition(Definition::Circuit(Rc::new(
+                circuit,
+            ))))
+        }
+        // struct definition
+        "struct" => {
+            let structure = build_structure(node, source)?;
+            Ok(CompactNode::Definition(Definition::Structure(Rc::new(
+                structure,
+            ))))
+        }
+        // enum definition
+        "enumdef" => {
+            let enum_def = build_enum(node, source)?;
+            Ok(CompactNode::Definition(Definition::Enum(Rc::new(enum_def))))
+        }
+        // constructor definition
+        "lconstructor" => {
+            let constructor = build_constructor(node, source)?;
+            Ok(CompactNode::Declaration(Declaration::Constructor(Rc::new(
+                constructor,
+            ))))
+        }
+        // module definition
+        "mdefn" => {
+            let module = build_module(node, source)?;
+            Ok(CompactNode::Module(Rc::new(module)))
+        }
+        "comment" => {
+            let comment = node.utf8_text(source.as_bytes())?;
+            Ok(CompactNode::Comment(comment.to_string()))
+        }
+        other => bail!("Unhandled node kind: {}", other),
+    }
+}
+
+fn build_module(node: &Node, source: &str) -> Result<Module> {
+    let is_exported = node.child_by_field_name("export").is_some();
+    let name_node = node.child_by_field_name("name").ok_or_else(|| {
+        anyhow!(
+            "Missing 'name' field in module definition: {:?}",
+            node.utf8_text(source.as_bytes())
+        )
+    })?;
+    let name = build_identifier(&name_node, source)?;
+    let generic_parameters_node = node.child_by_field_name("gparams");
+    let generic_parameters = generic_parameters_node
+        .as_ref()
+        .map(|generic_node| build_generic_parameters(generic_node, source));
+    let cursor = &mut node.walk();
+    let module_element_nodes = node.children_by_field_name("module_element", cursor);
+    let mut nodes = Vec::new();
+    for child in module_element_nodes {
+        let compact_node = build_compact_node(&child, source)?;
+        nodes.push(compact_node);
+    }
+    Ok(Module {
+        id: node_id(),
+        location: location(node),
+        is_exported,
+        name,
+        generic_parameters,
+        nodes,
+    })
+}
+
+fn build_enum(node: &Node, source: &str) -> Result<Enum> {
+    let is_exported = node.child_by_field_name("export").is_some();
+    let name_node = node.child_by_field_name("name").ok_or_else(|| {
+        anyhow!(
+            "Missing 'name' field in enum definition: {:?}",
+            node.utf8_text(source.as_bytes())
+        )
+    })?;
+    let name = build_identifier(&name_node, source)?;
+    let ids = node
+        .children_by_field_name("id", &mut node.walk())
+        .map(|id_node| build_identifier(&id_node, source))
+        .collect::<Result<Vec<_>>>()?;
+
+    Ok(Enum {
+        id: node_id(),
+        location: location(node),
+        is_exported,
+        name,
+        options: ids,
+    })
+}
+
+fn build_pragma(node: &Node, source: &str) -> Result<Pragma> {
     let id_node = node
         .child_by_field_name("id")
         .ok_or_else(|| anyhow!("Missing 'id' field in pragma"))?;
@@ -273,7 +362,7 @@ fn build_ledger(node: &Node, source: &str) -> Result<Ledger> {
 fn build_witness(node: &Node, source: &str) -> Result<Witness> {
     let witness_name_node = node.child_by_field_name("id").ok_or_else(|| {
         anyhow!(
-            "Missing 'name' field in witness declaration: {:?}",
+            "Missing 'id' field in witness declaration: {:?}",
             node.utf8_text(source.as_bytes())
         )
     })?;
@@ -1032,6 +1121,28 @@ fn build_literal(node: &Node, source: &str) -> Result<Expression> {
             let str = build_str(node, source)?;
             Expression::Literal(Literal::Str(str))
         }
+        "pad" => {
+            let nat_node = node.child_by_field_name("nat").ok_or_else(|| {
+                anyhow!(
+                    "Missing 'nat' field in pad literal: {:?}",
+                    node.utf8_text(source.as_bytes())
+                )
+            })?;
+            let nat = build_nat(&nat_node, source)?;
+            let str_node = node.child_by_field_name("str").ok_or_else(|| {
+                anyhow!(
+                    "Missing 'str' field in pad literal: {:?}",
+                    node.utf8_text(source.as_bytes())
+                )
+            })?;
+            let str = build_str(&str_node, source)?;
+            Expression::Literal(Literal::Pad(Rc::new(Pad {
+                id: node_id(),
+                location: location(node),
+                number: nat,
+                name: str,
+            })))
+        }
         _ => bail!("Unhandled literal kind: {:?}", node),
     };
     Ok(literal)
@@ -1207,7 +1318,11 @@ fn build_type(node: &Node, source: &str) -> Result<Type> {
                     node.utf8_text(source.as_bytes())
                 )
             })?;
-            let size = build_nat(&size_node, source)?;
+            let size = match size_node.child(0).unwrap().kind() {
+                "nat" => VectorSize::Nat(build_nat(&size_node, source)?),
+                "id" => VectorSize::Ref(build_identifier(&size_node, source)?),
+                _ => bail!("Invalid size kind: {:?}", size_node.kind()),
+            };
             let element_node = node.child_by_field_name("type").ok_or_else(|| {
                 anyhow!(
                     "Missing 'type' field in Vector type: {:?}",
@@ -1934,7 +2049,13 @@ mod tests {
                         assert!(matches!(vector, Type::Vector(_)));
                         match vector {
                             Type::Vector(vector) => {
-                                assert!(matches!(vector.size.value, 2));
+                                assert!(matches!(vector.size, VectorSize::Nat(_)));
+                                match &vector.size {
+                                    VectorSize::Nat(nat) => {
+                                        assert_eq!(nat.value, 2);
+                                    },
+                                    _ => panic!("Expected a nat argument"),
+                                }
                                 assert!(matches!(vector.ty, Type::Bytes(_)));
                                 match &vector.ty {
                                     Type::Bytes(bt) => {
@@ -2086,327 +2207,25 @@ mod tests {
         let source = r#"pragma language_version >= 0.13.0;
 
 import CompactStandardLibrary;
-import "../../battleship-contract-commons/GameCommons";
 
-export { Maybe }
-export { GAME_STATE }
-export { SHOT_RESULT }
-export { ShotResult }
-export { Coord }
-export { SHIP }
-export { ShipDef }
-export { public_key }
+export { CoinInfo };
 
-export ledger game_state: GAME_STATE;
-export ledger shot_attempt: Coord; // coordinate of the opponent's shot
-export ledger last_shot_result: Maybe<ShotResult>; // validated shot result
+export ledger counter: Counter;
+export ledger nonce: Bytes<32>;
+export ledger tvl: Uint<64>;
 
-export ledger p1: Maybe<Bytes<32>>; // hash of player 1 secret
-export ledger p1_ship_positions_hash: Bytes<32>;
-export ledger p1_ship_state_hash: Bytes<32>;
-export ledger p1_hit_counter: Counter;
-
-export ledger p2: Maybe<Bytes<32>>; // hash of player 12secret
-export ledger p2_ship_positions_hash: Bytes<32>;
-export ledger p2_ship_state_hash: Bytes<32>;
-export ledger p2_hit_counter: Counter;
-
-witness local_secret_key(): Bytes<32>;
-witness player_ship_positions(): Ships; // ships placement
-witness player_ship_state(): ShipState; // ship game state, i.e. which cell of ships are hit
-witness set_player_ship_state(ship_state: ShipState): [];
-
-export struct IntermediateShotResult {
-  shot_result: ShotResult;
-  updated_ship_state: ShipState;
+constructor(initNonce: Bytes<32>) {
+  nonce = initNonce;
 }
 
-export struct ShipState {
-  s11: Coord;
-  s12: Coord;
-  s13: Coord;
-  s14: Coord;
-  s21: Vector<2, Coord>;
-  s22: Vector<2, Coord>;
-  s23: Vector<2, Coord>;
-  s31: Vector<3, Coord>;
-  s32: Vector<3, Coord>;
-  s41: Vector<4, Coord>;
+export circuit mint(): [] {
+  counter.increment(1);
+  const newNonce = evolve_nonce(counter, nonce);
+  const amount = 1000;
+  tvl = tvl + amount as Uint<64>;
+  mint_token(pad(32, "brick_towers_coin"), amount, newNonce, left<ZswapCoinPublicKey, ContractAddress>(own_public_key()));
+  nonce = newNonce;
 }
-
-// Ship sizes are fixed and encoded in the field names
-// Each coordinate represents the upper left corner of one ship
-// v21 and v31 are vertical or horizontal flags
-export struct Ships {
-  s11: Coord;
-  s12: Coord;
-  s13: Coord;
-  s14: Coord;
-  s21: Coord;
-  s22: Coord;
-  s23: Coord;
-  s31: Coord;
-  s32: Coord;
-  s41: Coord;
-  v21: Boolean;
-  v22: Boolean;
-  v23: Boolean;
-  v31: Boolean;
-  v32: Boolean;
-  v41: Boolean;
-}
-
-constructor() {
-  game_state = GAME_STATE.waiting_p1;
-}
-
-export circuit join_p1(): [] {
-  assert game_state == GAME_STATE.waiting_p1 "Attempted to join a game that is not waiting for player 1";
-  assert !p1.is_some "Already in the game";
-  const sk = local_secret_key();
-  // we hash the secret key and the contract address to get a unique hash for the state for each game
-  const secret_key = persistent_hash<Vector<2, Bytes<32>>>([sk, kernel.self().bytes]);
-  const me = public_key(sk);
-  p1 = disclose(some<Bytes<32>>(me));
-
-  const ship_positions = player_ship_positions();
-  const cells = occupied_cells(ship_positions);
-  assert_valid_ship_position(ship_positions, cells);
-
-  assert_neighbour_is_not_1ship(neighbour1_cells(ship_positions.s11), cells);
-  assert_neighbour_is_not_1ship(neighbour1_cells(ship_positions.s12), cells);
-  assert_neighbour_is_not_1ship(neighbour1_cells(ship_positions.s13), cells);
-  assert_neighbour_is_not_1ship(neighbour1_cells(ship_positions.s14), cells);
-  assert_no_adjacent_neighbour_for_2ship(neighbour2_cells(ship_positions.s21, ship_positions.v21), cells);
-  assert_no_adjacent_neighbour_for_2ship(neighbour2_cells(ship_positions.s22, ship_positions.v22), cells);
-  assert_no_adjacent_neighbour_for_2ship(neighbour2_cells(ship_positions.s23, ship_positions.v23), cells);
-  assert_no_adjacent_neighbour_for_3ship(neighbour3_cells(ship_positions.s31, ship_positions.v31), cells);
-  assert_no_adjacent_neighbour_for_3ship(neighbour3_cells(ship_positions.s32, ship_positions.v32), cells);
-  assert_no_adjacent_neighbour_for_4ship(neighbour4_cells(ship_positions.s41, ship_positions.v41), cells);
-
-  const ship_state = create_ship_state(ship_positions);
-  p1_ship_positions_hash = persistent_commit<Ships>(ship_positions, secret_key);
-  p1_ship_state_hash = update_ship_state(ship_state, secret_key);
-
-  game_state = GAME_STATE.waiting_p2;
-}
-
-export circuit join_p2(): [] {
-  assert game_state == GAME_STATE.waiting_p2 "Attempted to join a game that is not waiting for player 2";
-  assert !p2.is_some "Already in the game";
-  const sk = local_secret_key();
-  // we hash the secret key and the contract address to get a unique hash for the state for each game
-  const secret_key = persistent_hash<Vector<2, Bytes<32>>>([sk, kernel.self().bytes]);
-  const me = public_key(sk);
-
-  assert p1.value != me "Already in the game";
-  p2 = disclose(some<Bytes<32>>(me));
-  const ship_state = create_ship_state(ship_positions);
-  p2_ship_positions_hash = persistent_commit<Ships>(ship_positions, secret_key);
-  p2_ship_state_hash = update_ship_state(ship_state, secret_key);
-
-  game_state = GAME_STATE.p1_turn;
-}
-
-export circuit turn_player1(value: Coord): [] {
-  assert game_state == GAME_STATE.p1_turn "It is not 1st player's turn";
-
-  const sk = local_secret_key();
-  const secret_key = persistent_hash<Vector<2, Bytes<32>>>([sk, kernel.self().bytes]);
-  assert p1.value == public_key(sk) "You are not the 1st player";
-
-  assert_valid_coordinate(value);
-
-  const ships = get_ships(secret_key, p1_ship_positions_hash);
-  const ship_state = get_ship_state(secret_key, p1_ship_state_hash);
-
-  const result = calculate_shot_result(shot_attempt, ship_state, ships, p1.value);
-  p1_ship_state_hash = update_ship_state(result.updated_ship_state, secret_key);
-  last_shot_result = some<ShotResult>(result.shot_result);
-  if (result.shot_result.result != SHOT_RESULT.miss) {
-    p1_hit_counter.increment(1);
-  }
-
-  shot_attempt = value;
-
-  game_state = check_winner(GAME_STATE.p2_turn);
-}
-
-export circuit turn_player2(value: Coord): [] {
-  assert game_state == GAME_STATE.p2_turn "It is not 2nd player's turn";
-
-  const sk = local_secret_key();
-  const secret_key = persistent_hash<Vector<2, Bytes<32>>>([sk, kernel.self().bytes]);
-  assert p2.value == public_key(sk) "You are not the 2nd player";
-
-  assert_valid_coordinate(value);
-
-  const ships = get_ships(secret_key, p2_ship_positions_hash);
-  const ship_state = get_ship_state(secret_key, p2_ship_state_hash);
-
-  const result = calculate_shot_result(shot_attempt, ship_state, ships, p2.value);
-  p2_ship_state_hash = update_ship_state(result.updated_ship_state, secret_key);
-  last_shot_result = some<ShotResult>(result.shot_result);
-  if (result.shot_result.result != SHOT_RESULT.miss) {
-    p2_hit_counter.increment(1);
-  }
-
-  shot_attempt = value;
-
-  game_state = check_winner(GAME_STATE.p1_turn);
-}
-
-pure circuit assert_valid_ship_position(ship_positions: Ships, cells: Vector<20, Coord>): [] {
-  for (const cell of cells) {
-    assert_valid_coordinate(cell);
-  }
-  assert unique_vector(cells) "Ship cells must be unique";
-}
-
-pure circuit occupied_cells(ship_positions: Ships): Vector<20, Coord> {
-  const s21 = ship2_cells(ship_positions.s21, ship_positions.v21);
-  const s22 = ship2_cells(ship_positions.s22, ship_positions.v22);
-  const s23 = ship2_cells(ship_positions.s23, ship_positions.v23);
-  const s31 = ship3_cells(ship_positions.s31, ship_positions.v31);
-  const s32 = ship3_cells(ship_positions.s32, ship_positions.v32);
-  const s41 = ship4_cells(ship_positions.s41, ship_positions.v41);
-
-  return [
-    ship_positions.s11, ship_positions.s12, ship_positions.s13, ship_positions.s14,
-    s21[0], s21[1], s22[0], s22[1],  s23[0], s23[1],
-    s31[0], s31[1], s31[2], s32[0], s32[1], s32[2],
-    s41[0], s41[1], s41[2], s41[3]
-  ];
-}
-
-pure circuit unique_vector(v: Vector<20, Coord>): Boolean {
-  return (v[0] != v[1] && v[0] != v[2] && v[0] != v[3] && v[0] != v[4] && v[0] != v[5] && v[0] != v[6] && v[0] != v[7] && v[0] != v[8] && v[0] != v[9] && v[0] != v[10] && v[0] != v[11] && v[0] != v[12] && v[0] != v[13] && v[0] != v[14] && v[0] != v[15] && v[0] != v[16] && v[0] != v[17] && v[0] != v[18] && v[0] != v[19] &&
-          v[1] != v[2] && v[1] != v[3] && v[1] != v[4] && v[1] != v[5] && v[1] != v[6] && v[1] != v[7] && v[1] != v[8] && v[1] != v[9] && v[1] != v[10] && v[1] != v[11] && v[1] != v[12] && v[1] != v[13] && v[1] != v[14] && v[1] != v[15] && v[1] != v[16] && v[1] != v[17] && v[1] != v[18] && v[1] != v[19] &&
-          v[2] != v[3] && v[2] != v[4] && v[2] != v[5] && v[2] != v[6] && v[2] != v[7] && v[2] != v[8] && v[2] != v[9] && v[2] != v[10] && v[2] != v[11] && v[2] != v[12] && v[2] != v[13] && v[2] != v[14] && v[2] != v[15] && v[2] != v[16] && v[2] != v[17] && v[2] != v[18] && v[2] != v[19] &&
-          v[3] != v[4] && v[3] != v[5] && v[3] != v[6] && v[3] != v[7] && v[3] != v[8] && v[3] != v[9] && v[3] != v[10] && v[3] != v[11] && v[3] != v[12] && v[3] != v[13] && v[3] != v[14] && v[3] != v[15] && v[3] != v[16] && v[3] != v[17] && v[3] != v[18] && v[3] != v[19] &&
-          v[4] != v[5] && v[4] != v[6] && v[4] != v[7] && v[4] != v[8] && v[4] != v[9] && v[4] != v[10] && v[4] != v[11] && v[4] != v[12] && v[4] != v[13] && v[4] != v[14] && v[4] != v[15] && v[4] != v[16] && v[4] != v[17] && v[4] != v[18] && v[4] != v[19] &&
-          v[5] != v[6] && v[5] != v[7] && v[5] != v[8] && v[5] != v[9] && v[5] != v[10] && v[5] != v[11] && v[5] != v[12] && v[5] != v[13] && v[5] != v[14] && v[5] != v[15] && v[5] != v[16] && v[5] != v[17] && v[5] != v[18] && v[5] != v[19] &&
-          v[6] != v[7] && v[6] != v[8] && v[6] != v[9] && v[6] != v[10] && v[6] != v[11] && v[6] != v[12] && v[6] != v[13] && v[6] != v[14] && v[6] != v[15] && v[6] != v[16] && v[6] != v[17] && v[6] != v[18] && v[6] != v[19] &&
-          v[7] != v[8] && v[7] != v[9] && v[7] != v[10] && v[7] != v[11] && v[7] != v[12] && v[7] != v[13] && v[7] != v[14] && v[7] != v[15] && v[7] != v[16] && v[7] != v[17] && v[7] != v[18] && v[7] != v[19] &&
-          v[8] != v[9] && v[8] != v[10] && v[8] != v[11] && v[8] != v[12] && v[8] != v[13] && v[8] != v[14] && v[8] != v[15] && v[8] != v[16] && v[8] != v[17] && v[8] != v[18] && v[8] != v[19] &&
-          v[9] != v[10] && v[9] != v[11] && v[9] != v[12] && v[9] != v[13] && v[9] != v[14] && v[9] != v[15] && v[9] != v[16] && v[9] != v[17] && v[9] != v[18] && v[9] != v[19] &&
-          v[10] != v[11] && v[10] != v[12] && v[10] != v[13] && v[10] != v[14] && v[10] != v[15] && v[10] != v[16] && v[10] != v[17] && v[10] != v[18] && v[10] != v[19] &&
-          v[11] != v[12] && v[11] != v[13] && v[11] != v[14] && v[11] != v[15] && v[11] != v[16] && v[11] != v[17] && v[11] != v[18] && v[11] != v[19] &&
-          v[12] != v[13] && v[12] != v[14] && v[12] != v[15] && v[12] != v[16] && v[12] != v[17] && v[12] != v[18] && v[12] != v[19] &&
-          v[13] != v[14] && v[13] != v[15] && v[13] != v[16] && v[13] != v[17] && v[13] != v[18] && v[13] != v[19] &&
-          v[14] != v[15] && v[14] != v[16] && v[14] != v[17] && v[14] != v[18] && v[14] != v[19] &&
-          v[15] != v[16] && v[15] != v[17] && v[15] != v[18] && v[15] != v[19] &&
-          v[16] != v[17] && v[16] != v[18] && v[16] != v[19] &&
-          v[17] != v[18] && v[17] != v[19] &&
-          v[18] != v[19]);
-}
-
-circuit check_winner(next: GAME_STATE): GAME_STATE {
-  const cell_count = 20; // 4 + 3 + 3 + 2 + 2 + 2 + 1 + 1 + 1 + 1 cells of all ships
-  if (p2_hit_counter == cell_count) {
-    return GAME_STATE.p1_wins;
-  } else if (p1_hit_counter == cell_count) {
-    return GAME_STATE.p2_wins;
-  } else {
-    return next;
-  }
-}
-
-pure circuit create_ship_state(ships: Ships): ShipState {
-  return ShipState {
-    s11: ships.s11,
-    s12: ships.s12,
-    s13: ships.s13,
-    s14: ships.s14,
-    s21: ship2_cells(ships.s21, ships.v21),
-    s22: ship2_cells(ships.s22, ships.v22),
-    s23: ship2_cells(ships.s23, ships.v23),
-    s31: ship3_cells(ships.s31, ships.v31),
-    s32: ship3_cells(ships.s32, ships.v32),
-    s41: ship4_cells(ships.s41, ships.v41)
-  };
-}
-
-circuit get_ship_state(sk: Bytes<32>, expected_state_hash: Bytes<32>): ShipState {
-  const state = player_ship_state();
-  const state_hash = persistent_commit<ShipState>(state, sk);
-  assert state_hash == expected_state_hash "Ship state hash mismatch";
-  return state;
-}
-
-circuit get_ships(sk: Bytes<32>, expected_state_hash: Bytes<32>): Ships {
-  const state = player_ship_positions();
-  const state_hash = persistent_commit<Ships>(state, sk);
-  assert state_hash == expected_state_hash "Ships hash mismatch";
-  return state;
-}
-
-circuit update_ship_state(updated_ship_state: ShipState, sk: Bytes<32>): Bytes<32> {
-  const state_hash = persistent_commit<ShipState>(updated_ship_state, sk);
-  set_player_ship_state(updated_ship_state);
-  return state_hash;
-}
-
-export pure circuit calculate_shot_result(
-  shot_attempt: Coord,
-  ship_state: ShipState,
-  ships: Ships,
-  player: Bytes<32>
-): IntermediateShotResult {
-  // Find the Target: Check if the shot hits any part of a ship.
-  // Update the Ship State: If the shot hits, mark that part of the ship as "damaged." with coordinate set to { 0, 0 }
-  // Check for Ship Sunk: If all parts of the ship are damaged, it's sunk; if no part is hit, it's a miss; otherwise, it's a hit.
-  // Return the Result: Report whether the shot was a miss, a hit, or if a ship was sunk.
-  const updated_ship_state = ShipState {
-    s11: update_hit_cell(ship_state.s11, shot_attempt),
-    s12: update_hit_cell(ship_state.s12, shot_attempt),
-    s13: update_hit_cell(ship_state.s13, shot_attempt),
-    s14: update_hit_cell(ship_state.s14, shot_attempt),
-    s21: update_hit_cell_state<2>(ship_state.s21, shot_attempt),
-    s22: update_hit_cell_state<2>(ship_state.s22, shot_attempt),
-    s23: update_hit_cell_state<2>(ship_state.s23, shot_attempt),
-    s31: update_hit_cell_state<3>(ship_state.s31, shot_attempt),
-    s32: update_hit_cell_state<3>(ship_state.s32, shot_attempt),
-    s41: update_hit_cell_state<4>(ship_state.s41, shot_attempt)
-  };
-  return IntermediateShotResult {
-    disclose(calculate_shot_result(shot_attempt, ship_state, updated_ship_state, ships, player)),
-    updated_ship_state
-  };
-}
-
-pure circuit assert_no_adjacent_ship(cell: Coord, ship: Coord): [] {
-    assert (cell == ship) == false "Ships can't be adjacent";
-}
-
-pure circuit assert_neighbour_is_not_1ship(neighbours: Vector<8, Coord>, coords: Vector<20, Coord>): [] {
-  for (const neighbour of neighbours) {
-    assert_neighbour_is_not_ship(neighbour, coords);
-  }
-}
-
-pure circuit neighbour1_cells(cell: Coord): Vector<8, Coord> {
-    return [
-       Coord { x: cell.x - 1, y: cell.y - 1 },
-       Coord { x: cell.x - 1, y: cell.y },
-       Coord { x: cell.x - 1, y: cell.y + 1 as Uint<4> },
-       Coord { x: cell.x, y: cell.y - 1 },
-       Coord { x: cell.x, y: cell.y + 1 as Uint<4> },
-       Coord { x: cell.x + 1 as Uint<4>, y: cell.y - 1 },
-       Coord { x: cell.x + 1 as Uint<4>, y: cell.y },
-       Coord { x: cell.x + 1 as Uint<4>, y: cell.y + 1 as Uint<4> }
-    ];
-}
-
-
-pure circuit neighbour2_cells(cell: Coord, vertical: Boolean): Vector<10, Coord> {
-  if (vertical) {
-    return vertical_neighbour2_cells(cell);
-  } else {
-    return horizontal_neighbour2_cells(cell);
-  }
-}
-
 "#;
         let source_file = parse_content("dummy", source).unwrap();
         

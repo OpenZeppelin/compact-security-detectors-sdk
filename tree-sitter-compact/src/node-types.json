@@ -615,24 +615,37 @@
   {
     "type": "enumdef",
     "named": true,
-    "fields": {},
-    "children": {
-      "multiple": true,
-      "required": true,
-      "types": [
-        {
-          "type": "enum_name",
-          "named": true
-        },
-        {
-          "type": "export",
-          "named": true
-        },
-        {
-          "type": "id",
-          "named": true
-        }
-      ]
+    "fields": {
+      "export": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "export",
+            "named": true
+          }
+        ]
+      },
+      "id": {
+        "multiple": true,
+        "required": true,
+        "types": [
+          {
+            "type": "id",
+            "named": true
+          }
+        ]
+      },
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "enum_name",
+            "named": true
+          }
+        ]
+      }
     }
   },
   {
@@ -1190,11 +1203,15 @@
     "named": true,
     "fields": {},
     "children": {
-      "multiple": true,
+      "multiple": false,
       "required": false,
       "types": [
         {
           "type": "nat",
+          "named": true
+        },
+        {
+          "type": "pad",
           "named": true
         },
         {
@@ -1207,76 +1224,95 @@
   {
     "type": "mdefn",
     "named": true,
-    "fields": {},
-    "children": {
-      "multiple": true,
-      "required": true,
-      "types": [
-        {
-          "type": "cdefn",
-          "named": true
-        },
-        {
-          "type": "ecdecl",
-          "named": true
-        },
-        {
-          "type": "edecl",
-          "named": true
-        },
-        {
-          "type": "enumdef",
-          "named": true
-        },
-        {
-          "type": "export",
-          "named": true
-        },
-        {
-          "type": "gparams",
-          "named": true
-        },
-        {
-          "type": "idecl",
-          "named": true
-        },
-        {
-          "type": "incld",
-          "named": true
-        },
-        {
-          "type": "lconstructor",
-          "named": true
-        },
-        {
-          "type": "ldecl",
-          "named": true
-        },
-        {
-          "type": "mdefn",
-          "named": true
-        },
-        {
-          "type": "module_name",
-          "named": true
-        },
-        {
-          "type": "pragma",
-          "named": true
-        },
-        {
-          "type": "struct",
-          "named": true
-        },
-        {
-          "type": "wdecl",
-          "named": true
-        },
-        {
-          "type": "xdecl",
-          "named": true
-        }
-      ]
+    "fields": {
+      "export": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "export",
+            "named": true
+          }
+        ]
+      },
+      "gparams": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "gparams",
+            "named": true
+          }
+        ]
+      },
+      "module_element": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": "cdefn",
+            "named": true
+          },
+          {
+            "type": "ecdecl",
+            "named": true
+          },
+          {
+            "type": "edecl",
+            "named": true
+          },
+          {
+            "type": "enumdef",
+            "named": true
+          },
+          {
+            "type": "idecl",
+            "named": true
+          },
+          {
+            "type": "incld",
+            "named": true
+          },
+          {
+            "type": "lconstructor",
+            "named": true
+          },
+          {
+            "type": "ldecl",
+            "named": true
+          },
+          {
+            "type": "mdefn",
+            "named": true
+          },
+          {
+            "type": "pragma",
+            "named": true
+          },
+          {
+            "type": "struct",
+            "named": true
+          },
+          {
+            "type": "wdecl",
+            "named": true
+          },
+          {
+            "type": "xdecl",
+            "named": true
+          }
+        ]
+      },
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "module_name",
+            "named": true
+          }
+        ]
+      }
     }
   },
   {
@@ -1590,6 +1626,32 @@
           "named": true
         }
       ]
+    }
+  },
+  {
+    "type": "pad",
+    "named": true,
+    "fields": {
+      "nat": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "nat",
+            "named": true
+          }
+        ]
+      },
+      "str": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "str",
+            "named": true
+          }
+        ]
+      }
     }
   },
   {

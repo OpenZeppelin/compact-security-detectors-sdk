@@ -13,7 +13,6 @@ pub struct Program {
     pub directives: Vec<Directive>,
     pub declarations: Vec<Declaration>,
     pub definitions: Vec<Definition>,
-    pub statements: Vec<Statement>,
     pub modules: Vec<Rc<Module>>,
 }
 
@@ -24,4 +23,5 @@ pub enum CompactNode {
     Definition(Definition),
     Statement(Statement),
     Module(Rc<Module>),
+    Comment(String),
 }
