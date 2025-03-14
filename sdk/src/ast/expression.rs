@@ -3,6 +3,7 @@ use std::rc::Rc;
 use crate::{ast_enum, ast_nodes};
 
 use super::{
+    function::Function,
     literal::Literal,
     node::{Node, NodeKind, SameScopeNode, SymbolNode},
     ty::Type,
@@ -14,11 +15,17 @@ ast_enum! {
         Binary(Rc<Binary>),
         Unary(Rc<Unary>),
         Cast(Rc<Cast>),
+        Disclose(Rc<Disclose>),
         IndexAccess(Rc<IndexAccess>),
         Sequence(Rc<Sequence>),
+        Map(Rc<Map>),
+        Fold(Rc<Fold>),
         MemberAccess(Rc<MemberAccess>),
         FunctionCall(Rc<FunctionCall>),
+        Struct(Rc<StructExpr>),
+        @raw Function(Function),
         @raw TypeExpression(Type),
+        @raw Default(Type),
         @raw Literal(Literal),
         @symbol Identifier(Rc<Identifier>),
     }
@@ -60,6 +67,14 @@ impl From<&NodeKind> for Expression {
     }
 }
 
+ast_enum! {
+    pub enum StructExprArg {
+        @raw Expression(Expression),
+        NamedField(Rc<StructNamedField>),
+        @raw Update(Expression),
+    }
+}
+
 ast_nodes! {
     /// E.g. `const a = bool ? 1 : 2`
     pub struct Conditional {
@@ -84,14 +99,30 @@ ast_nodes! {
         pub target_type: Type,
     }
 
+    pub struct Disclose {
+        pub expression: Expression,
+    }
+
     pub struct IndexAccess {
         pub base: Expression,
         pub index: Expression,
     }
 
+    pub struct Map {
+        pub function: Function,
+        pub expressions: Vec<Expression>,
+    }
+
     pub struct MemberAccess {
         pub base: Expression,
         pub member: Rc<Identifier>,
+        pub arguments: Option<Vec<Expression>>,
+    }
+
+    pub struct Fold {
+        pub function: Function,
+        pub initial_value: Expression,
+        pub expressions: Vec<Expression>,
     }
 
     pub struct FunctionCall {
@@ -105,6 +136,16 @@ ast_nodes! {
 
     pub struct Identifier {
         pub name: String,
+    }
+
+    pub struct StructExpr {
+        pub ty: Type,
+        pub args: Vec<StructExprArg>,
+    }
+
+    pub struct StructNamedField {
+        pub name: Rc<Identifier>,
+        pub value: Expression,
     }
 }
 
@@ -172,6 +213,12 @@ impl Node for Cast {
     }
 }
 
+impl Node for Disclose {
+    fn children(&self) -> Vec<Rc<NodeKind>> {
+        vec![Rc::new(NodeKind::from(&self.expression))]
+    }
+}
+
 impl Node for IndexAccess {
     fn children(&self) -> Vec<Rc<NodeKind>> {
         vec![
@@ -190,9 +237,34 @@ impl Node for Sequence {
     }
 }
 
+impl Node for Map {
+    fn children(&self) -> Vec<Rc<NodeKind>> {
+        let mut children = vec![Rc::new(NodeKind::from(&self.function))];
+        children.extend(
+            self.expressions
+                .iter()
+                .map(|expr| Rc::new(NodeKind::from(expr))),
+        );
+        children
+    }
+}
+
 impl Node for MemberAccess {
     fn children(&self) -> Vec<Rc<NodeKind>> {
         vec![Rc::new(NodeKind::from(&self.base))]
+    }
+}
+
+impl Node for Fold {
+    fn children(&self) -> Vec<Rc<NodeKind>> {
+        let mut children = vec![Rc::new(NodeKind::from(&self.function))];
+        children.push(Rc::new(NodeKind::from(&self.initial_value)));
+        children.extend(
+            self.expressions
+                .iter()
+                .map(|expr| Rc::new(NodeKind::from(expr))),
+        );
+        children
     }
 }
 
@@ -221,5 +293,22 @@ impl SymbolNode for Identifier {
 
     fn type_expr(&self) -> Option<&Expression> {
         None
+    }
+}
+
+impl Node for StructExpr {
+    fn children(&self) -> Vec<Rc<NodeKind>> {
+        let mut children = vec![Rc::new(NodeKind::from(&self.ty))];
+        children.extend(self.args.iter().map(|field| Rc::new(NodeKind::from(field))));
+        children
+    }
+}
+
+impl Node for StructNamedField {
+    fn children(&self) -> Vec<Rc<NodeKind>> {
+        vec![
+            Rc::new(NodeKind::from(&Expression::Identifier(self.name.clone()))),
+            Rc::new(NodeKind::from(&self.value)),
+        ]
     }
 }

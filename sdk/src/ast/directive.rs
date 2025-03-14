@@ -17,9 +17,9 @@ ast_enum! {
 
 ast_nodes! {
     pub struct Pragma {
-        pub version: Rc<Version>,
+        pub version: VersionExpr,
         pub value: Rc<Identifier>,
-        pub operator: PragmaOperator,
+        // pub operator: PragmaOperator,
     }
 }
 
@@ -30,8 +30,8 @@ impl Node for Pragma {
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, serde::Serialize, serde::Deserialize)]
-pub enum PragmaOperator {
-    Gt,
-    Ge,
-    Eq,
+pub enum VersionExpr {
+    Version(Rc<Version>),
+    Or(Box<VersionExpr>, Box<VersionExpr>),
+    And(Box<VersionExpr>, Box<VersionExpr>),
 }

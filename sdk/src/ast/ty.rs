@@ -1,4 +1,5 @@
 use super::{
+    declaration::GArgument,
     expression::Identifier,
     literal::{Bool, Nat, Str},
     node::{Node, NodeKind},
@@ -22,9 +23,9 @@ ast_enum! {
 }
 
 ast_enum! {
-    pub enum TypeRefGenericParam {
-        @raw Type(Type),
+    pub enum VectorSize {
         Nat(Rc<Nat>),
+        Ref(Rc<Identifier>),
     }
 }
 
@@ -61,7 +62,7 @@ ast_nodes! {
         pub end: Option<Rc<Nat>>,
     }
     pub struct Vector {
-        pub size: Rc<Nat>,
+        pub size: VectorSize,
         pub ty: Type,
     }
     pub struct Opaque {
@@ -72,7 +73,7 @@ ast_nodes! {
     }
     pub struct Ref {
         pub name: Rc<Identifier>,
-        pub generic_parameters: Option<Vec<TypeRefGenericParam>>,
+        pub generic_parameters: Option<Vec<GArgument>>,
     }
     pub struct Sum {
         pub types: Vec<Type>,
