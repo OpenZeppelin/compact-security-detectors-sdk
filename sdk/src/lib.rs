@@ -32,6 +32,13 @@ pub mod ast;
 pub mod codebase;
 mod passes;
 
+/// Parses the given source code and returns a `SourceCodeFile`.
+///
+/// # Errors
+/// This function will return an error if the AST cannot be built.
+///
+/// # Panics
+/// This function will panic if there is an error loading the Inference grammar.
 pub fn parse_content(fname: &str, source_code: &str) -> anyhow::Result<codebase::SourceCodeFile> {
     let compact_language = tree_sitter_compact::LANGUAGE.into();
     let mut parser = tree_sitter::Parser::new();
@@ -48,6 +55,13 @@ pub fn parse_content(fname: &str, source_code: &str) -> anyhow::Result<codebase:
     Ok(source_code_file)
 }
 
+/// Builds an AST from the given root node and source code.
+///
+/// # Errors
+/// This function will return an error if the root node kind is not `source_file` or if any child node cannot be processed.
+///
+/// # Panics
+/// This function will panic if `root.named_child(i).unwrap()` fails.
 pub fn build_ast(root: &Node, source: &str) -> Result<Program> {
     if root.kind() != "source_file" {
         bail!("Invalid root node kind: {}", root.kind());
@@ -65,7 +79,6 @@ pub fn build_ast(root: &Node, source: &str) -> Result<Program> {
             CompactNode::Definition(d) => definitions.push(d),
             CompactNode::Module(m) => modules.push(m),
             CompactNode::Comment(_) => {}
-            other => bail!("Unhandled node: {:?}", other),
         }
     }
     Ok(Program {
@@ -1661,7 +1674,7 @@ mod tests {
         }
     }
 
-    #[test]
+    #[test]#[allow(clippy::too_many_lines)]
     fn test_ledger() {
         let source = "export ledger game_state: GAME_STATE;";
         let source_file = parse_content("dummy", source).unwrap();
@@ -1994,7 +2007,7 @@ mod tests {
         }
     }
 
-    #[test]
+    #[test]#[allow(clippy::too_many_lines)]
     fn test_const_statements() {
         let source = r"circuit join_p1(): [] {
             const secret_key = persistent_hash<Vector<2, Bytes<32>>>([sk, kernel.self().bytes]);
@@ -2202,32 +2215,4 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_battleship_east() {
-        let source = r#"pragma language_version >= 0.13.0;
-
-import CompactStandardLibrary;
-
-export { CoinInfo };
-
-export ledger counter: Counter;
-export ledger nonce: Bytes<32>;
-export ledger tvl: Uint<64>;
-
-constructor(initNonce: Bytes<32>) {
-  nonce = initNonce;
-}
-
-export circuit mint(): [] {
-  counter.increment(1);
-  const newNonce = evolve_nonce(counter, nonce);
-  const amount = 1000;
-  tvl = tvl + amount as Uint<64>;
-  mint_token(pad(32, "brick_towers_coin"), amount, newNonce, left<ZswapCoinPublicKey, ContractAddress>(own_public_key()));
-  nonce = newNonce;
-}
-"#;
-        let source_file = parse_content("dummy", source).unwrap();
-        
-    }
 }

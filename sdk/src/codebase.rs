@@ -15,6 +15,7 @@ impl CodebaseOpen for OpenState {}
 pub struct SealedState;
 impl CodebaseSealed for SealedState {}
 
+#[allow(dead_code)]
 pub struct SourceCodeFile {
     pub(crate) fname: String,
     pub(crate) ast: Program,

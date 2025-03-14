@@ -128,6 +128,7 @@ impl Node for Import {
 }
 
 impl Import {
+    #[must_use]
     pub fn name(&self) -> String {
         self.value.name.clone()
     }
@@ -150,6 +151,7 @@ impl Node for Witness {
 }
 
 impl Ledger {
+    #[must_use]
     pub fn name(&self) -> String {
         self.name.name.clone()
     }
@@ -231,7 +233,7 @@ impl Node for TuplePattern {
     fn children(&self) -> Vec<Rc<NodeKind>> {
         self.patterns
             .iter()
-            .map(|pattern| Rc::new(NodeKind::from(&*pattern)))
+            .map(|pattern| Rc::new(NodeKind::from(pattern)))
             .collect()
     }
 }
