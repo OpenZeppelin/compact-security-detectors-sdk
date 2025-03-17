@@ -1,4 +1,5 @@
 //! Abstract Syntax Tree (AST) for the Compact language.
+pub mod builder;
 pub mod declaration;
 pub mod definition;
 pub mod directive;

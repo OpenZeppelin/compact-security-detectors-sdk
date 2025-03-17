@@ -4,7 +4,8 @@ resolver = "2"
 
 members = [
     "sdk",
-    # "parser",
+    "rules",
+    "rules-runner",
     "tree-sitter-compact"
 ]
 
@@ -17,7 +18,10 @@ repository = "https://github.com/OpenZeppelin/midnight-security-rules-sdk"
 
 [workspace.dependencies]
 midnight-security-rules-sdk = { path = "./sdk", version = "0.0.1" }
-midnight-compact-parser = { path = "./parser", version = "0.0.1" }
+midnight-security-rules = { path = "./rules", version = "0.0.1" }
+midnight-security-rules-runner = { path = "./rules-runner", version = "0.0.1" }
 tree-sitter-compact = { path = "./tree-sitter-compact" }
 anyhow = "1.0.97"
 tree-sitter = "0.25.1"
+
+midnight-compact-parser = { path = "./parser", version = "0.0.1" }

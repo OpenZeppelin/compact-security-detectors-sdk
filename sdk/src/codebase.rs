@@ -15,26 +15,44 @@ impl CodebaseOpen for OpenState {}
 pub struct SealedState;
 impl CodebaseSealed for SealedState {}
 
-#[allow(dead_code)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct SourceCodeFile {
     pub(crate) fname: String,
     pub(crate) ast: Program,
 }
 
-#[derive(Serialize, Deserialize)]
-#[allow(dead_code)] //REMOVE
+#[derive(Serialize, Deserialize, Default)]
 pub struct Codebase<S> {
     #[serde(skip)]
-    pub(crate) fname_ast_map: Option<HashMap<String, SourceCodeFile>>,
+    pub(crate) fname_ast_map: HashMap<String, SourceCodeFile>,
     pub(crate) _state: PhantomData<S>,
 }
 
-impl Codebase<SealedState> {
-    // pub fn files(&self) -> impl Iterator<Item = Rc<SourceCodeFile>> {
-    //     todo!("Implement this method")
-    // }
+impl Codebase<OpenState> {
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            fname_ast_map: HashMap::new(),
+            _state: PhantomData,
+        }
+    }
 
-    // pub fn contracts(&self) -> impl Iterator<Item = Rc<Contract>> {
-    //     todo!("Implement this method")
-    // }
+    pub fn add_file(&mut self, source_code_file: SourceCodeFile) {
+        self.fname_ast_map
+            .insert(source_code_file.fname.clone(), source_code_file);
+    }
+
+    #[must_use]
+    pub fn seal(self) -> Codebase<SealedState> {
+        Codebase {
+            fname_ast_map: self.fname_ast_map,
+            _state: PhantomData,
+        }
+    }
+}
+
+impl Codebase<SealedState> {
+    pub fn files(&self) -> impl Iterator<Item = SourceCodeFile> + '_ {
+        self.fname_ast_map.values().cloned()
+    }
 }
