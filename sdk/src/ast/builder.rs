@@ -551,7 +551,7 @@ fn build_const_statement(node: &Node, source: &str) -> Result<Rc<Const>> {
             node.utf8_text(source.as_bytes())
         )
     })?;
-    let pattern = build_pattern(&pattern_node, source)?;
+    let pattern = build_pattern(&pattern_node.child(0).unwrap(), source)?;
     let ty_node = node.child_by_field_name("type");
     let ty = if let Some(ty_n) = ty_node {
         Some(build_type(&ty_n, source)?)
@@ -896,9 +896,8 @@ fn build_term(node: &Node, source: &str) -> Result<Expression> {
                 expressions: expressions?,
             }))
         }
-        "fold" => {
-            // Grammar: seq("fold", "(", $.fun, ",", field("init_value", $.expr), ",", commaSep1($.expr), ")")
-            let fun_node = term_node.child(2).ok_or_else(|| {
+        "fold_term" => {
+            let fun_node = term_node.child_by_field_name("fun").ok_or_else(|| {
                 anyhow!(
                     "Missing function in fold term: {:?}",
                     term_node.utf8_text(source.as_bytes())
@@ -917,10 +916,7 @@ fn build_term(node: &Node, source: &str) -> Result<Expression> {
                 })?;
             let initial_value = build_expression(&init_value_node, source)?;
             let exprs: Vec<_> = term_node
-                .children(&mut term_node.walk())
-                .filter(tree_sitter::Node::is_named)
-                .skip(6) // assuming expressions start at index 6
-                .take_while(|child| child.kind() != ")")
+                .children_by_field_name("expr", &mut term_node.walk())
                 .collect();
             let expressions: Result<Vec<_>> = exprs
                 .into_iter()
@@ -1384,7 +1380,7 @@ fn build_pargument(node: &Node, source: &str) -> Result<Rc<PatternArgument>> {
             node.utf8_text(source.as_bytes())
         )
     })?;
-    let pattern = build_pattern(&pattern_node, source)?;
+    let pattern = build_pattern(&pattern_node.child(0).unwrap(), source)?;
     let type_node = node.child_by_field_name("type").ok_or_else(|| {
         anyhow!(
             "Missing 'type' field in argument: {:?}",
@@ -1412,7 +1408,7 @@ fn build_pattern(node: &Node, source: &str) -> Result<Pattern> {
             let name = build_identifier(node, source)?;
             Ok(Pattern::Identifier(name))
         }
-        "pattern_tuple" => {
+        "[" => {
             let cursor = &mut node.walk();
             let patterns: Result<Vec<_>> = node
                 .children_by_field_name("pattern_tuple_elt", cursor)
@@ -1425,7 +1421,7 @@ fn build_pattern(node: &Node, source: &str) -> Result<Pattern> {
                 patterns,
             })))
         }
-        "pattern_struct" => {
+        "{" => {
             let mut cursor = node.walk();
             let field_nodes = node
                 .children_by_field_name("pattern_struct_elt", &mut cursor)
@@ -1459,7 +1455,7 @@ fn build_pattern(node: &Node, source: &str) -> Result<Pattern> {
                 fields,
             })))
         }
-        _ => bail!("Unhandled pattern kind: {}", kind),
+        _ => bail!("Unhandled pattern kind: {:?}", kind),
     }
 }
 

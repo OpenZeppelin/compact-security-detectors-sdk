@@ -62,3 +62,24 @@ fn parse_content(fname: &str, source_code: &str) -> anyhow::Result<codebase::Sou
     };
     Ok(source_code_file)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_build_codebase() {
+        let directory = std::env::current_dir().unwrap();
+        let corpus_directory = directory.parent().unwrap().join("corpus");
+        let mut files = HashMap::new();
+        for entry in std::fs::read_dir(corpus_directory).unwrap() {
+            let entry = entry.unwrap();
+            let path = entry.path();
+            let file_name = path.file_name().unwrap().to_str().unwrap().to_string();
+            let content = std::fs::read_to_string(path).unwrap();
+            files.insert(file_name, content);
+        }
+        let codebase = build_codebase(files).unwrap();
+        let _ = codebase.borrow();
+    }
+}

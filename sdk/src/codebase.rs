@@ -15,7 +15,7 @@ impl CodebaseOpen for OpenState {}
 pub struct SealedState;
 impl CodebaseSealed for SealedState {}
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct SourceCodeFile {
     pub(crate) fname: String,
     pub(crate) ast: Program,
