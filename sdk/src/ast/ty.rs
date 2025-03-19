@@ -5,12 +5,12 @@ use super::{
     node::{Node, NodeKind},
 };
 use crate::{ast_enum, ast_nodes};
-use std::rc::Rc;
+use std::{fmt::Display, rc::Rc};
 
 ast_enum! {
     pub enum Type {
         Nat(Rc<TypeNat>),
-        Bool(Rc<TypeBool>),
+        Boolean(Rc<TypeBool>),
         String(Rc<TypeString>),
         Field(Rc<TypeField>),
         Uint(Rc<Uint>),
@@ -35,7 +35,7 @@ impl Type {
         matches!(
             (self, ty),
             (Type::Nat(_), Type::Nat(_))
-                | (Type::Bool(_), Type::Bool(_))
+                | (Type::Boolean(_), Type::Boolean(_))
                 | (Type::String(_), Type::String(_))
                 | (Type::Field(_), Type::Field(_))
                 | (Type::Uint(_), Type::Uint(_))
@@ -45,6 +45,23 @@ impl Type {
                 | (Type::Ref(_), Type::Ref(_))
                 | (Type::Sum(_), Type::Sum(_))
         )
+    }
+}
+
+impl Display for Type {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Type::Nat(_) => write!(f, "nat"),
+            Type::Boolean(_) => write!(f, "bool"),
+            Type::String(_) => write!(f, "string"),
+            Type::Field(_) => write!(f, "field"),
+            Type::Uint(_) => write!(f, "uint"),
+            Type::Vector(_) => write!(f, "vector"),
+            Type::Opaque(_) => write!(f, "opaque"),
+            Type::Bytes(_) => write!(f, "bytes"),
+            Type::Ref(_) => write!(f, "ref"),
+            Type::Sum(_) => write!(f, "sum"),
+        }
     }
 }
 

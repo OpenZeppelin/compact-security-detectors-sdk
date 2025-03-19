@@ -152,11 +152,14 @@ impl Node for Var {
 }
 
 impl SymbolNode for Var {
+    fn id(&self) -> u128 {
+        self.ident.id
+    }
     fn name(&self) -> String {
         self.ident.name.clone()
     }
-    fn type_expr(&self) -> Option<&Expression> {
-        self.ty_.as_ref().or(Some(&self.value))
+    fn type_expr(&self) -> Option<Expression> {
+        self.ty_.clone()
     }
 }
 

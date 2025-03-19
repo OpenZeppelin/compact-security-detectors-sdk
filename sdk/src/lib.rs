@@ -5,6 +5,7 @@ use ast::builder::build_ast;
 use codebase::{Codebase, SealedState};
 use std::{cell::RefCell, collections::HashMap};
 pub mod ast;
+mod builder_tests;
 pub mod codebase;
 mod passes;
 
@@ -35,7 +36,7 @@ pub fn build_codebase<H: std::hash::BuildHasher>(
         let source_code_file = parse_content(&fname, &source_code).unwrap();
         codebase.add_file(source_code_file);
     }
-    Ok(RefCell::new(codebase.seal()))
+    Ok(RefCell::new(codebase.seal()?))
 }
 
 /// Parses the content of a source code file and returns a `SourceCodeFile` object.
@@ -79,7 +80,10 @@ mod tests {
             let content = std::fs::read_to_string(path).unwrap();
             files.insert(file_name, content);
         }
-        let codebase = build_codebase(files).unwrap();
-        let _ = codebase.borrow();
+        let _codebase = build_codebase(files).unwrap().into_inner();
+        // FIXME fix [de]serialization
+        // let serialized = serde_json::to_string_pretty(&codebase).unwrap();
+        // let output_path = directory.join("output.json");
+        // std::fs::write(output_path, serialized).unwrap();
     }
 }

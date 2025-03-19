@@ -287,11 +287,15 @@ impl Node for Identifier {
 }
 
 impl SymbolNode for Identifier {
+    fn id(&self) -> u128 {
+        self.id
+    }
+
     fn name(&self) -> String {
         self.name.clone()
     }
 
-    fn type_expr(&self) -> Option<&Expression> {
+    fn type_expr(&self) -> Option<Expression> {
         None
     }
 }

@@ -70,10 +70,9 @@ impl dyn Node {
 }
 
 pub trait SymbolNode {
+    fn id(&self) -> u128;
     fn name(&self) -> String;
-    fn type_expr(&self) -> Option<&Expression> {
-        None
-    }
+    fn type_expr(&self) -> Option<Expression>;
 }
 
 #[macro_export]

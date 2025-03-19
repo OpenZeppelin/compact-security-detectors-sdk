@@ -1,6 +1,12 @@
 #![allow(dead_code)]
 use anyhow::{anyhow, Ok, Result};
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use serde::{Deserialize, Serialize};
+use std::{
+    cell::RefCell,
+    collections::HashMap,
+    fmt::{Display, Formatter, Write},
+    rc::Rc,
+};
 
 use crate::ast::{
     expression::{BinaryExpressionOperator, Expression},
@@ -9,10 +15,12 @@ use crate::ast::{
     ty::{Sum, Type, TypeBool, TypeNat, TypeString},
 };
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct SymbolTable {
     pub symbols: RefCell<HashMap<String, Option<Type>>>,
+    pub id_type_map: RefCell<HashMap<u128, Option<Type>>>,
     pub parent: Option<Rc<SymbolTable>>,
+    #[serde(skip_serializing)]
     pub children: RefCell<Vec<Rc<SymbolTable>>>,
 }
 
@@ -21,8 +29,14 @@ impl SymbolTable {
         Self {
             symbols: RefCell::new(HashMap::new()),
             children: RefCell::new(Vec::new()),
+            id_type_map: RefCell::new(HashMap::new()),
             parent,
         }
+    }
+
+    fn upsert(&self, id: u128, symbol: String, ty: Option<Type>) {
+        self.symbols.borrow_mut().insert(symbol, ty.clone());
+        self.id_type_map.borrow_mut().insert(id, ty);
     }
 
     #[allow(clippy::map_entry)]
@@ -47,6 +61,17 @@ impl SymbolTable {
         }
     }
 
+    pub fn lookup_by_id(&self, id: u128) -> Option<Type> {
+        let id_type_map = self.id_type_map.borrow();
+        if let Some(sym) = id_type_map.get(&id) {
+            sym.clone()
+        } else if let Some(ref parent) = self.parent {
+            parent.lookup_by_id(id)
+        } else {
+            None
+        }
+    }
+
     pub fn lookdown(&self, name: &str) -> Option<Type> {
         let syms = self.symbols.borrow();
         if let Some(sym) = syms.get(name) {
@@ -59,6 +84,60 @@ impl SymbolTable {
             }
             None
         }
+    }
+
+    pub fn lookdown_by_id(&self, id: u128) -> Option<Type> {
+        let id_type_map = self.id_type_map.borrow();
+        if let Some(sym) = id_type_map.get(&id) {
+            sym.clone()
+        } else {
+            for child in self.children.borrow().iter() {
+                if let Some(sym) = child.lookdown_by_id(id) {
+                    return Some(sym.clone());
+                }
+            }
+            None
+        }
+    }
+}
+
+impl Display for SymbolTable {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let mut root = self;
+        while let Some(ref parent) = root.parent {
+            root = parent;
+        }
+        let mut res = String::new();
+        let mut symbol_tables: Vec<Rc<SymbolTable>> = vec![root.clone()];
+        res.push_str("Symbol Table\n");
+        loop {
+            let mut next = Vec::new();
+            for symbol_table in &symbol_tables {
+                for (name, ty) in symbol_table.symbols.borrow().iter() {
+                    if ty.is_some() {
+                        writeln!(res, "{name}: {}", ty.as_ref().unwrap())?;
+                    } else {
+                        writeln!(res, "{name}: Unknown")?;
+                    }
+                }
+                for (id, ty) in symbol_table.id_type_map.borrow().iter() {
+                    if ty.is_some() {
+                        writeln!(res, "{id}: {}", ty.as_ref().unwrap())?;
+                    } else {
+                        writeln!(res, "{id}: Unknown")?;
+                    }
+                }
+                let children: Vec<_> = symbol_table.children.borrow().iter().cloned().collect();
+                for child in children {
+                    next.push(child);
+                }
+            }
+            if next.is_empty() {
+                break;
+            }
+            symbol_tables = next;
+        }
+        write!(f, "{res}")
     }
 }
 
@@ -89,32 +168,27 @@ pub fn build_symbol_table(
                 SameScopeNode::Symbol(symbol_node) => {
                     let symbol_name = symbol_node.name();
                     let symbol_type = if let Some(type_expr) = symbol_node.type_expr() {
-                        infer_expr(type_expr, &symbol_table)
+                        infer_expr(&type_expr, &symbol_table)
                     } else {
                         None
                     };
                     if symbol_table.symbols.borrow().contains_key(&symbol_name) {
                         if let Some(symbol_table_symbol) = symbol_table.lookup(&symbol_name) {
                             if symbol_type.is_none() {
-                                symbol_table
-                                    .symbols
-                                    .borrow_mut()
-                                    .insert(symbol_name.clone(), Some(symbol_table_symbol));
+                                symbol_table.upsert(
+                                    symbol_node.id(),
+                                    symbol_name.clone(),
+                                    Some(symbol_table_symbol),
+                                );
                             } else {
                                 //shadowing is not allowed
                                 return Err(anyhow!("Symbol {symbol_name} already exists"));
                             }
                         } else {
-                            symbol_table
-                                .symbols
-                                .borrow_mut()
-                                .insert(symbol_name.clone(), symbol_type);
+                            symbol_table.upsert(symbol_node.id(), symbol_name.clone(), symbol_type);
                         }
                     } else {
-                        symbol_table
-                            .symbols
-                            .borrow_mut()
-                            .insert(symbol_name.clone(), symbol_type);
+                        symbol_table.upsert(symbol_node.id(), symbol_name.clone(), symbol_type);
                     }
                     for child in symbol_node.children() {
                         nodes.push(child);
@@ -130,7 +204,7 @@ fn infer_expr(expr: &Expression, env: &Rc<SymbolTable>) -> Option<Type> {
     match expr {
         Expression::Literal(lit) => match lit {
             Literal::Nat(n) => Some(Type::Nat(Rc::new(TypeNat::new(n)))),
-            Literal::Bool(b) => Some(Type::Bool(Rc::new(TypeBool::new(b)))),
+            Literal::Bool(b) => Some(Type::Boolean(Rc::new(TypeBool::new(b)))),
             Literal::Str(s) => Some(Type::String(Rc::new(TypeString::new(s)))),
             Literal::Version(_) | Literal::Array(_) | Literal::Pad(_) => None,
         },
@@ -378,7 +452,7 @@ mod test {
             value: false,
         })));
         let ty = infer_expr(&expr, &env).unwrap();
-        assert!(matches!(ty, Type::Bool(_)));
+        assert!(matches!(ty, Type::Boolean(_)));
         Ok(())
     }
 

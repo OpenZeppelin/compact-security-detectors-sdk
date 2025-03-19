@@ -7,7 +7,7 @@ use super::{
     definition::{Circuit, Definition},
     expression::Identifier,
     literal::Nat,
-    node::{Node, NodeKind},
+    node::{Node, NodeKind, SymbolNode},
     statement::Block,
     ty::Type,
 };
@@ -24,12 +24,13 @@ ast_enum! {
         // @scope Struct(Rc<Struct>),
         // @scope Enum(Rc<Enum>),
         @raw Definition(Definition),
+        @symbol PatternArgument(Rc<PatternArgument>),
     }
 }
 
 ast_enum! {
     pub enum Pattern {
-        Identifier(Rc<Identifier>),
+        @symbol Identifier(Rc<Identifier>),
         Tuple(Rc<TuplePattern>),
         Struct(Rc<StructPattern>),
     }
@@ -198,6 +199,36 @@ impl Node for PatternArgument {
             Rc::new(NodeKind::from(&self.pattern)),
             Rc::new(NodeKind::from(&self.ty)),
         ]
+    }
+}
+
+impl SymbolNode for PatternArgument {
+    fn id(&self) -> u128 {
+        match self.pattern {
+            Pattern::Identifier(ref id) => id.id,
+            _ => 0,
+        }
+    }
+
+    fn name(&self) -> String {
+        match self.pattern {
+            Pattern::Identifier(ref id) => id.name.clone(),
+            _ => String::from("_"),
+        }
+    }
+
+    fn type_expr(&self) -> Option<Expression> {
+        Some(Expression::TypeExpression(self.ty.clone()))
+    }
+}
+
+impl PatternArgument {
+    #[must_use = "Use this function to get the name of the pattern argument. If the pattern is an identifier, it will return the name of the identifier."]
+    pub fn name(&self) -> Option<String> {
+        match &self.pattern {
+            Pattern::Identifier(id) => Some(id.name.clone()),
+            _ => None,
+        }
     }
 }
 

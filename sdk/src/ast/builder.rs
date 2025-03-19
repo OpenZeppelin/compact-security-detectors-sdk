@@ -32,7 +32,7 @@ use super::{
 ///
 /// # Panics
 /// This function will panic if `root.named_child(i).unwrap()` fails.
-pub fn build_ast(root: &Node, source: &str) -> Result<Program> {
+pub fn build_ast(root: &Node, source: &str) -> Result<Rc<Program>> {
     if root.kind() != "source_file" {
         bail!("Invalid root node kind: {}", root.kind());
     }
@@ -51,12 +51,14 @@ pub fn build_ast(root: &Node, source: &str) -> Result<Program> {
             CompactNode::Comment(_) => {}
         }
     }
-    Ok(Program {
+    Ok(Rc::new(Program {
+        id: node_id(),
+        location: location(root),
         directives,
         declarations,
         definitions,
         modules,
-    })
+    }))
 }
 
 fn build_compact_node(node: &Node, source: &str) -> Result<CompactNode> {
@@ -494,8 +496,8 @@ fn build_statement(node: &Node, source: &str) -> Result<Statement> {
         "block" => Statement::Block(build_block(node, source)?),
         "if_stmt" => Statement::If(build_if_statement(node, source)?),
         "for_stmt" => Statement::For(build_for_statement(node, source)?),
-        "return" => Statement::Return(build_return_statement(node, source)?),
-        "assert" => Statement::Assert(build_assert_statement(&node.parent().unwrap(), source)?),
+        "return_stmt" => Statement::Return(build_return_statement(node, source)?),
+        "assert_stmt" => Statement::Assert(build_assert_statement(node, source)?),
         "const_stmt" => Statement::Const(build_const_statement(node, source)?),
         "expression_sequence_stmt" => {
             Statement::ExpressionSequence(build_expression_sequence(node, source)?)
@@ -660,12 +662,9 @@ fn build_return_statement(node: &Node, source: &str) -> Result<Rc<Return>> {
 }
 
 fn build_assert_statement(node: &Node, source: &str) -> Result<Rc<Assert>> {
-    let condition_node = node.child_by_field_name("condition").ok_or_else(|| {
-        anyhow!(
-            "Missing 'condition' field in assert statement: {:?}",
-            node.utf8_text(source.as_bytes())
-        )
-    })?;
+    let condition_node = node
+        .child_by_field_name("condition")
+        .ok_or_else(|| anyhow!("Missing 'condition' field in assert statement: {:?}", node))?;
     let condition = build_expression(&condition_node, source)?;
     let message_node = node.child_by_field_name("message");
     let message = if message_node.is_some() {
@@ -789,14 +788,18 @@ fn build_expression(node: &Node, source: &str) -> Result<Expression> {
                 operator,
             }))
         }
-        "add" | "subtract" | "multiply" => {
-            let left = build_expression(&node.named_child(0).unwrap(), source)?;
-            let right = build_expression(&node.named_child(1).unwrap(), source)?;
-            let operator = match node.kind() {
-                "add" => BinaryExpressionOperator::Add,
-                "subtract" => BinaryExpressionOperator::Sub,
-                "multiply" => BinaryExpressionOperator::Mul,
-                _ => unreachable!(),
+        "bin_sum_expr" | "bin_mul_expr" => {
+            let left = build_expression(&node.child_by_field_name("left").unwrap(), source)?;
+            let right = build_expression(&node.child_by_field_name("right").unwrap(), source)?;
+            let operator = match node
+                .child_by_field_name("operator")
+                .unwrap()
+                .utf8_text(source.as_bytes())?
+            {
+                "+" => BinaryExpressionOperator::Add,
+                "-" => BinaryExpressionOperator::Sub,
+                "*" => BinaryExpressionOperator::Mul,
+                _ => bail!("Invalid binary operator"),
             };
             Expression::Binary(Rc::new(Binary {
                 id: node_id(),
@@ -848,7 +851,6 @@ fn build_expression(node: &Node, source: &str) -> Result<Expression> {
 
 #[allow(clippy::too_many_lines)]
 fn build_term(node: &Node, source: &str) -> Result<Expression> {
-    // If the node is a wrapper (kind "term"), descend to its first child.
     let term_node = if node.kind() == "term" {
         &node.child(0).ok_or_else(|| anyhow!("Empty term node"))?
     } else {
@@ -857,35 +859,28 @@ fn build_term(node: &Node, source: &str) -> Result<Expression> {
 
     let term = match term_node.kind() {
         "lit" => build_literal(&term_node.child(0).unwrap(), source)?,
-        "default" => {
-            // Grammar: seq("default", "<", $.type, ">")
-            // The type is at child index 2.
-            let type_node = term_node.child(2).ok_or_else(|| {
+        "default_term" => {
+            let type_node = term_node.child_by_field_name("type").ok_or_else(|| {
                 anyhow!(
-                    "Missing type in default term: {:?}",
+                    "Missing 'type' field in default term: {:?}",
                     term_node.utf8_text(source.as_bytes())
                 )
             })?;
             let ty = build_type(&type_node, source)?;
             Expression::Default(ty)
         }
-        "map" => {
-            // Grammar: seq("map", "(", $.fun, ",", commaSep1($.expr), ")")
-            // We expect the function at index 2 and the list of expressions starting at index 4.
-            let fun_node = term_node.child(2).ok_or_else(|| {
+        "map_term" => {
+            let fun_node = term_node.child_by_field_name("fun").ok_or_else(|| {
                 anyhow!(
                     "Missing function in map term: {:?}",
                     term_node.utf8_text(source.as_bytes())
                 )
             })?;
             let fun = build_function(&fun_node, source)?;
-            let exprs: Vec<_> = term_node
-                .children(&mut term_node.walk())
-                .filter(tree_sitter::Node::is_named)
-                .skip(4) // assuming index 4 onward holds expressions
-                .take_while(|child| child.kind() != ")")
-                .collect();
-            let expressions: Result<Vec<_>> = exprs
+            let expr_nodes = term_node
+                .children_by_field_name("expr", &mut term_node.walk())
+                .collect::<Vec<_>>();
+            let expressions: Result<Vec<_>> = expr_nodes
                 .into_iter()
                 .map(|n| build_expression(&n, source))
                 .collect();
@@ -904,16 +899,9 @@ fn build_term(node: &Node, source: &str) -> Result<Expression> {
                 )
             })?;
             let fun = build_function(&fun_node, source)?;
-            // Use the labeled field "init_value" if available; otherwise assume it is at index 4.
             let init_value_node = term_node
                 .child_by_field_name("init_value")
-                .or_else(|| term_node.child(4))
-                .ok_or_else(|| {
-                    anyhow!(
-                        "Missing init_value in fold term: {:?}",
-                        term_node.utf8_text(source.as_bytes())
-                    )
-                })?;
+                .unwrap_or_else(|| term_node.child(4).unwrap());
             let initial_value = build_expression(&init_value_node, source)?;
             let exprs: Vec<_> = term_node
                 .children_by_field_name("expr", &mut term_node.walk())
@@ -931,7 +919,6 @@ fn build_term(node: &Node, source: &str) -> Result<Expression> {
             }))
         }
         "disclose_term" => {
-            // Grammar: seq("disclose", "(", $.expr, ")")
             let expr_node = term_node.child_by_field_name("expr").ok_or_else(|| {
                 anyhow!(
                     "Missing expression in disclose term: {:?}",
@@ -1230,7 +1217,7 @@ fn build_type(node: &Node, source: &str) -> Result<Type> {
                 generic_parameters,
             })))
         }
-        "Boolean" => Ok(Type::Bool(Rc::new(TypeBool {
+        "Boolean" => Ok(Type::Boolean(Rc::new(TypeBool {
             id: node_id(),
             location: location(node),
         }))),

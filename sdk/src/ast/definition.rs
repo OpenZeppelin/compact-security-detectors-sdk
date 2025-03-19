@@ -1,11 +1,11 @@
 #![warn(clippy::pedantic)]
 use std::rc::Rc;
 
-use crate::{ast_enum, ast_nodes};
+use crate::{ast::statement::Statement, ast_enum, ast_nodes};
 
 use super::{
-    declaration::{Argument, PatternArgument},
-    expression::Identifier,
+    declaration::{Argument, Declaration, PatternArgument},
+    expression::{Expression, Identifier},
     node::{Node, NodeKind},
     program::CompactNode,
     statement::Block,
@@ -15,7 +15,7 @@ use super::{
 ast_enum! {
     pub enum Definition {
         @scope Module(Rc<Module>),
-        Circuit(Rc<Circuit>),
+        @scope Circuit(Rc<Circuit>),
         @scope Structure(Rc<Structure>),
         @scope Enum(Rc<Enum>),
     }
@@ -61,7 +61,31 @@ impl Node for Module {
 
 impl Node for Circuit {
     fn children(&self) -> Vec<Rc<NodeKind>> {
-        vec![]
+        let name = Rc::new(NodeKind::from(&Expression::Identifier(self.name.clone())));
+        let arguments: Vec<Rc<NodeKind>> = self
+            .arguments
+            .iter()
+            .map(|arg| Rc::new(NodeKind::from(&Declaration::PatternArgument(arg.clone()))))
+            .collect();
+        let ty = Rc::new(NodeKind::from(&self.ty));
+        let body = if let Some(body) = &self.body {
+            vec![Rc::new(NodeKind::from(&Statement::Block(body.clone())))]
+        } else {
+            vec![]
+        };
+        vec![name]
+            .into_iter()
+            .chain(arguments)
+            .chain(vec![ty])
+            .chain(body)
+            .collect()
+    }
+}
+
+impl Circuit {
+    #[must_use = "This method returns the name of the circuit"]
+    pub fn name(&self) -> String {
+        self.name.name.clone()
     }
 }
 
