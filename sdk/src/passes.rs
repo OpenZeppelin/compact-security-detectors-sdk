@@ -15,7 +15,7 @@ use crate::ast::{
     ty::{Sum, Type, TypeBool, TypeNat, TypeString},
 };
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct SymbolTable {
     pub symbols: RefCell<HashMap<String, Option<Type>>>,
     pub id_type_map: RefCell<HashMap<u128, Option<Type>>>,
@@ -108,7 +108,7 @@ impl Display for SymbolTable {
             root = parent;
         }
         let mut res = String::new();
-        let mut symbol_tables: Vec<Rc<SymbolTable>> = vec![root.clone()];
+        let mut symbol_tables: Vec<Rc<SymbolTable>> = vec![Rc::new(root.clone())];
         res.push_str("Symbol Table\n");
         loop {
             let mut next = Vec::new();
@@ -172,24 +172,19 @@ pub fn build_symbol_table(
                     } else {
                         None
                     };
+
                     if symbol_table.symbols.borrow().contains_key(&symbol_name) {
-                        if let Some(symbol_table_symbol) = symbol_table.lookup(&symbol_name) {
-                            if symbol_type.is_none() {
-                                symbol_table.upsert(
-                                    symbol_node.id(),
-                                    symbol_name.clone(),
-                                    Some(symbol_table_symbol),
-                                );
-                            } else {
-                                //shadowing is not allowed
-                                return Err(anyhow!("Symbol {symbol_name} already exists"));
-                            }
-                        } else {
-                            symbol_table.upsert(symbol_node.id(), symbol_name.clone(), symbol_type);
-                        }
-                    } else {
+                        // panic!("Error: symbol {symbol_name} already exists");
+                    } else if symbol_type.is_some() {
                         symbol_table.upsert(symbol_node.id(), symbol_name.clone(), symbol_type);
+                    } else {
+                        symbol_table.upsert(
+                            symbol_node.id(),
+                            symbol_name.clone(),
+                            symbol_table.lookup(&symbol_name),
+                        );
                     }
+
                     for child in symbol_node.children() {
                         nodes.push(child);
                     }
@@ -322,24 +317,24 @@ mod test {
                     ty_: None,
                 })),
                 Statement::Var(Rc::new(Var {
-                    id: 2,
+                    id: 4,
                     location: default_location(),
                     ident: mock_identifier(2, "b"),
                     value: Expression::Literal(Literal::Nat(Rc::new(Nat {
-                        id: 3,
+                        id: 5,
                         location: default_location(),
                         value: 0,
                     }))),
                     ty_: None,
                 })),
                 Statement::Return(Rc::new(Return {
-                    id: 4,
+                    id: 6,
                     location: default_location(),
                     value: Some(Expression::Sequence(Rc::new(Sequence {
-                        id: 5,
+                        id: 7,
                         location: default_location(),
                         expressions: vec![Expression::Binary(Rc::new(Binary {
-                            id: 6,
+                            id: 8,
                             location: default_location(),
                             left: Expression::Identifier(mock_identifier(1, "a")),
                             right: Expression::Identifier(mock_identifier(2, "b")),
@@ -348,13 +343,14 @@ mod test {
                     }))),
                 })),
             ],
-            id: 8,
+            id: 1,
             location: default_location(),
         };
         let symbol_table = build_symbol_table(
             Rc::new(NodeKind::from(&Statement::Block(Rc::new(block_stmt)))),
             None,
         )?;
+        println!("{symbol_table}");
         assert!(symbol_table.parent.is_none());
         assert_eq!(symbol_table.symbols.borrow().len(), 2);
         assert_eq!(symbol_table.children.borrow().len(), 0);

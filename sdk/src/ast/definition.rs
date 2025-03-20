@@ -78,6 +78,7 @@ impl Node for Circuit {
             .chain(arguments)
             .chain(vec![ty])
             .chain(body)
+            .rev()
             .collect()
     }
 }
