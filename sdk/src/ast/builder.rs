@@ -1492,7 +1492,11 @@ fn location(node: &Node) -> Location {
 }
 
 fn node_id() -> u128 {
-    uuid::Uuid::new_v4().as_u128()
+    static mut CURR_ID: u128 = 0;
+    unsafe {
+        CURR_ID += 1;
+        CURR_ID
+    }
 }
 
 #[cfg(test)]

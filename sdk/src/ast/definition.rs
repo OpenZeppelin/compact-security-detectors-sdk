@@ -1,7 +1,7 @@
 #![warn(clippy::pedantic)]
 use std::rc::Rc;
 
-use crate::{ast::statement::Statement, ast_enum, ast_nodes};
+use crate::{ast::statement::Statement, ast_enum, ast_nodes, ast_nodes_impl};
 
 use super::{
     declaration::{Argument, Declaration, PatternArgument},
@@ -53,33 +53,44 @@ ast_nodes! {
     }
 }
 
-impl Node for Module {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        vec![]
-    }
-}
-
-impl Node for Circuit {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        let name = Rc::new(NodeKind::from(&Expression::Identifier(self.name.clone())));
-        let arguments: Vec<Rc<NodeKind>> = self
-            .arguments
-            .iter()
-            .map(|arg| Rc::new(NodeKind::from(&Declaration::PatternArgument(arg.clone()))))
-            .collect();
-        let ty = Rc::new(NodeKind::from(&self.ty));
-        let body = if let Some(body) = &self.body {
-            vec![Rc::new(NodeKind::from(&Statement::Block(body.clone())))]
-        } else {
+ast_nodes_impl! {
+    impl Node for Module {
+        fn children(&self) -> Vec<Rc<NodeKind>> {
             vec![]
-        };
-        vec![name]
-            .into_iter()
-            .chain(arguments)
-            .chain(vec![ty])
-            .chain(body)
-            .rev()
-            .collect()
+        }
+    }
+    impl Node for Circuit {
+        fn children(&self) -> Vec<Rc<NodeKind>> {
+            let name = Rc::new(NodeKind::from(&Expression::Identifier(self.name.clone())));
+            let arguments: Vec<Rc<NodeKind>> = self
+                .arguments
+                .iter()
+                .map(|arg| Rc::new(NodeKind::from(&Declaration::PatternArgument(arg.clone()))))
+                .collect();
+            let ty = Rc::new(NodeKind::from(&self.ty));
+            let body = if let Some(body) = &self.body {
+                vec![Rc::new(NodeKind::from(&Statement::Block(body.clone())))]
+            } else {
+                vec![]
+            };
+            vec![name]
+                .into_iter()
+                .chain(arguments)
+                .chain(vec![ty])
+                .chain(body)
+                // .rev()
+                .collect()
+        }
+    }
+    impl Node for Structure {
+        fn children(&self) -> Vec<Rc<NodeKind>> {
+            vec![]
+        }
+    }
+    impl Node for Enum {
+        fn children(&self) -> Vec<Rc<NodeKind>> {
+            vec![]
+        }
     }
 }
 
@@ -87,17 +98,5 @@ impl Circuit {
     #[must_use = "This method returns the name of the circuit"]
     pub fn name(&self) -> String {
         self.name.name.clone()
-    }
-}
-
-impl Node for Structure {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        vec![]
-    }
-}
-
-impl Node for Enum {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        vec![]
     }
 }

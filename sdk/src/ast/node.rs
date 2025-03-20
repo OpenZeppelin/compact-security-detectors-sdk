@@ -1,6 +1,6 @@
 #![warn(clippy::pedantic)]
 
-use std::{any::Any, rc::Rc};
+use std::{any::Any, cmp::Reverse, rc::Rc};
 
 use super::expression::Expression;
 #[derive(Clone, PartialEq, Eq, Debug, Default, serde::Serialize, serde::Deserialize)]
@@ -22,6 +22,16 @@ pub enum NodeKind {
     NewScope(Rc<dyn Node>),
 }
 
+impl NodeKind {
+    #[must_use]
+    pub fn id(&self) -> u128 {
+        match self {
+            NodeKind::SameScopeNode(node) => node.id(),
+            NodeKind::NewScope(node) => node.id(),
+        }
+    }
+}
+
 pub trait NodeSymbolNode: Node + SymbolNode + Any {}
 
 impl<T> NodeSymbolNode for T where T: Node + SymbolNode + Any {}
@@ -33,6 +43,17 @@ impl<'a> From<&'a Rc<dyn NodeSymbolNode>> for &'a dyn Node {
 }
 
 impl Node for Rc<dyn NodeSymbolNode> {
+    fn id(&self) -> u128 {
+        match self.as_any().downcast_ref::<SameScopeNode>() {
+            Some(SameScopeNode::Composite(comp_node)) => comp_node.id(),
+            _ => match self.as_any().downcast_ref::<NodeKind>() {
+                Some(NodeKind::NewScope(node)) => node.id(),
+                Some(NodeKind::SameScopeNode(node)) => node.id(),
+                _ => 0,
+            },
+        }
+    }
+
     fn children(&self) -> Vec<Rc<NodeKind>> {
         match self.as_any().downcast_ref::<SameScopeNode>() {
             Some(SameScopeNode::Composite(comp_node)) => comp_node.children(),
@@ -53,6 +74,15 @@ pub enum SameScopeNode {
     Composite(Rc<dyn Node>),
 }
 
+impl SameScopeNode {
+    fn id(&self) -> u128 {
+        match self {
+            SameScopeNode::Symbol(sym_node) => sym_node.id(),
+            SameScopeNode::Composite(comp_node) => comp_node.id(),
+        }
+    }
+}
+
 impl From<Rc<dyn Node>> for NodeKind {
     fn from(node: Rc<dyn Node>) -> Self {
         NodeKind::NewScope(node)
@@ -60,7 +90,13 @@ impl From<Rc<dyn Node>> for NodeKind {
 }
 
 pub trait Node: Any + std::fmt::Debug {
+    fn id(&self) -> u128;
     fn children(&self) -> Vec<Rc<NodeKind>>;
+    fn sorted_children(&self) -> Vec<Rc<NodeKind>> {
+        let mut children = self.children();
+        children.sort_by_key(|c| Reverse(c.id()));
+        children
+    }
 }
 
 impl dyn Node {
@@ -70,7 +106,6 @@ impl dyn Node {
 }
 
 pub trait SymbolNode {
-    fn id(&self) -> u128;
     fn name(&self) -> String;
     fn type_expr(&self) -> Option<Expression>;
 }
@@ -203,6 +238,58 @@ macro_rules! ast_nodes {
             $crate::ast_node! {
                 $(#[$outer])*
                 $struct_vis struct $name { $($fields)* }
+            }
+        )+
+    };
+}
+
+#[macro_export]
+macro_rules! ast_node_impl {
+    (
+        $(#[$outer:meta])*
+        impl Node for $name:ident {
+            $(
+                $(#[$method_attr:meta])*
+                fn $method:ident ( $($args:tt)* ) -> $ret:ty $body:block
+            )*
+        }
+    ) => {
+        $(#[$outer])*
+        impl Node for $name {
+            fn id(&self) -> u128 {
+                self.id
+            }
+
+            $(
+                $(#[$method_attr])*
+                fn $method ( $($args)* ) -> $ret $body
+            )*
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! ast_nodes_impl {
+    (
+        $(
+            $(#[$outer:meta])*
+            impl Node for $name:ident {
+                $(
+                    $(#[$method_attr:meta])*
+                    fn $method:ident ( $($args:tt)* ) -> $ret:ty $body:block
+                )*
+            }
+        )+
+    ) => {
+        $(
+            $crate::ast_node_impl! {
+                $(#[$outer])*
+                impl Node for $name {
+                    $(
+                        $(#[$method_attr])*
+                        fn $method ( $($args)* ) -> $ret $body
+                    )*
+                }
             }
         )+
     };

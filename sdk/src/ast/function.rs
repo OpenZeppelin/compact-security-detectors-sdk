@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use crate::{ast_enum, ast_nodes};
+use crate::{ast_enum, ast_nodes, ast_nodes_impl};
 
 use super::{
     declaration::{GArgument, Pattern, PatternArgument},
@@ -25,7 +25,6 @@ ast_enum! {
 }
 
 ast_nodes! {
-
     pub struct NamedFunction {
         pub name: Rc<Identifier>,
         pub generic_parameters: Option<Vec<GArgument>>,
@@ -39,30 +38,32 @@ ast_nodes! {
     }
 }
 
-impl Node for NamedFunction {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        let mut res = vec![];
-        res.push(Rc::new(NodeKind::from(&Expression::Identifier(
-            self.name.clone(),
-        ))));
-        if let Some(generic_arguments) = &self.generic_parameters {
-            for arg in generic_arguments {
-                res.push(Rc::new(NodeKind::from(&arg.clone())));
+ast_nodes_impl! {
+    impl Node for NamedFunction {
+        fn children(&self) -> Vec<Rc<NodeKind>> {
+            let mut res = vec![];
+            res.push(Rc::new(NodeKind::from(&Expression::Identifier(
+                self.name.clone(),
+            ))));
+            if let Some(generic_arguments) = &self.generic_parameters {
+                for arg in generic_arguments {
+                    res.push(Rc::new(NodeKind::from(&arg.clone())));
+                }
             }
+            res
         }
-        res
     }
-}
 
-impl Node for AnonymousFunction {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        let mut res = vec![];
-        for arg in &self.arguments {
-            res.push(Rc::new(NodeKind::from(arg)));
+    impl Node for AnonymousFunction {
+        fn children(&self) -> Vec<Rc<NodeKind>> {
+            let mut res = vec![];
+            for arg in &self.arguments {
+                res.push(Rc::new(NodeKind::from(arg)));
+            }
+            if let Some(return_type) = &self.return_type {
+                res.push(Rc::new(NodeKind::from(&return_type.clone())));
+            }
+            res
         }
-        if let Some(return_type) = &self.return_type {
-            res.push(Rc::new(NodeKind::from(&return_type.clone())));
-        }
-        res
     }
 }

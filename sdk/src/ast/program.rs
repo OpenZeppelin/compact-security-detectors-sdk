@@ -1,7 +1,7 @@
 #![warn(clippy::pedantic)]
 use std::rc::Rc;
 
-use crate::ast_node;
+use crate::{ast_node, ast_node_impl};
 
 use super::{
     declaration::Declaration,
@@ -25,34 +25,36 @@ impl From<&Rc<Program>> for NodeKind {
     }
 }
 
-impl Node for Program {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        let modules: Vec<Rc<NodeKind>> = self
-            .modules
-            .iter()
-            .map(|m| Rc::new(NodeKind::from(&Definition::Module(m.clone()))))
-            .collect();
-        let definitions: Vec<Rc<NodeKind>> = self
-            .definitions
-            .iter()
-            .map(|d| Rc::new(NodeKind::from(d)))
-            .collect();
-        let declarations: Vec<Rc<NodeKind>> = self
-            .declarations
-            .iter()
-            .map(|d| Rc::new(NodeKind::from(d)))
-            .collect();
-        let directives: Vec<Rc<NodeKind>> = self
-            .directives
-            .iter()
-            .map(|d| Rc::new(NodeKind::from(d)))
-            .collect();
-        modules
-            .into_iter()
-            .chain(definitions)
-            .chain(declarations)
-            .chain(directives)
-            .collect()
+ast_node_impl! {
+    impl Node for Program {
+        fn children(&self) -> Vec<Rc<NodeKind>> {
+            let modules: Vec<Rc<NodeKind>> = self
+                .modules
+                .iter()
+                .map(|m| Rc::new(NodeKind::from(&Definition::Module(m.clone()))))
+                .collect();
+            let definitions: Vec<Rc<NodeKind>> = self
+                .definitions
+                .iter()
+                .map(|d| Rc::new(NodeKind::from(d)))
+                .collect();
+            let declarations: Vec<Rc<NodeKind>> = self
+                .declarations
+                .iter()
+                .map(|d| Rc::new(NodeKind::from(d)))
+                .collect();
+            let directives: Vec<Rc<NodeKind>> = self
+                .directives
+                .iter()
+                .map(|d| Rc::new(NodeKind::from(d)))
+                .collect();
+            modules
+                .into_iter()
+                .chain(definitions)
+                .chain(declarations)
+                .chain(directives)
+                .collect()
+        }
     }
 }
 

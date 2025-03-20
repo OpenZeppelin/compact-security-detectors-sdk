@@ -50,6 +50,16 @@ impl SymbolTable {
         }
     }
 
+    pub fn insert_by_id(&self, id: u128, ty: Option<Type>) -> Result<()> {
+        let mut id_type_map = self.id_type_map.borrow_mut();
+        if let std::collections::hash_map::Entry::Vacant(e) = id_type_map.entry(id) {
+            e.insert(ty);
+            Ok(())
+        } else {
+            Err(anyhow!("Symbol {id} already exists"))
+        }
+    }
+
     pub fn lookup(&self, name: &str) -> Option<Type> {
         let syms = self.symbols.borrow();
         if let Some(sym) = syms.get(name) {
@@ -147,7 +157,7 @@ pub fn build_symbol_table(
 ) -> anyhow::Result<Rc<SymbolTable>> {
     let symbol_table = Rc::new(SymbolTable::new(parent));
     let mut nodes: Vec<Rc<NodeKind>> = match node_kind.as_ref() {
-        NodeKind::NewScope(node) => node.children(),
+        NodeKind::NewScope(node) => node.sorted_children(),
         NodeKind::SameScopeNode(_) => vec![node_kind],
     };
     while let Some(node) = nodes.pop() {
@@ -161,7 +171,7 @@ pub fn build_symbol_table(
             }
             NodeKind::SameScopeNode(same) => match same {
                 SameScopeNode::Composite(comp_node) => {
-                    for child in comp_node.children() {
+                    for child in comp_node.sorted_children() {
                         nodes.push(child);
                     }
                 }
@@ -174,6 +184,14 @@ pub fn build_symbol_table(
                     };
 
                     if symbol_table.symbols.borrow().contains_key(&symbol_name) {
+                        if symbol_type.is_some() {
+                            symbol_table.upsert(symbol_node.id(), symbol_name.clone(), symbol_type);
+                        } else {
+                            symbol_table.insert_by_id(
+                                symbol_node.id(),
+                                symbol_table.lookup(&symbol_name),
+                            )?;
+                        }
                         // panic!("Error: symbol {symbol_name} already exists");
                     } else if symbol_type.is_some() {
                         symbol_table.upsert(symbol_node.id(), symbol_name.clone(), symbol_type);
@@ -185,7 +203,7 @@ pub fn build_symbol_table(
                         );
                     }
 
-                    for child in symbol_node.children() {
+                    for child in symbol_node.sorted_children() {
                         nodes.push(child);
                     }
                 }
@@ -308,36 +326,36 @@ mod test {
                 Statement::Var(Rc::new(Var {
                     id: 2,
                     location: default_location(),
-                    ident: mock_identifier(1, "a"),
+                    ident: mock_identifier(3, "a"),
                     value: Expression::Literal(Literal::Nat(Rc::new(Nat {
-                        id: 3,
+                        id: 4,
                         location: default_location(),
                         value: 0,
                     }))),
                     ty_: None,
                 })),
                 Statement::Var(Rc::new(Var {
-                    id: 4,
+                    id: 5,
                     location: default_location(),
-                    ident: mock_identifier(2, "b"),
+                    ident: mock_identifier(6, "b"),
                     value: Expression::Literal(Literal::Nat(Rc::new(Nat {
-                        id: 5,
+                        id: 7,
                         location: default_location(),
                         value: 0,
                     }))),
                     ty_: None,
                 })),
                 Statement::Return(Rc::new(Return {
-                    id: 6,
+                    id: 8,
                     location: default_location(),
                     value: Some(Expression::Sequence(Rc::new(Sequence {
-                        id: 7,
+                        id: 9,
                         location: default_location(),
                         expressions: vec![Expression::Binary(Rc::new(Binary {
-                            id: 8,
+                            id: 10,
                             location: default_location(),
-                            left: Expression::Identifier(mock_identifier(1, "a")),
-                            right: Expression::Identifier(mock_identifier(2, "b")),
+                            left: Expression::Identifier(mock_identifier(11, "a")),
+                            right: Expression::Identifier(mock_identifier(12, "b")),
                             operator: BinaryExpressionOperator::Add,
                         }))],
                     }))),
@@ -354,8 +372,8 @@ mod test {
         assert!(symbol_table.parent.is_none());
         assert_eq!(symbol_table.symbols.borrow().len(), 2);
         assert_eq!(symbol_table.children.borrow().len(), 0);
-        let _ = symbol_table.lookup("a").unwrap();
-        let _ = symbol_table.lookup("b").unwrap();
+        let _ = symbol_table.lookdown("a").unwrap();
+        let _ = symbol_table.lookdown("b").unwrap();
         Ok(())
     }
 
@@ -717,7 +735,7 @@ mod test {
         }));
         let symbol_table =
             build_symbol_table(Rc::new(crate::passes::NodeKind::from(&block)), None)?;
-        // println!("Symbol table: {symbol_table:?}\n");
+        println!("Symbol table: {symbol_table}\n");
         assert!(symbol_table.lookdown("a").is_some());
         assert!(symbol_table.lookdown("b").is_some());
         Ok(())

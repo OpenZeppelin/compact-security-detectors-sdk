@@ -1,7 +1,7 @@
 #![warn(clippy::pedantic)]
 use std::rc::Rc;
 
-use crate::{ast_enum, ast_nodes};
+use crate::{ast_enum, ast_nodes, ast_nodes_impl};
 
 use super::{
     expression::Expression,
@@ -54,45 +54,42 @@ pub enum VersionOperator {
     Neq,
 }
 
-impl Node for Array {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        let mut res = vec![];
-        for element in &self.elements {
-            res.push(Rc::new(NodeKind::from(&element.clone())));
+ast_nodes_impl! {
+    impl Node for Array {
+        fn children(&self) -> Vec<Rc<NodeKind>> {
+            let mut res = vec![];
+            for element in &self.elements {
+                res.push(Rc::new(NodeKind::from(&element.clone())));
+            }
+            res
         }
-        res
     }
-}
-
-impl Node for Nat {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        vec![]
+    impl Node for Nat {
+        fn children(&self) -> Vec<Rc<NodeKind>> {
+            vec![]
+        }
     }
-}
-
-impl Node for Bool {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        vec![]
+    impl Node for Bool {
+        fn children(&self) -> Vec<Rc<NodeKind>> {
+            vec![]
+        }
     }
-}
-
-impl Node for Str {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        vec![]
+    impl Node for Str {
+        fn children(&self) -> Vec<Rc<NodeKind>> {
+            vec![]
+        }
     }
-}
-
-impl Node for Version {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        vec![]
+    impl Node for Version {
+        fn children(&self) -> Vec<Rc<NodeKind>> {
+            vec![]
+        }
     }
-}
-
-impl Node for Pad {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        vec![
-            Rc::new(NodeKind::from(&Literal::Nat(self.number.clone()))),
-            Rc::new(NodeKind::from(&Literal::Str(self.name.clone()))),
-        ]
+    impl Node for Pad {
+        fn children(&self) -> Vec<Rc<NodeKind>> {
+            vec![
+                Rc::new(NodeKind::from(&Literal::Nat(self.number.clone()))),
+                Rc::new(NodeKind::from(&Literal::Str(self.name.clone()))),
+            ]
+        }
     }
 }

@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use crate::{ast_enum, ast_nodes};
+use crate::{ast_enum, ast_nodes, ast_nodes_impl};
 
 use super::{
     function::Function,
@@ -179,140 +179,125 @@ pub enum UnaryExpressionOperator {
     Not,
 }
 
-impl Node for Conditional {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        vec![
-            Rc::new(NodeKind::from(&self.condition)),
-            Rc::new(NodeKind::from(&self.then_branch)),
-            Rc::new(NodeKind::from(&self.else_branch)),
-        ]
+ast_nodes_impl! {
+    impl Node for Conditional {
+        fn children(&self) -> Vec<Rc<NodeKind>> {
+            vec![
+                Rc::new(NodeKind::from(&self.condition)),
+                Rc::new(NodeKind::from(&self.then_branch)),
+                Rc::new(NodeKind::from(&self.else_branch)),
+            ]
+        }
     }
-}
-
-impl Node for Binary {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        vec![
-            Rc::new(NodeKind::from(&self.left)),
-            Rc::new(NodeKind::from(&self.right)),
-        ]
+    impl Node for Binary {
+        fn children(&self) -> Vec<Rc<NodeKind>> {
+            vec![
+                Rc::new(NodeKind::from(&self.left)),
+                Rc::new(NodeKind::from(&self.right)),
+            ]
+        }
     }
-}
-
-impl Node for Unary {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        vec![Rc::new(NodeKind::from(&self.operand))]
+    impl Node for Unary {
+        fn children(&self) -> Vec<Rc<NodeKind>> {
+            vec![Rc::new(NodeKind::from(&self.operand))]
+        }
     }
-}
-
-impl Node for Cast {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        vec![
-            Rc::new(NodeKind::from(&self.expression)),
-            Rc::new(NodeKind::from(&self.target_type)),
-        ]
+    impl Node for Cast {
+        fn children(&self) -> Vec<Rc<NodeKind>> {
+            vec![
+                Rc::new(NodeKind::from(&self.expression)),
+                Rc::new(NodeKind::from(&self.target_type)),
+            ]
+        }
     }
-}
-
-impl Node for Disclose {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        vec![Rc::new(NodeKind::from(&self.expression))]
+    impl Node for Disclose {
+        fn children(&self) -> Vec<Rc<NodeKind>> {
+            vec![Rc::new(NodeKind::from(&self.expression))]
+        }
     }
-}
-
-impl Node for IndexAccess {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        vec![
-            Rc::new(NodeKind::from(&self.base)),
-            Rc::new(NodeKind::from(&self.index)),
-        ]
+    impl Node for IndexAccess {
+        fn children(&self) -> Vec<Rc<NodeKind>> {
+            vec![
+                Rc::new(NodeKind::from(&self.base)),
+                Rc::new(NodeKind::from(&self.index)),
+            ]
+        }
     }
-}
-
-impl Node for Sequence {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        self.expressions
-            .iter()
-            .map(|expr| Rc::new(NodeKind::from(expr)))
-            .collect()
-    }
-}
-
-impl Node for Map {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        let mut children = vec![Rc::new(NodeKind::from(&self.function))];
-        children.extend(
+    impl Node for Sequence {
+        fn children(&self) -> Vec<Rc<NodeKind>> {
             self.expressions
                 .iter()
-                .map(|expr| Rc::new(NodeKind::from(expr))),
-        );
-        children
+                .map(|expr| Rc::new(NodeKind::from(expr)))
+                .collect()
+        }
     }
-}
-
-impl Node for MemberAccess {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        vec![Rc::new(NodeKind::from(&self.base))]
+    impl Node for Map {
+        fn children(&self) -> Vec<Rc<NodeKind>> {
+            let mut children = vec![Rc::new(NodeKind::from(&self.function))];
+            children.extend(
+                self.expressions
+                    .iter()
+                    .map(|expr| Rc::new(NodeKind::from(expr))),
+            );
+            children
+        }
     }
-}
-
-impl Node for Fold {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        let mut children = vec![Rc::new(NodeKind::from(&self.function))];
-        children.push(Rc::new(NodeKind::from(&self.initial_value)));
-        children.extend(
-            self.expressions
-                .iter()
-                .map(|expr| Rc::new(NodeKind::from(expr))),
-        );
-        children
+    impl Node for MemberAccess {
+        fn children(&self) -> Vec<Rc<NodeKind>> {
+            vec![Rc::new(NodeKind::from(&self.base))]
+        }
     }
-}
-
-impl Node for FunctionCall {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        let mut children = vec![Rc::new(NodeKind::from(&self.function))];
-        children.extend(
-            self.arguments
-                .iter()
-                .map(|arg| Rc::new(NodeKind::from(arg))),
-        );
-        children
+    impl Node for Fold {
+        fn children(&self) -> Vec<Rc<NodeKind>> {
+            let mut children = vec![Rc::new(NodeKind::from(&self.function))];
+            children.push(Rc::new(NodeKind::from(&self.initial_value)));
+            children.extend(
+                self.expressions
+                    .iter()
+                    .map(|expr| Rc::new(NodeKind::from(expr))),
+            );
+            children
+        }
     }
-}
-
-impl Node for Identifier {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        vec![]
+    impl Node for FunctionCall {
+        fn children(&self) -> Vec<Rc<NodeKind>> {
+            let mut children = vec![Rc::new(NodeKind::from(&self.function))];
+            children.extend(
+                self.arguments
+                    .iter()
+                    .map(|arg| Rc::new(NodeKind::from(arg))),
+            );
+            children
+        }
+    }
+    impl Node for Identifier {
+        fn children(&self) -> Vec<Rc<NodeKind>> {
+            vec![]
+        }
+    }
+    impl Node for StructExpr {
+        fn children(&self) -> Vec<Rc<NodeKind>> {
+            let mut children = vec![Rc::new(NodeKind::from(&self.ty))];
+            children.extend(self.args.iter().map(|field| Rc::new(NodeKind::from(field))));
+            children
+        }
+    }
+    impl Node for StructNamedField {
+        fn children(&self) -> Vec<Rc<NodeKind>> {
+            vec![
+                Rc::new(NodeKind::from(&Expression::Identifier(self.name.clone()))),
+                Rc::new(NodeKind::from(&self.value)),
+            ]
+        }
     }
 }
 
 impl SymbolNode for Identifier {
-    fn id(&self) -> u128 {
-        self.id
-    }
-
     fn name(&self) -> String {
         self.name.clone()
     }
 
     fn type_expr(&self) -> Option<Expression> {
         None
-    }
-}
-
-impl Node for StructExpr {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        let mut children = vec![Rc::new(NodeKind::from(&self.ty))];
-        children.extend(self.args.iter().map(|field| Rc::new(NodeKind::from(field))));
-        children
-    }
-}
-
-impl Node for StructNamedField {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        vec![
-            Rc::new(NodeKind::from(&Expression::Identifier(self.name.clone()))),
-            Rc::new(NodeKind::from(&self.value)),
-        ]
     }
 }

@@ -4,7 +4,7 @@ use super::{
     literal::{Bool, Nat, Str},
     node::{Node, NodeKind},
 };
-use crate::{ast_enum, ast_nodes};
+use crate::{ast_enum, ast_nodes, ast_nodes_impl};
 use std::{fmt::Display, rc::Rc};
 
 ast_enum! {
@@ -97,6 +97,59 @@ ast_nodes! {
     }
 }
 
+ast_nodes_impl! {
+    impl Node for TypeNat {
+        fn children(&self) -> Vec<Rc<NodeKind>> {
+            vec![]
+        }
+    }
+    impl Node for TypeBool {
+        fn children(&self) -> Vec<Rc<NodeKind>> {
+            vec![]
+        }
+    }
+    impl Node for TypeString {
+        fn children(&self) -> Vec<Rc<NodeKind>> {
+            vec![]
+        }
+    }
+    impl Node for TypeField {
+        fn children(&self) -> Vec<Rc<NodeKind>> {
+            vec![]
+        }
+    }
+    impl Node for Uint {
+        fn children(&self) -> Vec<Rc<NodeKind>> {
+            vec![]
+        }
+    }
+    impl Node for Vector {
+        fn children(&self) -> Vec<Rc<NodeKind>> {
+            vec![]
+        }
+    }
+    impl Node for Opaque {
+        fn children(&self) -> Vec<Rc<NodeKind>> {
+            vec![]
+        }
+    }
+    impl Node for Bytes {
+        fn children(&self) -> Vec<Rc<NodeKind>> {
+            vec![]
+        }
+    }
+    impl Node for Ref {
+        fn children(&self) -> Vec<Rc<NodeKind>> {
+            vec![]
+        }
+    }
+    impl Node for Sum {
+        fn children(&self) -> Vec<Rc<NodeKind>> {
+            vec![]
+        }
+    }
+}
+
 impl TypeNat {
     #[must_use]
     pub fn new(nat: &Rc<Nat>) -> Self {
@@ -104,12 +157,6 @@ impl TypeNat {
             id: nat.id,
             location: nat.location.clone(),
         }
-    }
-}
-
-impl Node for TypeNat {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        vec![]
     }
 }
 
@@ -123,12 +170,6 @@ impl TypeBool {
     }
 }
 
-impl Node for TypeBool {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        vec![]
-    }
-}
-
 impl TypeString {
     #[must_use]
     pub fn new(str: &Rc<Str>) -> Self {
@@ -136,53 +177,5 @@ impl TypeString {
             id: str.id,
             location: str.location.clone(),
         }
-    }
-}
-
-impl Node for TypeString {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        vec![]
-    }
-}
-
-impl Node for TypeField {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        vec![]
-    }
-}
-
-impl Node for Uint {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        vec![]
-    }
-}
-
-impl Node for Vector {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        vec![]
-    }
-}
-
-impl Node for Opaque {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        vec![]
-    }
-}
-
-impl Node for Bytes {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        vec![]
-    }
-}
-
-impl Node for Ref {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        vec![]
-    }
-}
-
-impl Node for Sum {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        vec![]
     }
 }

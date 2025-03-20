@@ -59,7 +59,7 @@ impl Codebase<OpenState> {
                 build_symbol_table(Rc::new(NodeKind::from(&source_code_file.ast)), None)?;
             symbol_tables.insert(file_path.clone(), symbol_table);
 
-            // println!("{symbol_table}");
+            println!("{}", &symbol_tables.get(file_path).unwrap());
         }
         Ok(Codebase {
             fname_ast_map: self.fname_ast_map,

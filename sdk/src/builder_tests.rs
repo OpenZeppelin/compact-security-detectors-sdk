@@ -63,7 +63,7 @@ mod circuit_parsing_tests {
                         assert_eq!(uint_t.start.value, 8);
                         assert!(uint_t.end.is_none());
                     }
-                    _ => panic!("Expected Uint type"),
+                    _ => panic!("Expected Uint type for identifier with id {}", ident.id),
                 }
             }
             _ => panic!("Expected identifier"),
@@ -137,10 +137,14 @@ mod circuit_parsing_tests {
 
     #[test]
     fn export_simple_circuit() {
-        let source_file = build_source_code_file(
+        let codebase = build_codebase_wrapper(
             "export circuit add (x: Uint<8>, y: Uint<8>) : Uint<8> { return x * y; }",
         );
-        let ast = source_file.ast;
+        let codebase = codebase.borrow();
+        assert_eq!(codebase.fname_ast_map.len(), 1);
+        assert_eq!(codebase.symbol_tables.len(), 1);
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
         assert_eq!(ast.definitions.len(), 1);
         let circuits = ast.circuits();
         assert_eq!(circuits.len(), 1);
@@ -151,9 +155,35 @@ mod circuit_parsing_tests {
         assert_eq!(circuit.arguments.len(), 2);
         let arg = circuit.arguments.first().unwrap();
         assert_eq!(arg.name().unwrap(), "x");
+        match &arg.pattern {
+            Pattern::Identifier(ident) => {
+                assert_eq!(ident.name, "x");
+                match codebase.get_symbol_type_by_id("dummy", ident.id) {
+                    Some(Type::Uint(uint_t)) => {
+                        assert_eq!(uint_t.start.value, 8);
+                        assert!(uint_t.end.is_none());
+                    }
+                    _ => panic!("Expected Uint type for identifier with id {}", ident.id),
+                }
+            }
+            _ => panic!("Expected identifier"),
+        }
         check_type_uint_fixed_size(&arg.ty, 8);
         let arg = circuit.arguments.last().unwrap();
         assert_eq!(arg.name().unwrap(), "y");
+        match &arg.pattern {
+            Pattern::Identifier(ident) => {
+                assert_eq!(ident.name, "y");
+                match codebase.get_symbol_type_by_id("dummy", ident.id) {
+                    Some(Type::Uint(uint_t)) => {
+                        assert_eq!(uint_t.start.value, 8);
+                        assert!(uint_t.end.is_none());
+                    }
+                    _ => panic!("Expected Uint type"),
+                }
+            }
+            _ => panic!("Expected identifier"),
+        }
         check_type_uint_fixed_size(&arg.ty, 8);
         assert!(matches!(circuit.ty, Type::Uint(_)));
         check_type_uint_fixed_size(&circuit.ty, 8);
@@ -169,11 +199,29 @@ mod circuit_parsing_tests {
                             Expression::Binary(op) => {
                                 assert_eq!(op.operator, BinaryExpressionOperator::Mul);
                                 match &op.left {
-                                    Expression::Identifier(ident) => assert_eq!(ident.name, "x"),
+                                    Expression::Identifier(ident) => {
+                                        assert_eq!(ident.name, "x");
+                                        match codebase.get_symbol_type_by_id("dummy", ident.id) {
+                                            Some(Type::Uint(uint_t)) => {
+                                                assert_eq!(uint_t.start.value, 8);
+                                                assert!(uint_t.end.is_none());
+                                            }
+                                            _ => panic!("Expected Uint type of identifier"),
+                                        }
+                                    }
                                     _ => panic!("Expected identifier"),
                                 }
                                 match &op.right {
-                                    Expression::Identifier(ident) => assert_eq!(ident.name, "y"),
+                                    Expression::Identifier(ident) => {
+                                        assert_eq!(ident.name, "y");
+                                        match codebase.get_symbol_type_by_id("dummy", ident.id) {
+                                            Some(Type::Uint(uint_t)) => {
+                                                assert_eq!(uint_t.start.value, 8);
+                                                assert!(uint_t.end.is_none());
+                                            }
+                                            _ => panic!("Expected Uint type of identifier"),
+                                        }
+                                    }
                                     _ => panic!("Expected identifier"),
                                 }
                             }

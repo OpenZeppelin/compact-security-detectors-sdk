@@ -1,7 +1,7 @@
 #![warn(clippy::pedantic)]
 use std::rc::Rc;
 
-use crate::{ast::expression::Expression, ast_enum, ast_nodes};
+use crate::{ast::expression::Expression, ast_enum, ast_nodes, ast_nodes_impl};
 
 use super::{
     definition::{Circuit, Definition},
@@ -21,8 +21,6 @@ ast_enum! {
         Ledger(Rc<Ledger>),
         @scope Constructor(Rc<Constructor>),
         @scope Contract(Rc<Contract>),
-        // @scope Struct(Rc<Struct>),
-        // @scope Enum(Rc<Enum>),
         @raw Definition(Definition),
         @symbol PatternArgument(Rc<PatternArgument>),
     }
@@ -38,7 +36,6 @@ ast_enum! {
 
 ast_enum! {
     pub enum StructArgument {
-        // StructField(Rc<StructField>),
         @raw StructPatternField(Expression),
         @raw DestructExpression(Expression),
     }
@@ -88,15 +85,6 @@ ast_nodes! {
         pub circuits: Vec<Rc<Circuit>>,
     }
 
-    // pub struct StructField {
-    //     pub name: Rc<Identifier>,
-    //     pub expression: Expression,
-    // }
-
-    // pub struct Struct {}
-
-    // pub struct Enum {}
-
     pub struct Argument {
         pub name: Rc<Identifier>,
         pub ty: Type,
@@ -122,9 +110,82 @@ ast_nodes! {
 
 }
 
-impl Node for Import {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        vec![]
+ast_nodes_impl! {
+    impl Node for Import {
+        fn children(&self) -> Vec<Rc<NodeKind>> {
+            vec![]
+        }
+    }
+    impl Node for Export {
+        fn children(&self) -> Vec<Rc<NodeKind>> {
+            vec![]
+        }
+    }
+    impl Node for External {
+        fn children(&self) -> Vec<Rc<NodeKind>> {
+            vec![]
+        }
+    }
+    impl Node for Witness {
+        fn children(&self) -> Vec<Rc<NodeKind>> {
+            vec![]
+        }
+    }
+    impl Node for Ledger {
+        fn children(&self) -> Vec<Rc<NodeKind>> {
+            vec![]
+        }
+    }
+    impl Node for Constructor {
+        fn children(&self) -> Vec<Rc<NodeKind>> {
+            vec![]
+        }
+    }
+    impl Node for Contract {
+        fn children(&self) -> Vec<Rc<NodeKind>> {
+            vec![]
+        }
+    }
+    impl Node for Argument {
+        fn children(&self) -> Vec<Rc<NodeKind>> {
+            vec![
+                Rc::new(NodeKind::from(&Expression::Identifier(self.name.clone()))),
+                Rc::new(NodeKind::from(&self.ty)),
+            ]
+        }
+    }
+    impl Node for PatternArgument {
+        fn children(&self) -> Vec<Rc<NodeKind>> {
+            vec![
+                Rc::new(NodeKind::from(&self.pattern)),
+                Rc::new(NodeKind::from(&self.ty)),
+            ]
+        }
+    }
+    impl Node for StructPatternField {
+        fn children(&self) -> Vec<Rc<NodeKind>> {
+            vec![
+                Rc::new(NodeKind::from(&Expression::Identifier(self.name.clone()))),
+                Rc::new(NodeKind::from(&self.pattern)),
+            ]
+        }
+    }
+    impl Node for StructPattern {
+        fn children(&self) -> Vec<Rc<NodeKind>> {
+            let mut res = Vec::new();
+            for field in &self.fields {
+                res.extend(field.children());
+            }
+            res
+        }
+    }
+    impl Node for TuplePattern {
+        fn children(&self) -> Vec<Rc<NodeKind>> {
+            self.patterns
+                .iter()
+                .map(|pattern| Rc::new(NodeKind::from(pattern)))
+                .collect()
+        }
     }
 }
 
@@ -135,22 +196,6 @@ impl Import {
     }
 }
 
-impl Node for Export {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        vec![]
-    }
-}
-impl Node for External {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        vec![]
-    }
-}
-impl Node for Witness {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        vec![]
-    }
-}
-
 impl Ledger {
     #[must_use]
     pub fn name(&self) -> String {
@@ -158,58 +203,7 @@ impl Ledger {
     }
 }
 
-impl Node for Ledger {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        vec![]
-    }
-}
-impl Node for Constructor {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        vec![]
-    }
-}
-impl Node for Contract {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        vec![]
-    }
-}
-// impl Node for Struct {
-//     fn children(&self) -> Vec<Rc<NodeKind>> {
-//         vec![]
-//     }
-// }
-// impl Node for Enum {
-//     fn children(&self) -> Vec<Rc<NodeKind>> {
-//         vec![]
-//     }
-// }
-
-impl Node for Argument {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        vec![
-            Rc::new(NodeKind::from(&Expression::Identifier(self.name.clone()))),
-            Rc::new(NodeKind::from(&self.ty)),
-        ]
-    }
-}
-
-impl Node for PatternArgument {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        vec![
-            Rc::new(NodeKind::from(&self.pattern)),
-            Rc::new(NodeKind::from(&self.ty)),
-        ]
-    }
-}
-
 impl SymbolNode for PatternArgument {
-    fn id(&self) -> u128 {
-        match self.pattern {
-            Pattern::Identifier(ref id) => id.id,
-            _ => 0,
-        }
-    }
-
     fn name(&self) -> String {
         match self.pattern {
             Pattern::Identifier(ref id) => id.name.clone(),
@@ -229,42 +223,5 @@ impl PatternArgument {
             Pattern::Identifier(id) => Some(id.name.clone()),
             _ => None,
         }
-    }
-}
-
-impl Node for StructPatternField {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        vec![
-            Rc::new(NodeKind::from(&Expression::Identifier(self.name.clone()))),
-            Rc::new(NodeKind::from(&self.pattern)),
-        ]
-    }
-}
-
-impl Node for StructPattern {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        let mut res = Vec::new();
-        for field in &self.fields {
-            res.extend(field.children());
-        }
-        res
-    }
-}
-
-// impl Node for StructField {
-//     fn children(&self) -> Vec<Rc<NodeKind>> {
-//         vec![
-//             Rc::new(NodeKind::from(&Expression::Identifier(self.name.clone()))),
-//             Rc::new(NodeKind::from(&self.expression)),
-//         ]
-//     }
-// }
-
-impl Node for TuplePattern {
-    fn children(&self) -> Vec<Rc<NodeKind>> {
-        self.patterns
-            .iter()
-            .map(|pattern| Rc::new(NodeKind::from(pattern)))
-            .collect()
     }
 }
