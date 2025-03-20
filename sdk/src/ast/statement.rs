@@ -49,8 +49,8 @@ ast_nodes! {
 
     pub struct If {
         pub condition: Expression,
-        pub then_branch: Rc<Block>,
-        pub else_branch: Option<Rc<Block>>,
+        pub then_branch: Statement,
+        pub else_branch: Option<Statement>,
     }
 
     pub struct For {
@@ -107,12 +107,10 @@ ast_nodes_impl! {
         fn children(&self) -> Vec<Rc<NodeKind>> {
             let mut children = vec![
                 Rc::new(NodeKind::from(&self.condition)),
-                Rc::new(NodeKind::from(&Statement::Block(self.then_branch.clone()))),
+                Rc::new(NodeKind::from(&self.then_branch)),
             ];
             if let Some(else_branch) = &self.else_branch {
-                children.push(Rc::new(NodeKind::from(&Statement::Block(
-                    else_branch.clone(),
-                ))));
+                children.push(Rc::new(NodeKind::from(else_branch)));
             }
             children
         }

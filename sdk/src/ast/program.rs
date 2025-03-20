@@ -4,7 +4,7 @@ use std::rc::Rc;
 use crate::{ast_node, ast_node_impl};
 
 use super::{
-    declaration::Declaration,
+    declaration::{Constructor, Declaration},
     definition::{Circuit, Definition, Module},
     directive::Directive,
     node::{Node, NodeKind, SameScopeNode},
@@ -67,6 +67,21 @@ impl Program {
             .filter_map(|d| {
                 if let Definition::Circuit(circuit) = d {
                     Some(Rc::clone(circuit))
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
+    #[must_use]
+    pub fn constructors(&self) -> Vec<Rc<Constructor>> {
+        self.declarations
+            .iter()
+            .filter(|d| matches!(d, Declaration::Constructor(_)))
+            .filter_map(|d| {
+                if let Declaration::Constructor(constructor) = d {
+                    Some(Rc::clone(constructor))
                 } else {
                     None
                 }

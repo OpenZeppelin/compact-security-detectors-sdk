@@ -8,7 +8,7 @@ use super::{
     expression::Identifier,
     literal::Nat,
     node::{Node, NodeKind, SymbolNode},
-    statement::Block,
+    statement::{Block, Statement},
     ty::Type,
 };
 
@@ -138,7 +138,13 @@ ast_nodes_impl! {
     }
     impl Node for Constructor {
         fn children(&self) -> Vec<Rc<NodeKind>> {
-            vec![]
+            let arguments: Vec<Rc<NodeKind>> = self
+                .arguments
+                .iter()
+                .map(|arg| Rc::new(NodeKind::from(&Declaration::PatternArgument(arg.clone()))))
+                .collect();
+            let body = vec![Rc::new(NodeKind::from(&Statement::Block(self.body.clone())))];
+            arguments.into_iter().chain(body).collect()
         }
     }
     impl Node for Contract {

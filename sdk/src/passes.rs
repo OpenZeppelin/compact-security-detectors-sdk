@@ -697,7 +697,7 @@ mod test {
                 location: default_location(),
                 value: false,
             }))),
-            then_branch: Rc::new(Block {
+            then_branch: Statement::Block(Rc::new(Block {
                 id: 27,
                 location: default_location(),
                 statements: vec![Statement::Var(Rc::new(Var {
@@ -711,8 +711,8 @@ mod test {
                     }))),
                     ty_: None,
                 }))],
-            }),
-            else_branch: Some(Rc::new(Block {
+            })),
+            else_branch: Some(Statement::Block(Rc::new(Block {
                 id: 30,
                 location: default_location(),
                 statements: vec![Statement::Var(Rc::new(Var {
@@ -726,7 +726,7 @@ mod test {
                     }))),
                     ty_: None,
                 }))],
-            })),
+            }))),
         }));
         let block = Statement::Block(Rc::new(Block {
             id: 35,

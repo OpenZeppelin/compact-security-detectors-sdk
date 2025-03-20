@@ -590,10 +590,10 @@ fn build_if_statement(node: &Node, source: &str) -> Result<Rc<If>> {
             node.utf8_text(source.as_bytes())
         )
     })?;
-    let then_branch = build_block(&then_branch_node, source)?;
+    let then_branch = build_statement(&then_branch_node, source)?;
     let else_branch_node = node.child_by_field_name("else_branch");
     let else_branch = else_branch_node
-        .map(|node| build_block(&node, source))
+        .map(|node| build_statement(&node, source))
         .transpose()?;
     Ok(Rc::new(If {
         id: node_id(),
