@@ -436,8 +436,12 @@
           "type": "CHOICE",
           "members": [
             {
-              "type": "SYMBOL",
-              "name": "gargs"
+              "type": "FIELD",
+              "name": "gargs",
+              "content": {
+                "type": "SYMBOL",
+                "name": "gargs"
+              }
             },
             {
               "type": "BLANK"
@@ -448,8 +452,12 @@
           "type": "CHOICE",
           "members": [
             {
-              "type": "SYMBOL",
-              "name": "prefix"
+              "type": "FIELD",
+              "name": "prefix",
+              "content": {
+                "type": "SYMBOL",
+                "name": "prefix"
+              }
             },
             {
               "type": "BLANK"
@@ -541,8 +549,12 @@
           "value": "prefix"
         },
         {
-          "type": "SYMBOL",
-          "name": "id"
+          "type": "FIELD",
+          "name": "id",
+          "content": {
+            "type": "SYMBOL",
+            "name": "id"
+          }
         }
       ]
     },

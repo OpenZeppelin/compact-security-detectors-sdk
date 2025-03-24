@@ -15,6 +15,7 @@ use super::{
 ast_enum! {
     pub enum Declaration {
         Import(Rc<Import>),
+        Include(Rc<Include>),
         Export(Rc<Export>),
         External(Rc<External>),
         Witness(Rc<Witness>),
@@ -51,6 +52,12 @@ ast_enum! {
 ast_nodes! {
     pub struct Import {
         pub value: Rc<Identifier>,
+        pub generic_parameters: Option<Vec<GArgument>>,
+        pub prefix: Option<Rc<Identifier>>,
+    }
+
+    pub struct Include {
+        pub path: String,
     }
 
     pub struct Export {
@@ -112,6 +119,11 @@ ast_nodes! {
 
 ast_nodes_impl! {
     impl Node for Import {
+        fn children(&self) -> Vec<Rc<NodeKind>> {
+            vec![]
+        }
+    }
+    impl Node for Include {
         fn children(&self) -> Vec<Rc<NodeKind>> {
             vec![]
         }

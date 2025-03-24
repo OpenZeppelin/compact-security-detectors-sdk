@@ -1309,6 +1309,16 @@
     "type": "idecl",
     "named": true,
     "fields": {
+      "gargs": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "gargs",
+            "named": true
+          }
+        ]
+      },
       "id": {
         "multiple": false,
         "required": true,
@@ -1318,21 +1328,17 @@
             "named": true
           }
         ]
+      },
+      "prefix": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "prefix",
+            "named": true
+          }
+        ]
       }
-    },
-    "children": {
-      "multiple": true,
-      "required": false,
-      "types": [
-        {
-          "type": "gargs",
-          "named": true
-        },
-        {
-          "type": "prefix",
-          "named": true
-        }
-      ]
     }
   },
   {
@@ -2179,16 +2185,17 @@
   {
     "type": "prefix",
     "named": true,
-    "fields": {},
-    "children": {
-      "multiple": false,
-      "required": true,
-      "types": [
-        {
-          "type": "id",
-          "named": true
-        }
-      ]
+    "fields": {
+      "id": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "id",
+            "named": true
+          }
+        ]
+      }
     }
   },
   {

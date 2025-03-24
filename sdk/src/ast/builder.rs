@@ -7,8 +7,8 @@ use crate::ast::{directive::VersionExpr, literal::VersionOperator};
 
 use super::{
     declaration::{
-        Argument, Constructor, Contract, Declaration, Export, GArgument, Import, Ledger, Pattern,
-        PatternArgument, StructPattern, StructPatternField, TuplePattern, Witness,
+        Argument, Constructor, Contract, Declaration, Export, GArgument, Import, Include, Ledger,
+        Pattern, PatternArgument, StructPattern, StructPatternField, TuplePattern, Witness,
     },
     definition::{Circuit, Definition, Enum, Module, Structure},
     directive::{Directive, Pragma},
@@ -22,7 +22,7 @@ use super::{
     node::Location,
     program::{CompactNode, Program},
     statement::{Assert, Assign, AssignOperator, Block, Const, For, If, Return, Statement},
-    ty::{self, Bytes, Opaque, Ref, Sum, Type, TypeBool, TypeField, Uint, Vector, VectorSize},
+    ty::{Bytes, Opaque, Ref, Sum, Type, TypeBool, TypeField, Uint, Vector, VectorSize},
 };
 
 /// Builds an AST from the given root node and source code.
@@ -66,6 +66,13 @@ fn build_compact_node(node: &Node, source: &str) -> Result<CompactNode> {
         "pragma" => {
             let pragma = build_pragma(node, source)?;
             Ok(CompactNode::Directive(Directive::Pragma(Rc::new(pragma))))
+        }
+        // include
+        "incld" => {
+            let include = build_include(node, source)?;
+            Ok(CompactNode::Declaration(Declaration::Include(Rc::new(
+                include,
+            ))))
         }
         // import declaration
         "idecl" => {
@@ -213,6 +220,14 @@ fn build_pragma(node: &Node, source: &str) -> Result<Pragma> {
     while start < node.named_child_count() {
         let child = node.named_child(start).unwrap();
         match child.kind() {
+            "and" | "or" => {
+                let left = build_version(&child.child(0).unwrap(), VersionOperator::Eq, source)?;
+                let right = build_version(&child.child(1).unwrap(), VersionOperator::Eq, source)?;
+                version_expressions.push(VersionExpr::Or(
+                    Box::new(VersionExpr::Version(left.clone())),
+                    Box::new(VersionExpr::Version(right.clone())),
+                ));
+            }
             "not"
             | "greater_than"
             | "less_than"
@@ -302,6 +317,21 @@ fn build_version(
     }))
 }
 
+fn build_include(node: &Node, source: &str) -> Result<Include> {
+    let path_node = node.child_by_field_name("file").ok_or_else(|| {
+        anyhow!(
+            "Missing 'file' field in include declaration: {:?}",
+            node.utf8_text(source.as_bytes())
+        )
+    })?;
+    let path = path_node.utf8_text(source.as_bytes())?;
+    Ok(Include {
+        id: node_id(),
+        location: location(node),
+        path: path.to_string(),
+    })
+}
+
 fn build_import(node: &Node, source: &str) -> Result<Import> {
     let import_name_node = node.child_by_field_name("id").ok_or_else(|| {
         anyhow!(
@@ -310,10 +340,28 @@ fn build_import(node: &Node, source: &str) -> Result<Import> {
         )
     })?;
     let identifier = build_identifier(&import_name_node, source)?;
+    let generic_parameters_node = node.child_by_field_name("gargs");
+    let mut generic_parameters: Option<Vec<GArgument>> = None;
+    if let Some(generics_node) = generic_parameters_node {
+        let cursor = &mut generics_node.walk();
+        let generic_nodes: Result<Vec<_>> = generics_node
+            .children_by_field_name("garg", cursor)
+            .map(|type_node| build_gargument(&type_node.child(0).unwrap(), source))
+            .collect();
+        generic_parameters = Some(generic_nodes?);
+    }
+    let prefix = node
+        .child_by_field_name("prefix")
+        .map(|prefix_node| {
+            build_identifier(&prefix_node.child_by_field_name("id").unwrap(), source)
+        })
+        .transpose()?;
     Ok(Import {
         id: node_id(),
         location: location(node),
         value: identifier,
+        prefix,
+        generic_parameters,
     })
 }
 

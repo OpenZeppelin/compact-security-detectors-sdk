@@ -36,3 +36,10 @@ pub enum VersionExpr {
     Or(Box<VersionExpr>, Box<VersionExpr>),
     And(Box<VersionExpr>, Box<VersionExpr>),
 }
+
+impl Pragma {
+    #[must_use]
+    pub fn name(&self) -> &str {
+        &self.value.name
+    }
+}

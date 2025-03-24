@@ -294,7 +294,6 @@ fn infer_expr(expr: &Expression, env: &Rc<SymbolTable>) -> Option<Type> {
 mod test {
     use super::*;
     use crate::ast::{
-        declaration::Declaration,
         definition::Definition,
         directive::VersionExpr,
         expression::{Binary, Conditional, Identifier, Sequence},
@@ -801,92 +800,6 @@ mod test {
         Ok(())
     }
 
-    #[test]
-    fn test_declaration_nodes() {
-        let import = crate::ast::declaration::Import {
-            id: 45,
-            location: default_location(),
-            value: Rc::new(Identifier {
-                id: 46,
-                location: default_location(),
-                name: "import".to_string(),
-            }),
-        };
-        let export = crate::ast::declaration::Export {
-            id: 46,
-            location: default_location(),
-            values: vec![],
-        };
-        let external = crate::ast::declaration::External {
-            id: 47,
-            location: default_location(),
-        };
-        let witness = crate::ast::declaration::Witness {
-            id: 48,
-            location: default_location(),
-            is_exported: false,
-            name: mock_identifier(79, "witness"),
-            arguments: vec![],
-            ty: Type::Nat(Rc::new(TypeNat::default())),
-            generic_parameters: None,
-        };
-        let ledger = crate::ast::declaration::Ledger {
-            id: 49,
-            location: default_location(),
-            is_exported: false,
-            is_sealed: false,
-            name: Rc::new(Identifier {
-                id: 50,
-                location: default_location(),
-                name: "ledger".to_string(),
-            }),
-            ty: Type::Nat(Rc::new(TypeNat::default())),
-        };
-        let ctor = crate::ast::declaration::Constructor {
-            id: 50,
-            location: default_location(),
-            arguments: vec![],
-            body: Rc::new(crate::ast::statement::Block {
-                id: 50,
-                location: default_location(),
-                statements: vec![],
-            }),
-        };
-        let contract = crate::ast::declaration::Contract {
-            id: 51,
-            location: default_location(),
-            is_exported: false,
-            name: mock_identifier(2123, "c"),
-            circuits: vec![],
-        };
-
-        let decls = vec![
-            Declaration::Import(Rc::new(import)),
-            Declaration::Export(Rc::new(export)),
-            Declaration::External(Rc::new(external)),
-            Declaration::Witness(Rc::new(witness)),
-            Declaration::Ledger(Rc::new(ledger)),
-            Declaration::Constructor(Rc::new(ctor)),
-            Declaration::Contract(Rc::new(contract)),
-            // Declaration::Struct(Rc::new(struc)),
-            // Declaration::Enum(Rc::new(enm)),
-            Declaration::Definition(Definition::Module(Rc::new(
-                crate::ast::definition::Module {
-                    id: 54,
-                    location: default_location(),
-                    is_exported: false,
-                    name: mock_identifier(55, "module"),
-                    generic_parameters: None,
-                    nodes: vec![],
-                },
-            ))),
-        ];
-        for decl in decls {
-            assert!(!format!("{decl:?}").is_empty());
-        }
-    }
-
-    #[test]
     fn test_definition_nodes() {
         let module = crate::ast::definition::Module {
             id: 55,

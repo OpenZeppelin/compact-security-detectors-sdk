@@ -623,7 +623,7 @@ mod export_parsing_tests {
 }
 
 #[cfg(test)]
-mod external_contract_parsing_test {
+mod external_contract_parsing_tests {
     use crate::{
         ast::{declaration::Declaration, ty::Type},
         builder_tests::build_codebase_wrapper,
@@ -739,8 +739,9 @@ mod external_contract_parsing_test {
 }
 
 #[cfg(test)]
-mod external_parsing_test {
-    use crate::{ast::ty::Type, builder_tests::build_codebase_wrapper};
+mod external_parsing_tests {
+    use crate::ast::ty::Type;
+    use crate::builder_tests::build_codebase_wrapper;
 
     #[test]
     fn simple_circuit() {
@@ -901,6 +902,698 @@ mod external_parsing_test {
                 assert!(matches!(vec_t.ty, Type::Field(_)));
             }
             _ => panic!("Expected Vector type"),
+        }
+    }
+}
+
+#[cfg(test)]
+mod import_parsing_tests {
+    use crate::{
+        ast::{
+            declaration::{Declaration, GArgument},
+            ty::Type,
+        },
+        builder_tests::build_codebase_wrapper,
+    };
+
+    #[test]
+    fn import_with_string_literal() {
+        let codebase = build_codebase_wrapper(r#"import "test/corpus/import.txt";"#);
+        let codebase = codebase.borrow();
+        assert_eq!(codebase.fname_ast_map.len(), 1);
+        assert_eq!(codebase.symbol_tables.len(), 1);
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        assert_eq!(ast.declarations.len(), 1);
+        match &ast.declarations[0] {
+            Declaration::Import(import) => {
+                assert_eq!(import.name(), "\"test/corpus/import.txt\"");
+                assert!(import.prefix.is_none());
+                assert!(import.generic_parameters.is_none());
+            }
+            _ => panic!("Expected import declaration"),
+        }
+    }
+
+    #[test]
+    fn import_with_identifier() {
+        let codebase = build_codebase_wrapper("import id;");
+        let codebase = codebase.borrow();
+        assert_eq!(codebase.fname_ast_map.len(), 1);
+        assert_eq!(codebase.symbol_tables.len(), 1);
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        assert_eq!(ast.declarations.len(), 1);
+        match &ast.declarations[0] {
+            Declaration::Import(import) => {
+                assert_eq!(import.name(), "id");
+                assert!(import.prefix.is_none());
+                assert!(import.generic_parameters.is_none());
+            }
+            _ => panic!("Expected import declaration"),
+        }
+    }
+
+    #[test]
+    fn import_with_identifier_and_parameter() {
+        let codebase = build_codebase_wrapper("import id<1>;");
+        let codebase = codebase.borrow();
+        assert_eq!(codebase.fname_ast_map.len(), 1);
+        assert_eq!(codebase.symbol_tables.len(), 1);
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        assert_eq!(ast.declarations.len(), 1);
+        match &ast.declarations[0] {
+            Declaration::Import(import) => {
+                assert_eq!(import.name(), "id");
+                assert!(import.prefix.is_none());
+                assert!(import.generic_parameters.is_some());
+                assert_eq!(import.generic_parameters.as_ref().unwrap().len(), 1);
+                match &import.generic_parameters.as_ref().unwrap()[0] {
+                    GArgument::Nat(nat) => {
+                        assert_eq!(nat.value, 1);
+                    }
+                    other @ GArgument::Type(_) => {
+                        panic!("Expected natural number, got {other:?}")
+                    }
+                }
+            }
+            _ => panic!("Expected import declaration"),
+        }
+    }
+
+    #[test]
+    fn import_with_module_and_parameters() {
+        let codebase = build_codebase_wrapper("import myModule<42, Boolean>;");
+        let codebase = codebase.borrow();
+        assert_eq!(codebase.fname_ast_map.len(), 1);
+        assert_eq!(codebase.symbol_tables.len(), 1);
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        assert_eq!(ast.declarations.len(), 1);
+        match &ast.declarations[0] {
+            Declaration::Import(import) => {
+                assert_eq!(import.name(), "myModule");
+                assert!(import.prefix.is_none());
+                assert!(import.generic_parameters.is_some());
+                assert_eq!(import.generic_parameters.as_ref().unwrap().len(), 2);
+                let params = import.generic_parameters.as_ref().unwrap();
+                match &params[0] {
+                    GArgument::Nat(nat) => {
+                        assert_eq!(nat.value, 42);
+                    }
+                    GArgument::Type(_) => panic!("Expected natural number"),
+                }
+                assert!(matches!(params[1], GArgument::Type(Type::Boolean(_))));
+            }
+            _ => panic!("Expected import declaration"),
+        }
+    }
+
+    #[test]
+    fn import_with_module_and_prefix() {
+        let codebase = build_codebase_wrapper("import myModule prefix helper;");
+        let codebase = codebase.borrow();
+        assert_eq!(codebase.fname_ast_map.len(), 1);
+        assert_eq!(codebase.symbol_tables.len(), 1);
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        assert_eq!(ast.declarations.len(), 1);
+        match &ast.declarations[0] {
+            Declaration::Import(import) => {
+                assert_eq!(import.name(), "myModule");
+                assert!(import.prefix.is_some());
+                assert_eq!(import.prefix.as_ref().unwrap().name, "helper");
+                assert!(import.generic_parameters.is_none());
+            }
+            _ => panic!("Expected import declaration"),
+        }
+    }
+
+    #[test]
+    fn import_with_module_parameters_and_prefix() {
+        let codebase = build_codebase_wrapper("import myModule<42, Field> prefix helper;");
+        let codebase = codebase.borrow();
+        assert_eq!(codebase.fname_ast_map.len(), 1);
+        assert_eq!(codebase.symbol_tables.len(), 1);
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        assert_eq!(ast.declarations.len(), 1);
+        match &ast.declarations[0] {
+            Declaration::Import(import) => {
+                assert_eq!(import.name(), "myModule");
+                assert!(import.prefix.is_some());
+                assert_eq!(import.prefix.as_ref().unwrap().name, "helper");
+                assert!(import.generic_parameters.is_some());
+                assert_eq!(import.generic_parameters.as_ref().unwrap().len(), 2);
+            }
+            _ => panic!("Expected import declaration"),
+        }
+    }
+
+    #[test]
+    fn import_with_string_literal_and_prefix() {
+        let codebase = build_codebase_wrapper(r#"import "module/file" prefix myHelper;"#);
+        let codebase = codebase.borrow();
+        assert_eq!(codebase.fname_ast_map.len(), 1);
+        assert_eq!(codebase.symbol_tables.len(), 1);
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        assert_eq!(ast.declarations.len(), 1);
+        match &ast.declarations[0] {
+            Declaration::Import(import) => {
+                assert_eq!(import.name(), "\"module/file\"");
+                assert!(import.prefix.is_some());
+                assert_eq!(import.prefix.as_ref().unwrap().name, "myHelper");
+                assert!(import.generic_parameters.is_none());
+            }
+            _ => panic!("Expected import declaration"),
+        }
+    }
+}
+
+#[cfg(test)]
+mod include_parsing_tests {
+    use crate::{ast::declaration::Declaration, builder_tests::build_codebase_wrapper};
+
+    #[test]
+    fn include_with_string_literal() {
+        let codebase = build_codebase_wrapper(r#"include "test/corpus/include.txt";"#);
+        let codebase = codebase.borrow();
+        assert_eq!(codebase.fname_ast_map.len(), 1);
+        assert_eq!(codebase.symbol_tables.len(), 1);
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        assert_eq!(ast.declarations.len(), 1);
+        match &ast.declarations[0] {
+            Declaration::Include(include) => {
+                assert_eq!(include.path, "\"test/corpus/include.txt\"");
+            }
+            _ => panic!("Expected include declaration"),
+        }
+    }
+}
+
+#[cfg(test)]
+mod ledger_parsing_tests {
+    use crate::{
+        ast::{declaration::Declaration, ty::Type},
+        builder_tests::build_codebase_wrapper,
+    };
+
+    #[test]
+    fn simple_ledger() {
+        let codebase = build_codebase_wrapper("ledger myLedger : Field;");
+        let codebase = codebase.borrow();
+        assert_eq!(codebase.fname_ast_map.len(), 1);
+        assert_eq!(codebase.symbol_tables.len(), 1);
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        assert_eq!(ast.declarations.len(), 1);
+        match &ast.declarations[0] {
+            Declaration::Ledger(ledger) => {
+                assert_eq!(ledger.name(), "myLedger");
+                assert!(matches!(ledger.ty, Type::Field(_)));
+                assert!(!ledger.is_exported);
+                assert!(!ledger.is_sealed);
+            }
+            _ => panic!("Expected ledger declaration"),
+        }
+    }
+
+    #[test]
+    fn export_ledger() {
+        let codebase = build_codebase_wrapper("export ledger myLedger : Boolean;");
+        let codebase = codebase.borrow();
+        assert_eq!(codebase.fname_ast_map.len(), 1);
+        assert_eq!(codebase.symbol_tables.len(), 1);
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        assert_eq!(ast.declarations.len(), 1);
+        match &ast.declarations[0] {
+            Declaration::Ledger(ledger) => {
+                assert_eq!(ledger.name(), "myLedger");
+                assert!(matches!(ledger.ty, Type::Boolean(_)));
+                assert!(ledger.is_exported);
+                assert!(!ledger.is_sealed);
+            }
+            _ => panic!("Expected ledger declaration"),
+        }
+    }
+
+    #[test]
+    fn sealed_ledger() {
+        let codebase = build_codebase_wrapper("sealed ledger myLedger : Uint<32>;");
+        let codebase = codebase.borrow();
+        assert_eq!(codebase.fname_ast_map.len(), 1);
+        assert_eq!(codebase.symbol_tables.len(), 1);
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        assert_eq!(ast.declarations.len(), 1);
+        match &ast.declarations[0] {
+            Declaration::Ledger(ledger) => {
+                assert_eq!(ledger.name(), "myLedger");
+                match &ledger.ty {
+                    Type::Uint(uint_t) => {
+                        assert_eq!(uint_t.start.value, 32);
+                        assert!(uint_t.end.is_none());
+                    }
+                    _ => panic!("Expected Uint type"),
+                }
+                assert!(!ledger.is_exported);
+                assert!(ledger.is_sealed);
+            }
+            _ => panic!("Expected ledger declaration"),
+        }
+    }
+
+    #[test]
+    fn export_sealed_ledger() {
+        let codebase = build_codebase_wrapper("export sealed ledger myLedger : Field;");
+        let codebase = codebase.borrow();
+        assert_eq!(codebase.fname_ast_map.len(), 1);
+        assert_eq!(codebase.symbol_tables.len(), 1);
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        assert_eq!(ast.declarations.len(), 1);
+        match &ast.declarations[0] {
+            Declaration::Ledger(ledger) => {
+                assert_eq!(ledger.name(), "myLedger");
+                assert!(matches!(ledger.ty, Type::Field(_)));
+                assert!(ledger.is_exported);
+                assert!(ledger.is_sealed);
+            }
+            _ => panic!("Expected ledger declaration"),
+        }
+    }
+
+    #[test]
+    fn ledger_with_vector_type() {
+        let codebase = build_codebase_wrapper("ledger myLedger : Vector<10, Boolean>;");
+        let codebase = codebase.borrow();
+        assert_eq!(codebase.fname_ast_map.len(), 1);
+        assert_eq!(codebase.symbol_tables.len(), 1);
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        assert_eq!(ast.declarations.len(), 1);
+        match &ast.declarations[0] {
+            Declaration::Ledger(ledger) => {
+                assert_eq!(ledger.name(), "myLedger");
+                match &ledger.ty {
+                    Type::Vector(vec_t) => {
+                        match &vec_t.size {
+                            crate::ast::ty::VectorSize::Nat(size) => {
+                                assert_eq!(size.value, 10);
+                            }
+                            crate::ast::ty::VectorSize::Ref(_) => {
+                                panic!("Expected fixed size vector")
+                            }
+                        }
+                        assert!(matches!(vec_t.ty, Type::Boolean(_)));
+                    }
+                    _ => panic!("Expected Vector type"),
+                }
+                assert!(!ledger.is_exported);
+                assert!(!ledger.is_sealed);
+            }
+            _ => panic!("Expected ledger declaration"),
+        }
+    }
+
+    #[test]
+    fn ledger_with_generic_type() {
+        let codebase = build_codebase_wrapper("ledger myLedger : MyType<42, Field>;");
+        let codebase = codebase.borrow();
+        assert_eq!(codebase.fname_ast_map.len(), 1);
+        assert_eq!(codebase.symbol_tables.len(), 1);
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        assert_eq!(ast.declarations.len(), 1);
+        match &ast.declarations[0] {
+            Declaration::Ledger(ledger) => {
+                assert_eq!(ledger.name(), "myLedger");
+                match &ledger.ty {
+                    Type::Ref(gen_t) => {
+                        assert_eq!(gen_t.name(), "MyType");
+                        assert_eq!(gen_t.generic_parameters.as_ref().unwrap().len(), 2);
+                        match &gen_t.generic_parameters.as_ref().unwrap()[0] {
+                            crate::ast::declaration::GArgument::Nat(nat) => {
+                                assert_eq!(nat.value, 42);
+                            }
+                            crate::ast::declaration::GArgument::Type(_) => {
+                                panic!("Expected natural number")
+                            }
+                        }
+                        assert!(matches!(
+                            gen_t.generic_parameters.as_ref().unwrap()[1],
+                            crate::ast::declaration::GArgument::Type(Type::Field(_))
+                        ));
+                    }
+                    _ => panic!("Expected Generic type"),
+                }
+                assert!(!ledger.is_exported);
+                assert!(!ledger.is_sealed);
+            }
+            _ => panic!("Expected ledger declaration"),
+        }
+    }
+}
+
+#[cfg(test)]
+mod pragma_parsing_tests {
+
+    use crate::ast::directive::{Directive, VersionExpr};
+    use crate::ast::literal::VersionOperator;
+    use crate::builder_tests::build_codebase_wrapper;
+
+    #[test]
+    fn pragma_language_version_eq() {
+        let codebase = build_codebase_wrapper("pragma language_version 0.14.0;");
+        let codebase = codebase.borrow();
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        // Expect one pragma directive.
+        assert_eq!(ast.directives.len(), 1);
+        match &ast.directives[0] {
+            Directive::Pragma(pragma) => {
+                assert_eq!(pragma.name(), "language_version");
+                match &pragma.version {
+                    VersionExpr::Version(v) => {
+                        // Default operator is equality.
+                        assert_eq!(v.operator, VersionOperator::Eq);
+                        assert_eq!(v.major.value, 0);
+                        assert_eq!(v.minor.as_ref().unwrap().value, 14);
+                        assert_eq!(v.bugfix.as_ref().unwrap().value, 0);
+                    }
+                    _ => panic!("Expected simple version expression"),
+                }
+            }
+            _ => panic!("Expected pragma directive"),
+        }
+    }
+
+    #[test]
+    fn pragma_language_version_neq() {
+        let codebase = build_codebase_wrapper("pragma language_version !0.14.0;");
+        let codebase = codebase.borrow();
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        assert_eq!(ast.directives.len(), 1);
+        match &ast.directives[0] {
+            Directive::Pragma(pragma) => {
+                assert_eq!(pragma.name(), "language_version");
+                match &pragma.version {
+                    VersionExpr::Version(v) => {
+                        // "!" should yield a not-equal operator.
+                        assert_eq!(v.operator, VersionOperator::Neq);
+                        assert_eq!(v.major.value, 0);
+                        assert_eq!(v.minor.as_ref().unwrap().value, 14);
+                        assert_eq!(v.bugfix.as_ref().unwrap().value, 0);
+                    }
+                    _ => panic!("Expected simple version expression"),
+                }
+            }
+            _ => panic!("Expected pragma directive"),
+        }
+    }
+
+    #[test]
+    fn pragma_language_version_lt() {
+        let codebase = build_codebase_wrapper("pragma language_version <0.14.0;");
+        let codebase = codebase.borrow();
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        assert_eq!(ast.directives.len(), 1);
+        match &ast.directives[0] {
+            Directive::Pragma(pragma) => {
+                assert_eq!(pragma.name(), "language_version");
+                match &pragma.version {
+                    VersionExpr::Version(v) => {
+                        assert_eq!(v.operator, VersionOperator::Lt);
+                        assert_eq!(v.major.value, 0);
+                        assert_eq!(v.minor.as_ref().unwrap().value, 14);
+                        assert_eq!(v.bugfix.as_ref().unwrap().value, 0);
+                    }
+                    _ => panic!("Expected simple version expression"),
+                }
+            }
+            _ => panic!("Expected pragma directive"),
+        }
+    }
+
+    #[test]
+    fn pragma_language_version_lte() {
+        let codebase = build_codebase_wrapper("pragma language_version <=0.14.0;");
+        let codebase = codebase.borrow();
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        assert_eq!(ast.directives.len(), 1);
+        match &ast.directives[0] {
+            Directive::Pragma(pragma) => {
+                assert_eq!(pragma.name(), "language_version");
+                match &pragma.version {
+                    VersionExpr::Version(v) => {
+                        assert_eq!(v.operator, VersionOperator::Le);
+                        assert_eq!(v.major.value, 0);
+                        assert_eq!(v.minor.as_ref().unwrap().value, 14);
+                        assert_eq!(v.bugfix.as_ref().unwrap().value, 0);
+                    }
+                    _ => panic!("Expected simple version expression"),
+                }
+            }
+            _ => panic!("Expected pragma directive"),
+        }
+    }
+
+    #[test]
+    fn pragma_language_version_gt() {
+        let codebase = build_codebase_wrapper("pragma language_version >0.14.0;");
+        let codebase = codebase.borrow();
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        assert_eq!(ast.directives.len(), 1);
+        match &ast.directives[0] {
+            Directive::Pragma(pragma) => {
+                assert_eq!(pragma.name(), "language_version");
+                match &pragma.version {
+                    VersionExpr::Version(v) => {
+                        assert_eq!(v.operator, VersionOperator::Gt);
+                        assert_eq!(v.major.value, 0);
+                        assert_eq!(v.minor.as_ref().unwrap().value, 14);
+                        assert_eq!(v.bugfix.as_ref().unwrap().value, 0);
+                    }
+                    _ => panic!("Expected simple version expression"),
+                }
+            }
+            _ => panic!("Expected pragma directive"),
+        }
+    }
+
+    #[test]
+    fn pragma_language_version_gte() {
+        let codebase = build_codebase_wrapper("pragma language_version >=0.14.0;");
+        let codebase = codebase.borrow();
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        assert_eq!(ast.directives.len(), 1);
+        match &ast.directives[0] {
+            Directive::Pragma(pragma) => {
+                assert_eq!(pragma.name(), "language_version");
+                match &pragma.version {
+                    VersionExpr::Version(v) => {
+                        assert_eq!(v.operator, VersionOperator::Ge);
+                        assert_eq!(v.major.value, 0);
+                        assert_eq!(v.minor.as_ref().unwrap().value, 14);
+                        assert_eq!(v.bugfix.as_ref().unwrap().value, 0);
+                    }
+                    _ => panic!("Expected simple version expression"),
+                }
+            }
+            _ => panic!("Expected pragma directive"),
+        }
+    }
+
+    #[test]
+    fn pragma_language_version_parenthesized() {
+        let codebase = build_codebase_wrapper("pragma language_version (0.14.0);");
+        let codebase = codebase.borrow();
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        assert_eq!(ast.directives.len(), 1);
+        match &ast.directives[0] {
+            Directive::Pragma(pragma) => {
+                assert_eq!(pragma.name(), "language_version");
+                // Parentheses should not affect the simple version expression.
+                match &pragma.version {
+                    VersionExpr::Version(v) => {
+                        assert_eq!(v.operator, VersionOperator::Eq);
+                        assert_eq!(v.major.value, 0);
+                        assert_eq!(v.minor.as_ref().unwrap().value, 14);
+                        assert_eq!(v.bugfix.as_ref().unwrap().value, 0);
+                    }
+                    _ => panic!("Expected simple version expression"),
+                }
+            }
+            _ => panic!("Expected pragma directive"),
+        }
+    }
+
+    #[test]
+    fn pragma_language_version_parenthesized_not() {
+        let codebase = build_codebase_wrapper("pragma language_version (!0.14.0);");
+        let codebase = codebase.borrow();
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        assert_eq!(ast.directives.len(), 1);
+        match &ast.directives[0] {
+            Directive::Pragma(pragma) => {
+                assert_eq!(pragma.name(), "language_version");
+                match &pragma.version {
+                    VersionExpr::Version(v) => {
+                        assert_eq!(v.operator, VersionOperator::Neq);
+                        assert_eq!(v.major.value, 0);
+                        assert_eq!(v.minor.as_ref().unwrap().value, 14);
+                        assert_eq!(v.bugfix.as_ref().unwrap().value, 0);
+                    }
+                    _ => panic!("Expected simple version expression"),
+                }
+            }
+            _ => panic!("Expected pragma directive"),
+        }
+    }
+
+    #[test]
+    fn pragma_language_version_and() {
+        let codebase = build_codebase_wrapper("pragma language_version 0.14.0 && 0.15.0;");
+        let codebase = codebase.borrow();
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        assert_eq!(ast.directives.len(), 1);
+        match &ast.directives[0] {
+            Directive::Pragma(pragma) => {
+                assert_eq!(pragma.name(), "language_version");
+                match &pragma.version {
+                    VersionExpr::And(left, right) => {
+                        // Left expression: 0.14.0 with default equality.
+                        match &**left {
+                            VersionExpr::Version(v_left) => {
+                                assert_eq!(v_left.operator, VersionOperator::Eq);
+                                assert_eq!(v_left.major.value, 0);
+                                assert_eq!(v_left.minor.as_ref().unwrap().value, 14);
+                                assert_eq!(v_left.bugfix.as_ref().unwrap().value, 0);
+                            }
+                            _ => panic!("Expected version expression on left side"),
+                        }
+                        // Right expression: 0.15.0 with default equality.
+                        match &**right {
+                            VersionExpr::Version(v_right) => {
+                                assert_eq!(v_right.operator, VersionOperator::Eq);
+                                assert_eq!(v_right.major.value, 0);
+                                assert_eq!(v_right.minor.as_ref().unwrap().value, 15);
+                                assert_eq!(v_right.bugfix.as_ref().unwrap().value, 0);
+                            }
+                            _ => panic!("Expected version expression on right side"),
+                        }
+                    }
+                    _ => panic!("Expected binary version expression"),
+                }
+            }
+            _ => panic!("Expected pragma directive"),
+        }
+    }
+
+    #[test]
+    fn pragma_language_version_or() {
+        let codebase = build_codebase_wrapper("pragma language_version 0.14.0 || 0.15.0;");
+        let codebase = codebase.borrow();
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        assert_eq!(ast.directives.len(), 1);
+        match &ast.directives[0] {
+            Directive::Pragma(pragma) => {
+                assert_eq!(pragma.name(), "language_version");
+                match &pragma.version {
+                    VersionExpr::Or(left, right) => {
+                        match &**left {
+                            VersionExpr::Version(v_left) => {
+                                assert_eq!(v_left.operator, VersionOperator::Eq);
+                                assert_eq!(v_left.major.value, 0);
+                                assert_eq!(v_left.minor.as_ref().unwrap().value, 14);
+                                assert_eq!(v_left.bugfix.as_ref().unwrap().value, 0);
+                            }
+                            _ => panic!("Expected version expression on left side"),
+                        }
+                        match &**right {
+                            VersionExpr::Version(v_right) => {
+                                assert_eq!(v_right.operator, VersionOperator::Eq);
+                                assert_eq!(v_right.major.value, 0);
+                                assert_eq!(v_right.minor.as_ref().unwrap().value, 15);
+                                assert_eq!(v_right.bugfix.as_ref().unwrap().value, 0);
+                            }
+                            _ => panic!("Expected version expression on right side"),
+                        }
+                    }
+                    _ => panic!("Expected an Or version expression"),
+                }
+            }
+            _ => panic!("Expected pragma directive"),
+        }
+    }
+
+    #[test]
+    fn pragma_language_version_and_or() {
+        let codebase =
+            build_codebase_wrapper("pragma language_version 0.14.0 && 0.15.0 || 0.16.0;");
+        let codebase = codebase.borrow();
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        assert_eq!(ast.directives.len(), 1);
+        match &ast.directives[0] {
+            Directive::Pragma(pragma) => {
+                assert_eq!(pragma.name(), "language_version");
+                match &pragma.version {
+                    VersionExpr::Or(outer_left, outer_right) => {
+                        // Left side should be an And expression: 0.14.0 && 0.15.0
+                        match &**outer_left {
+                            VersionExpr::And(inner_left, inner_right) => {
+                                match &**inner_left {
+                                    VersionExpr::Version(v) => {
+                                        assert_eq!(v.operator, VersionOperator::Eq);
+                                        assert_eq!(v.major.value, 0);
+                                        assert_eq!(v.minor.as_ref().unwrap().value, 14);
+                                        assert_eq!(v.bugfix.as_ref().unwrap().value, 0);
+                                    }
+                                    _ => {
+                                        panic!("Expected version expression on inner left side")
+                                    }
+                                }
+                                match &**inner_right {
+                                    VersionExpr::Version(v) => {
+                                        assert_eq!(v.operator, VersionOperator::Eq);
+                                        assert_eq!(v.major.value, 0);
+                                        assert_eq!(v.minor.as_ref().unwrap().value, 15);
+                                        assert_eq!(v.bugfix.as_ref().unwrap().value, 0);
+                                    }
+                                    _ => panic!("Expected version expression on inner right side"),
+                                }
+                            }
+                            _ => panic!("Expected And version expression for the left side of Or"),
+                        }
+                        // Outer right should be the version 0.16.0.
+                        match &**outer_right {
+                            VersionExpr::Version(v) => {
+                                assert_eq!(v.operator, VersionOperator::Eq);
+                                assert_eq!(v.major.value, 0);
+                                assert_eq!(v.minor.as_ref().unwrap().value, 16);
+                                assert_eq!(v.bugfix.as_ref().unwrap().value, 0);
+                            }
+                            _ => panic!("Expected version expression on outer right side"),
+                        }
+                    }
+                    _ => panic!("Expected an Or version expression"),
+                }
+            }
+            _ => panic!("Expected pragma directive"),
         }
     }
 }

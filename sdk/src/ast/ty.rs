@@ -179,3 +179,10 @@ impl TypeString {
         }
     }
 }
+
+impl Ref {
+    #[must_use]
+    pub fn name(&self) -> String {
+        self.name.name.clone()
+    }
+}
