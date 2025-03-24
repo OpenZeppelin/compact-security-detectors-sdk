@@ -213,68 +213,100 @@ fn build_pragma(node: &Node, source: &str) -> Result<Pragma> {
         .child_by_field_name("id")
         .ok_or_else(|| anyhow!("Missing 'id' field in pragma"))?;
     let identifier = build_identifier(&id_node, source)?;
+    let child_count = node.named_child_count();
+    if child_count < 2 {
+        bail!("Missing version expression in pragma");
+    }
+    let mut tokens = Vec::new();
+    for i in 1..child_count {
+        tokens.push(node.named_child(i).unwrap());
+    }
+    let mut pos = 0;
 
-    let mut start = 1;
-    let mut version_expressions: Vec<VersionExpr> = Vec::new();
-
-    while start < node.named_child_count() {
-        let child = node.named_child(start).unwrap();
-        match child.kind() {
-            "and" | "or" => {
-                let left = build_version(&child.child(0).unwrap(), VersionOperator::Eq, source)?;
-                let right = build_version(&child.child(1).unwrap(), VersionOperator::Eq, source)?;
-                version_expressions.push(VersionExpr::Or(
-                    Box::new(VersionExpr::Version(left.clone())),
-                    Box::new(VersionExpr::Version(right.clone())),
-                ));
-            }
+    fn parse_term(tokens: &[Node], pos: &mut usize, source: &str) -> Result<VersionExpr> {
+        if *pos >= tokens.len() {
+            bail!("Expected version term, but found end of tokens");
+        }
+        let token = &tokens[*pos];
+        match token.kind() {
             "not"
             | "greater_than"
-            | "less_than"
             | "greater_than_or_equal"
+            | "less_than"
             | "less_than_or_equal" => {
-                let version = build_version_with_operator(&child, source)?;
-                version_expressions.push(VersionExpr::Version(version.clone()));
-                start += 1;
+                let op = match token.kind() {
+                    "not" => VersionOperator::Neq,
+                    "greater_than" => VersionOperator::Gt,
+                    "greater_than_or_equal" => VersionOperator::Ge,
+                    "less_than" => VersionOperator::Lt,
+                    "less_than_or_equal" => VersionOperator::Le,
+                    _ => unreachable!(),
+                };
+                *pos += 1; // consume the unary operator token
+                if *pos >= tokens.len() {
+                    bail!("Expected version literal after unary operator");
+                }
+                let next = &tokens[*pos];
+                if next.kind() != "version" && next.kind() != "nat" {
+                    bail!(
+                        "Expected version literal after unary operator, found {}",
+                        next.kind()
+                    );
+                }
+                *pos += 1; // consume the literal
+                let version = build_version(next, op, source)?;
+                Ok(VersionExpr::Version(version))
             }
-            "version" => {
-                let version = build_version(&child, VersionOperator::Eq, source)?;
-                version_expressions.push(VersionExpr::Version(version.clone()));
+            "(" => {
+                // Handle parenthesized version expressions.
+                *pos += 1; // consume "("
+                let expr = parse_version_expr(tokens, pos, source)?;
+                if *pos >= tokens.len() || tokens[*pos].kind() != ")" {
+                    bail!("Expected ')' after parenthesized version expression");
+                }
+                *pos += 1; // consume ")"
+                Ok(expr)
             }
-            &_ => {}
+            "version" | "nat" => {
+                *pos += 1; // consume the literal token
+                let version = build_version(token, VersionOperator::Eq, source)?;
+                Ok(VersionExpr::Version(version))
+            }
+            other => bail!("Unexpected token in version expression: {}", other),
         }
-        start += 1;
     }
 
-    if version_expressions.len() == 1 {
-        let pragma = Pragma {
-            id: node_id(),
-            location: location(node),
-            version: version_expressions.first().unwrap().clone(),
-            value: identifier,
-        };
-
-        return Ok(pragma);
+    fn parse_expr0(tokens: &[Node], pos: &mut usize, source: &str) -> Result<VersionExpr> {
+        let mut left = parse_term(tokens, pos, source)?;
+        while *pos < tokens.len() && tokens[*pos].kind() == "and" {
+            *pos += 1; // consume "and"
+            let right = parse_term(tokens, pos, source)?;
+            left = VersionExpr::And(Box::new(left), Box::new(right));
+        }
+        Ok(left)
     }
-    bail!("Invalid pragma structure");
-}
 
-fn build_version_with_operator(node: &Node, source: &str) -> Result<Rc<Version>> {
-    let version_operator = match node.kind() {
-        "greater_than" => VersionOperator::Gt,
-        "greater_than_or_equal" => VersionOperator::Ge,
-        "less_than" => VersionOperator::Lt,
-        "less_than_or_equal" => VersionOperator::Le,
-        "not" => VersionOperator::Neq,
-        _ => bail!("Invalid version operator"),
-    };
-    let version_node = &node.next_named_sibling().ok_or_else(|| {
-        anyhow!(
-            "Missing version node in version expression: {:?}",
-            node.utf8_text(source.as_bytes())
-        )
-    })?;
-    build_version(version_node, version_operator, source)
+    fn parse_version_expr(tokens: &[Node], pos: &mut usize, source: &str) -> Result<VersionExpr> {
+        let mut left = parse_expr0(tokens, pos, source)?;
+        while *pos < tokens.len() && tokens[*pos].kind() == "or" {
+            *pos += 1; // consume "or"
+            let right = parse_expr0(tokens, pos, source)?;
+            left = VersionExpr::Or(Box::new(left), Box::new(right));
+        }
+        Ok(left)
+    }
+
+    let version_expr = parse_version_expr(&tokens, &mut pos, source)?;
+    if pos != tokens.len() {
+        bail!("Invalid pragma structure: unused tokens in version expression");
+    }
+
+    Ok(Pragma {
+        id: node_id(),
+        location: location(node),
+        version: version_expr,
+        value: identifier,
+    })
 }
 
 fn build_version(
