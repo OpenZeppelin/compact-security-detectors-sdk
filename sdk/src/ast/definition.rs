@@ -94,9 +94,21 @@ ast_nodes_impl! {
     }
 }
 
+impl Enum {
+    #[must_use = "This method returns the name of the enum"]
+    pub fn name(&self) -> String {
+        self.name.name.clone()
+    }
+}
+
 impl Circuit {
     #[must_use = "This method returns the name of the circuit"]
     pub fn name(&self) -> String {
         self.name.name.clone()
+    }
+
+    #[must_use = "This method to check if the circuit is external"]
+    pub fn is_external(&self) -> bool {
+        self.body.is_none()
     }
 }

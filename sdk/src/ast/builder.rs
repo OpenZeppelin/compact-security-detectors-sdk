@@ -7,7 +7,7 @@ use crate::ast::{directive::VersionExpr, literal::VersionOperator};
 
 use super::{
     declaration::{
-        Argument, Constructor, Declaration, Export, GArgument, Import, Ledger, Pattern,
+        Argument, Constructor, Contract, Declaration, Export, GArgument, Import, Ledger, Pattern,
         PatternArgument, StructPattern, StructPatternField, TuplePattern, Witness,
     },
     definition::{Circuit, Definition, Enum, Module, Structure},
@@ -22,7 +22,7 @@ use super::{
     node::Location,
     program::{CompactNode, Program},
     statement::{Assert, Assign, AssignOperator, Block, Const, For, If, Return, Statement},
-    ty::{Bytes, Opaque, Ref, Sum, Type, TypeBool, TypeField, Uint, Vector, VectorSize},
+    ty::{self, Bytes, Opaque, Ref, Sum, Type, TypeBool, TypeField, Uint, Vector, VectorSize},
 };
 
 /// Builds an AST from the given root node and source code.
@@ -102,6 +102,13 @@ fn build_compact_node(node: &Node, source: &str) -> Result<CompactNode> {
                 circuit,
             ))))
         }
+        //
+        "edecl" => {
+            let circuit = build_external_circuit(node, source)?;
+            Ok(CompactNode::Definition(Definition::Circuit(Rc::new(
+                circuit,
+            ))))
+        }
         // struct definition
         "struct" => {
             let structure = build_structure(node, source)?;
@@ -113,6 +120,13 @@ fn build_compact_node(node: &Node, source: &str) -> Result<CompactNode> {
         "enumdef" => {
             let enum_def = build_enum(node, source)?;
             Ok(CompactNode::Definition(Definition::Enum(Rc::new(enum_def))))
+        }
+        // external contract
+        "ecdecl" => {
+            let contract = build_external_contract(node, source)?;
+            Ok(CompactNode::Declaration(Declaration::Contract(Rc::new(
+                contract,
+            ))))
         }
         // constructor definition
         "lconstructor" => {
@@ -432,6 +446,54 @@ fn build_circuit(node: &Node, source: &str) -> Result<Circuit> {
     })
 }
 
+fn build_external_circuit(node: &Node, source: &str) -> Result<Circuit> {
+    let is_exported = node.child_by_field_name("export").is_some();
+    let name = build_identifier(
+        &node
+            .child_by_field_name("id")
+            .ok_or_else(|| anyhow!("Missing 'id' field in external circuit"))?,
+        source,
+    )?;
+    let generic_parameters_node = node.child_by_field_name("gparams");
+    let generic_parameters = generic_parameters_node
+        .as_ref()
+        .map(|generic_node| build_generic_parameters(generic_node, source));
+    let cursor = &mut node.walk();
+
+    let arguments = node
+        .children_by_field_name("arg", cursor)
+        .map(|arg_node| {
+            let arg = build_argument(&arg_node, source)?;
+            Ok(Rc::new(PatternArgument {
+                id: node_id(),
+                location: location(&arg_node),
+                pattern: Pattern::Identifier(arg.name.clone()),
+                ty: arg.ty.clone(),
+            }))
+        })
+        .collect::<Result<Vec<_>>>()?;
+
+    let type_node = node.child_by_field_name("type").ok_or_else(|| {
+        anyhow!(
+            "Missing 'type' field in external circuit: {:?}",
+            node.utf8_text(source.as_bytes())
+        )
+    })?;
+    let ty = build_type(&type_node, source)?;
+
+    Ok(Circuit {
+        id: node_id(),
+        location: location(node),
+        is_exported,
+        is_pure: false,
+        arguments,
+        name,
+        generic_parameters,
+        body: None,
+        ty,
+    })
+}
+
 fn build_constructor(node: &Node, source: &str) -> Result<Constructor> {
     let arguments = node
         .children_by_field_name("parg", &mut node.walk())
@@ -452,6 +514,64 @@ fn build_constructor(node: &Node, source: &str) -> Result<Constructor> {
         location: location(node),
         arguments,
         body,
+    })
+}
+
+fn build_external_contract(node: &Node, source: &str) -> Result<Contract> {
+    let is_exported = node.child_by_field_name("export").is_some();
+    let name = build_identifier(
+        &node
+            .child_by_field_name("name")
+            .ok_or_else(|| anyhow!("Missing 'id' field in external contract"))?,
+        source,
+    )?;
+    let cursor = &mut node.walk();
+    let contract_circuit_nodes = node.children_by_field_name("contract_circuit", cursor);
+    let mut circuits = Vec::new();
+    for circuit_node in contract_circuit_nodes {
+        let is_pure = circuit_node.child_by_field_name("pure").is_some();
+        let id_node = circuit_node
+            .child_by_field_name("id")
+            .ok_or_else(|| anyhow!("Missing 'id' field in contract circuit"))?;
+        let name = build_identifier(&id_node, source)?;
+        let cursor = &mut circuit_node.walk();
+        let arguments = circuit_node
+            .children_by_field_name("arg", cursor)
+            .map(|arg_node| {
+                let arg = build_argument(&arg_node, source)?;
+                Ok(Rc::new(PatternArgument {
+                    id: node_id(),
+                    location: location(&arg_node),
+                    pattern: Pattern::Identifier(arg.name.clone()),
+                    ty: arg.ty.clone(),
+                }))
+            })
+            .collect::<Result<Vec<_>>>()?;
+        let ty_node = circuit_node.child_by_field_name("type").ok_or_else(|| {
+            anyhow!(
+                "Missing 'type' field in contract circuit: {:?}",
+                circuit_node.utf8_text(source.as_bytes())
+            )
+        })?;
+        let ty = build_type(&ty_node, source)?;
+        circuits.push(Rc::new(Circuit {
+            id: node_id(),
+            location: location(&circuit_node),
+            name,
+            arguments,
+            generic_parameters: None,
+            is_exported: false,
+            is_pure,
+            ty,
+            body: None,
+        }));
+    }
+    Ok(Contract {
+        id: node_id(),
+        location: location(node),
+        is_exported,
+        name,
+        circuits,
     })
 }
 

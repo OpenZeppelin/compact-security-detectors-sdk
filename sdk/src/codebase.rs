@@ -52,6 +52,10 @@ impl Codebase<OpenState> {
     /// # Errors
     ///
     /// This function will return an error if building the symbol table fails.
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if the symbol table for a file path is not found.
     pub fn seal(self) -> Result<Codebase<SealedState>> {
         let mut symbol_tables = HashMap::new();
         for (file_path, source_code_file) in &self.fname_ast_map {

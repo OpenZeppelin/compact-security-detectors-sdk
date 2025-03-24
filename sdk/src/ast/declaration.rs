@@ -195,6 +195,13 @@ ast_nodes_impl! {
     }
 }
 
+impl Contract {
+    #[must_use]
+    pub fn name(&self) -> String {
+        self.name.name.clone()
+    }
+}
+
 impl Import {
     #[must_use]
     pub fn name(&self) -> String {

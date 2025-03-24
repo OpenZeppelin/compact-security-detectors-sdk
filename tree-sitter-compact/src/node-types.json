@@ -699,24 +699,37 @@
   {
     "type": "ecdecl",
     "named": true,
-    "fields": {},
-    "children": {
-      "multiple": true,
-      "required": true,
-      "types": [
-        {
-          "type": "contract_name",
-          "named": true
-        },
-        {
-          "type": "ecdecl_circuit",
-          "named": true
-        },
-        {
-          "type": "export",
-          "named": true
-        }
-      ]
+    "fields": {
+      "contract_circuit": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": "ecdecl_circuit",
+            "named": true
+          }
+        ]
+      },
+      "export": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "export",
+            "named": true
+          }
+        ]
+      },
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "contract_name",
+            "named": true
+          }
+        ]
+      }
     }
   },
   {
@@ -769,6 +782,50 @@
     "type": "edecl",
     "named": true,
     "fields": {
+      "arg": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": "arg",
+            "named": true
+          }
+        ]
+      },
+      "args": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": ",",
+            "named": false
+          },
+          {
+            "type": "arg",
+            "named": true
+          }
+        ]
+      },
+      "export": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "export",
+            "named": true
+          }
+        ]
+      },
+      "gparams": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "gparams",
+            "named": true
+          }
+        ]
+      },
       "id": {
         "multiple": false,
         "required": true,
@@ -789,24 +846,6 @@
           }
         ]
       }
-    },
-    "children": {
-      "multiple": true,
-      "required": false,
-      "types": [
-        {
-          "type": "arg",
-          "named": true
-        },
-        {
-          "type": "export",
-          "named": true
-        },
-        {
-          "type": "gparams",
-          "named": true
-        }
-      ]
     }
   },
   {

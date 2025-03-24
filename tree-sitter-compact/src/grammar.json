@@ -940,8 +940,12 @@
           "type": "CHOICE",
           "members": [
             {
-              "type": "SYMBOL",
-              "name": "export"
+              "type": "FIELD",
+              "name": "export",
+              "content": {
+                "type": "SYMBOL",
+                "name": "export"
+              }
             },
             {
               "type": "BLANK"
@@ -964,8 +968,12 @@
           "type": "CHOICE",
           "members": [
             {
-              "type": "SYMBOL",
-              "name": "gparams"
+              "type": "FIELD",
+              "name": "gparams",
+              "content": {
+                "type": "SYMBOL",
+                "name": "gparams"
+              }
             },
             {
               "type": "BLANK"
@@ -977,49 +985,61 @@
           "value": "("
         },
         {
-          "type": "CHOICE",
-          "members": [
-            {
-              "type": "SEQ",
-              "members": [
-                {
-                  "type": "SYMBOL",
-                  "name": "arg"
-                },
-                {
-                  "type": "REPEAT",
-                  "content": {
-                    "type": "SEQ",
+          "type": "FIELD",
+          "name": "args",
+          "content": {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "SEQ",
+                "members": [
+                  {
+                    "type": "FIELD",
+                    "name": "arg",
+                    "content": {
+                      "type": "SYMBOL",
+                      "name": "arg"
+                    }
+                  },
+                  {
+                    "type": "REPEAT",
+                    "content": {
+                      "type": "SEQ",
+                      "members": [
+                        {
+                          "type": "STRING",
+                          "value": ","
+                        },
+                        {
+                          "type": "FIELD",
+                          "name": "arg",
+                          "content": {
+                            "type": "SYMBOL",
+                            "name": "arg"
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "type": "CHOICE",
                     "members": [
                       {
                         "type": "STRING",
                         "value": ","
                       },
                       {
-                        "type": "SYMBOL",
-                        "name": "arg"
+                        "type": "BLANK"
                       }
                     ]
                   }
-                },
-                {
-                  "type": "CHOICE",
-                  "members": [
-                    {
-                      "type": "STRING",
-                      "value": ","
-                    },
-                    {
-                      "type": "BLANK"
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              "type": "BLANK"
-            }
-          ]
+                ]
+              },
+              {
+                "type": "BLANK"
+              }
+            ]
+          }
         },
         {
           "type": "STRING",
@@ -1180,8 +1200,12 @@
           "type": "CHOICE",
           "members": [
             {
-              "type": "SYMBOL",
-              "name": "export"
+              "type": "FIELD",
+              "name": "export",
+              "content": {
+                "type": "SYMBOL",
+                "name": "export"
+              }
             },
             {
               "type": "BLANK"
@@ -1193,8 +1217,12 @@
           "value": "contract"
         },
         {
-          "type": "SYMBOL",
-          "name": "contract_name"
+          "type": "FIELD",
+          "name": "name",
+          "content": {
+            "type": "SYMBOL",
+            "name": "contract_name"
+          }
         },
         {
           "type": "STRING",
@@ -1203,8 +1231,12 @@
         {
           "type": "REPEAT",
           "content": {
-            "type": "SYMBOL",
-            "name": "ecdecl_circuit"
+            "type": "FIELD",
+            "name": "contract_circuit",
+            "content": {
+              "type": "SYMBOL",
+              "name": "ecdecl_circuit"
+            }
           }
         },
         {

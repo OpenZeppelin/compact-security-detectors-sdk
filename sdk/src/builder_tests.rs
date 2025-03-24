@@ -531,3 +531,376 @@ mod constructor_parsing_tests {
         }
     }
 }
+
+#[cfg(test)]
+mod enum_parsing_tests {
+    use crate::{ast::definition::Definition, builder_tests::build_codebase_wrapper};
+
+    #[test]
+    fn simple_enum() {
+        let codebase = build_codebase_wrapper("enum Color { red }");
+        let codebase = codebase.borrow();
+        assert_eq!(codebase.fname_ast_map.len(), 1);
+        assert_eq!(codebase.symbol_tables.len(), 1);
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        assert_eq!(ast.definitions.len(), 1);
+        match &ast.definitions[0] {
+            Definition::Enum(enum_def) => {
+                assert_eq!(enum_def.name(), "Color");
+                assert!(!enum_def.is_exported);
+                assert_eq!(enum_def.options.len(), 1);
+                assert_eq!(enum_def.options[0].name, "red");
+            }
+            _ => panic!("Expected enum declaration"),
+        }
+    }
+
+    #[test]
+    fn multiple_enum_options() {
+        let codebase = build_codebase_wrapper("export enum Days { Monday, Tuesday, Wednesday }");
+        let codebase = codebase.borrow();
+        assert_eq!(codebase.fname_ast_map.len(), 1);
+        assert_eq!(codebase.symbol_tables.len(), 1);
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        assert_eq!(ast.definitions.len(), 1);
+        match &ast.definitions[0] {
+            Definition::Enum(enum_def) => {
+                assert_eq!(enum_def.name(), "Days");
+                assert!(enum_def.is_exported);
+                assert_eq!(enum_def.options.len(), 3);
+                assert_eq!(enum_def.options[0].name, "Monday");
+                assert_eq!(enum_def.options[1].name, "Tuesday");
+                assert_eq!(enum_def.options[2].name, "Wednesday");
+            }
+            _ => panic!("Expected enum declaration"),
+        }
+    }
+}
+
+#[cfg(test)]
+mod export_parsing_tests {
+    use crate::{ast::declaration::Declaration, builder_tests::build_codebase_wrapper};
+
+    #[test]
+    fn simple_export() {
+        let codebase = build_codebase_wrapper("export { foo }");
+        let codebase = codebase.borrow();
+        assert_eq!(codebase.fname_ast_map.len(), 1);
+        assert_eq!(codebase.symbol_tables.len(), 1);
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        assert_eq!(ast.declarations.len(), 1);
+        match &ast.declarations[0] {
+            Declaration::Export(export) => {
+                assert_eq!(export.values.len(), 1);
+                assert_eq!(export.values[0].name, "foo");
+            }
+            _ => panic!("Expected name export"),
+        }
+    }
+
+    #[test]
+    fn multiple_exports() {
+        let codebase = build_codebase_wrapper("export { foo, bar, baz, };");
+        let codebase = codebase.borrow();
+        assert_eq!(codebase.fname_ast_map.len(), 1);
+        assert_eq!(codebase.symbol_tables.len(), 1);
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        assert_eq!(ast.declarations.len(), 1);
+        match &ast.declarations[0] {
+            Declaration::Export(export) => {
+                assert_eq!(export.values.len(), 3);
+                assert_eq!(export.values[0].name, "foo");
+                assert_eq!(export.values[1].name, "bar");
+                assert_eq!(export.values[2].name, "baz");
+            }
+            _ => panic!("Expected name export"),
+        }
+    }
+}
+
+#[cfg(test)]
+mod external_contract_parsing_test {
+    use crate::{
+        ast::{declaration::Declaration, ty::Type},
+        builder_tests::build_codebase_wrapper,
+    };
+
+    #[test]
+    fn simple_external_contract() {
+        let codebase = build_codebase_wrapper(
+            "contract MyContract {
+                circuit foo (x: Field) : Field;
+            }",
+        );
+        let codebase = codebase.borrow();
+        assert_eq!(codebase.fname_ast_map.len(), 1);
+        assert_eq!(codebase.symbol_tables.len(), 1);
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        assert_eq!(ast.declarations.len(), 1);
+        match &ast.declarations[0] {
+            Declaration::Contract(contract) => {
+                assert_eq!(contract.name(), "MyContract");
+                assert_eq!(contract.circuits.len(), 1);
+                let circuit = &contract.circuits[0];
+                assert_eq!(circuit.name(), "foo");
+                assert_eq!(circuit.arguments.len(), 1);
+                let arg = &circuit.arguments[0];
+                assert_eq!(arg.name().unwrap(), "x");
+                assert!(matches!(arg.ty, Type::Field(_)));
+                assert!(matches!(circuit.ty, Type::Field(_)));
+                assert!(circuit.body.is_none());
+            }
+            _ => panic!("Expected contract declaration"),
+        }
+    }
+
+    #[test]
+    fn simple_export_contract() {
+        let codebase = build_codebase_wrapper(
+            "export contract MyContract {
+                circuit foo (x: Field) : Field;
+            }",
+        );
+        let codebase = codebase.borrow();
+        assert_eq!(codebase.fname_ast_map.len(), 1);
+        assert_eq!(codebase.symbol_tables.len(), 1);
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        assert_eq!(ast.declarations.len(), 1);
+        match &ast.declarations[0] {
+            Declaration::Contract(contract) => {
+                assert_eq!(contract.name(), "MyContract");
+                assert_eq!(contract.circuits.len(), 1);
+                let circuit = &contract.circuits[0];
+                assert_eq!(circuit.name(), "foo");
+                assert_eq!(circuit.arguments.len(), 1);
+                let arg = &circuit.arguments[0];
+                assert_eq!(arg.name().unwrap(), "x");
+                assert!(matches!(arg.ty, Type::Field(_)));
+                assert!(matches!(circuit.ty, Type::Field(_)));
+                assert!(circuit.body.is_none());
+            }
+            _ => panic!("Expected contract declaration"),
+        }
+    }
+
+    #[test]
+    fn contract_with_multiple_circuits() {
+        let codebase = build_codebase_wrapper(
+            "contract MyContract {
+                circuit foo (x: Field) : Field;
+                pure circuit bar (a: Field, b: Uint<32>) : Field;
+            };",
+        );
+        let codebase = codebase.borrow();
+        assert_eq!(codebase.fname_ast_map.len(), 1);
+        assert_eq!(codebase.symbol_tables.len(), 1);
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        assert_eq!(ast.declarations.len(), 1);
+        match &ast.declarations[0] {
+            Declaration::Contract(contract) => {
+                assert_eq!(contract.name(), "MyContract");
+                assert_eq!(contract.circuits.len(), 2);
+                let circuit = &contract.circuits[0];
+                assert_eq!(circuit.name(), "foo");
+                assert_eq!(circuit.arguments.len(), 1);
+                let arg = &circuit.arguments[0];
+                assert_eq!(arg.name().unwrap(), "x");
+                assert!(matches!(arg.ty, Type::Field(_)));
+                assert!(matches!(circuit.ty, Type::Field(_)));
+                assert!(circuit.body.is_none());
+                let circuit = &contract.circuits[1];
+                assert_eq!(circuit.name(), "bar");
+                assert_eq!(circuit.arguments.len(), 2);
+                let arg = &circuit.arguments[0];
+                assert_eq!(arg.name().unwrap(), "a");
+                assert!(matches!(arg.ty, Type::Field(_)));
+                let arg = &circuit.arguments[1];
+                assert_eq!(arg.name().unwrap(), "b");
+                match &arg.ty {
+                    Type::Uint(uint_t) => {
+                        assert_eq!(uint_t.start.value, 32);
+                        assert!(uint_t.end.is_none());
+                    }
+                    _ => panic!("Expected Uint type"),
+                }
+                assert!(matches!(circuit.ty, Type::Field(_)));
+                assert!(circuit.body.is_none());
+            }
+            _ => panic!("Expected contract declaration"),
+        }
+    }
+}
+
+#[cfg(test)]
+mod external_parsing_test {
+    use crate::{ast::ty::Type, builder_tests::build_codebase_wrapper};
+
+    #[test]
+    fn simple_circuit() {
+        let codebase = build_codebase_wrapper("circuit add (x: Field) : Field;");
+        let codebase = codebase.borrow();
+        assert_eq!(codebase.fname_ast_map.len(), 1);
+        assert_eq!(codebase.symbol_tables.len(), 1);
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        assert_eq!(ast.definitions.len(), 1);
+        let circuits = ast.circuits();
+        assert_eq!(circuits.len(), 1);
+        let circuit = circuits.first().unwrap();
+        assert!(!circuit.is_exported);
+        assert!(!circuit.is_pure);
+        assert_eq!(circuit.name(), "add");
+        assert_eq!(circuit.arguments.len(), 1);
+        let arg = circuit.arguments.first().unwrap();
+        assert_eq!(arg.name().unwrap(), "x");
+        assert!(matches!(arg.ty, Type::Field(_)));
+        assert!(matches!(circuit.ty, Type::Field(_)));
+        assert!(circuit.body.is_none());
+    }
+
+    #[test]
+    fn export_circuit() {
+        let codebase =
+            build_codebase_wrapper("export circuit multiply (a: Field, b: Field) : Field;");
+        let codebase = codebase.borrow();
+        assert_eq!(codebase.fname_ast_map.len(), 1);
+        assert_eq!(codebase.symbol_tables.len(), 1);
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        assert_eq!(ast.definitions.len(), 1);
+        let circuits = ast.circuits();
+        assert_eq!(circuits.len(), 1);
+        let circuit = circuits.first().unwrap();
+        assert!(circuit.is_exported);
+        assert!(!circuit.is_pure);
+        assert_eq!(circuit.name(), "multiply");
+        assert_eq!(circuit.arguments.len(), 2);
+        let arg = circuit.arguments.first().unwrap();
+        assert_eq!(arg.name().unwrap(), "a");
+        assert!(matches!(arg.ty, Type::Field(_)));
+        let arg = circuit.arguments.last().unwrap();
+        assert_eq!(arg.name().unwrap(), "b");
+        assert!(matches!(arg.ty, Type::Field(_)));
+        assert!(matches!(circuit.ty, Type::Field(_)));
+        assert!(circuit.body.is_none());
+    }
+
+    #[test]
+    fn circuit_with_generic_parameters() {
+        let codebase = build_codebase_wrapper("circuit process<T> (data: Field) : Field;");
+        let codebase = codebase.borrow();
+        assert_eq!(codebase.fname_ast_map.len(), 1);
+        assert_eq!(codebase.symbol_tables.len(), 1);
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        assert_eq!(ast.definitions.len(), 1);
+        let circuits = ast.circuits();
+        assert_eq!(circuits.len(), 1);
+        let circuit = circuits.first().unwrap();
+        assert!(!circuit.is_exported);
+        assert!(!circuit.is_pure);
+        assert_eq!(circuit.name(), "process");
+        assert_eq!(circuit.arguments.len(), 1);
+        let arg = circuit.arguments.first().unwrap();
+        assert_eq!(arg.name().unwrap(), "data");
+        assert!(matches!(arg.ty, Type::Field(_)));
+        assert!(matches!(circuit.ty, Type::Field(_)));
+        assert!(circuit.generic_parameters.is_some());
+        assert_eq!(circuit.generic_parameters.as_ref().unwrap().len(), 1);
+        assert_eq!(
+            circuit
+                .generic_parameters
+                .as_ref()
+                .unwrap()
+                .first()
+                .unwrap()
+                .name,
+            "T"
+        );
+        assert!(circuit.body.is_none());
+    }
+
+    #[test]
+    #[allow(clippy::too_many_lines)]
+    fn circuit_with_multiple_parameters() {
+        let codebase =
+            build_codebase_wrapper("circuit compute (x: Field, y: Field, z: Uint<32>) : Uint<32>;");
+        let codebase = codebase.borrow();
+        assert_eq!(codebase.fname_ast_map.len(), 1);
+        assert_eq!(codebase.symbol_tables.len(), 1);
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        assert_eq!(ast.definitions.len(), 1);
+        let circuits = ast.circuits();
+        assert_eq!(circuits.len(), 1);
+        let circuit = circuits.first().unwrap();
+        assert!(!circuit.is_exported);
+        assert!(!circuit.is_pure);
+        assert_eq!(circuit.name(), "compute");
+        assert_eq!(circuit.arguments.len(), 3);
+        let arg = circuit.arguments.first().unwrap();
+        assert_eq!(arg.name().unwrap(), "x");
+        assert!(matches!(arg.ty, Type::Field(_)));
+        let arg = circuit.arguments.get(1).unwrap();
+        assert_eq!(arg.name().unwrap(), "y");
+        assert!(matches!(arg.ty, Type::Field(_)));
+        let arg = circuit.arguments.last().unwrap();
+        assert_eq!(arg.name().unwrap(), "z");
+        match &arg.ty {
+            Type::Uint(uint_t) => {
+                assert_eq!(uint_t.start.value, 32);
+                assert!(uint_t.end.is_none());
+            }
+            _ => panic!("Expected Uint type"),
+        }
+        assert!(matches!(circuit.ty, Type::Uint(_)));
+        match &circuit.ty {
+            Type::Uint(uint_t) => {
+                assert_eq!(uint_t.start.value, 32);
+                assert!(uint_t.end.is_none());
+            }
+            _ => panic!("Expected Uint type"),
+        }
+        assert!(circuit.body.is_none());
+    }
+
+    #[test]
+    fn circuit_with_vector_return_type() {
+        let codebase = build_codebase_wrapper("circuit build (a: Field) : Vector<10, Field>;");
+        let codebase = codebase.borrow();
+        assert_eq!(codebase.fname_ast_map.len(), 1);
+        assert_eq!(codebase.symbol_tables.len(), 1);
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        assert_eq!(ast.definitions.len(), 1);
+        let circuits = ast.circuits();
+        assert_eq!(circuits.len(), 1);
+        let circuit = circuits.first().unwrap();
+        assert!(!circuit.is_exported);
+        assert!(!circuit.is_pure);
+        assert_eq!(circuit.name(), "build");
+        assert_eq!(circuit.arguments.len(), 1);
+        let arg = circuit.arguments.first().unwrap();
+        assert_eq!(arg.name().unwrap(), "a");
+        assert!(matches!(arg.ty, Type::Field(_)));
+        match &circuit.ty {
+            Type::Vector(vec_t) => {
+                match &vec_t.size {
+                    crate::ast::ty::VectorSize::Nat(size) => {
+                        assert_eq!(size.value, 10);
+                    }
+                    crate::ast::ty::VectorSize::Ref(_) => panic!("Expected fixed size vector"),
+                }
+                assert!(matches!(vec_t.ty, Type::Field(_)));
+            }
+            _ => panic!("Expected Vector type"),
+        }
+    }
+}
