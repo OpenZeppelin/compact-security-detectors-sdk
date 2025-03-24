@@ -1288,7 +1288,6 @@ mod pragma_parsing_tests {
                     _ => panic!("Expected simple version expression"),
                 }
             }
-            _ => panic!("Expected pragma directive"),
         }
     }
 
@@ -1313,7 +1312,6 @@ mod pragma_parsing_tests {
                     _ => panic!("Expected simple version expression"),
                 }
             }
-            _ => panic!("Expected pragma directive"),
         }
     }
 
@@ -1337,7 +1335,6 @@ mod pragma_parsing_tests {
                     _ => panic!("Expected simple version expression"),
                 }
             }
-            _ => panic!("Expected pragma directive"),
         }
     }
 
@@ -1361,7 +1358,6 @@ mod pragma_parsing_tests {
                     _ => panic!("Expected simple version expression"),
                 }
             }
-            _ => panic!("Expected pragma directive"),
         }
     }
 
@@ -1385,7 +1381,6 @@ mod pragma_parsing_tests {
                     _ => panic!("Expected simple version expression"),
                 }
             }
-            _ => panic!("Expected pragma directive"),
         }
     }
 
@@ -1409,7 +1404,6 @@ mod pragma_parsing_tests {
                     _ => panic!("Expected simple version expression"),
                 }
             }
-            _ => panic!("Expected pragma directive"),
         }
     }
 
@@ -1434,7 +1428,6 @@ mod pragma_parsing_tests {
                     _ => panic!("Expected simple version expression"),
                 }
             }
-            _ => panic!("Expected pragma directive"),
         }
     }
 
@@ -1458,7 +1451,6 @@ mod pragma_parsing_tests {
                     _ => panic!("Expected simple version expression"),
                 }
             }
-            _ => panic!("Expected pragma directive"),
         }
     }
 
@@ -1498,7 +1490,6 @@ mod pragma_parsing_tests {
                     _ => panic!("Expected binary version expression"),
                 }
             }
-            _ => panic!("Expected pragma directive"),
         }
     }
 
@@ -1536,7 +1527,6 @@ mod pragma_parsing_tests {
                     _ => panic!("Expected an Or version expression"),
                 }
             }
-            _ => panic!("Expected pragma directive"),
         }
     }
 
@@ -1593,7 +1583,6 @@ mod pragma_parsing_tests {
                     _ => panic!("Expected an Or version expression"),
                 }
             }
-            _ => panic!("Expected pragma directive"),
         }
     }
 }

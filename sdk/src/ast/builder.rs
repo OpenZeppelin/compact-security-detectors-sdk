@@ -208,33 +208,40 @@ fn build_enum(node: &Node, source: &str) -> Result<Enum> {
     })
 }
 
+#[allow(clippy::too_many_lines)]
 fn build_pragma(node: &Node, source: &str) -> Result<Pragma> {
+    // Retrieve the 'id' field and build the pragma identifier.
     let id_node = node
         .child_by_field_name("id")
         .ok_or_else(|| anyhow!("Missing 'id' field in pragma"))?;
     let identifier = build_identifier(&id_node, source)?;
+
+    // Ensure the pragma has at least one version expression (after the id).
     let child_count = node.named_child_count();
     if child_count < 2 {
         bail!("Missing version expression in pragma");
     }
-    let mut tokens = Vec::new();
-    for i in 1..child_count {
-        tokens.push(node.named_child(i).unwrap());
-    }
+
+    // Collect all tokens that make up the version expression.
+    let tokens: Vec<_> = (1..child_count)
+        .map(|i| node.named_child(i).unwrap())
+        .collect();
     let mut pos = 0;
 
-    fn parse_term(tokens: &[Node], pos: &mut usize, source: &str) -> Result<VersionExpr> {
-        if *pos >= tokens.len() {
-            bail!("Expected version term, but found end of tokens");
-        }
-        let token = &tokens[*pos];
+    // Iteratively parse the version expression using a shunting-yard style approach.
+    let mut output_stack: Vec<VersionExpr> = Vec::new();
+    let mut op_stack: Vec<(String, i32)> = Vec::new();
+
+    while pos < tokens.len() {
+        let token = &tokens[pos];
         match token.kind() {
+            // Handle unary operator followed by a literal.
             "not"
             | "greater_than"
             | "greater_than_or_equal"
             | "less_than"
             | "less_than_or_equal" => {
-                let op = match token.kind() {
+                let operator = match token.kind() {
                     "not" => VersionOperator::Neq,
                     "greater_than" => VersionOperator::Gt,
                     "greater_than_or_equal" => VersionOperator::Ge,
@@ -242,64 +249,107 @@ fn build_pragma(node: &Node, source: &str) -> Result<Pragma> {
                     "less_than_or_equal" => VersionOperator::Le,
                     _ => unreachable!(),
                 };
-                *pos += 1; // consume the unary operator token
-                if *pos >= tokens.len() {
+                pos += 1; // Consume the operator token.
+                if pos >= tokens.len() {
                     bail!("Expected version literal after unary operator");
                 }
-                let next = &tokens[*pos];
-                if next.kind() != "version" && next.kind() != "nat" {
+                let literal = &tokens[pos];
+                if literal.kind() != "version" && literal.kind() != "nat" {
                     bail!(
                         "Expected version literal after unary operator, found {}",
-                        next.kind()
+                        literal.kind()
                     );
                 }
-                *pos += 1; // consume the literal
-                let version = build_version(next, op, source)?;
-                Ok(VersionExpr::Version(version))
+                let version = build_version(literal, operator, source)?;
+                output_stack.push(VersionExpr::Version(version));
+                pos += 1;
             }
+            // Handle opening parenthesis.
             "(" => {
-                // Handle parenthesized version expressions.
-                *pos += 1; // consume "("
-                let expr = parse_version_expr(tokens, pos, source)?;
-                if *pos >= tokens.len() || tokens[*pos].kind() != ")" {
-                    bail!("Expected ')' after parenthesized version expression");
+                op_stack.push(("(".to_string(), 0));
+                pos += 1;
+            }
+            // Handle closing parenthesis: unwind the operator stack.
+            ")" => {
+                while let Some((op, _)) = op_stack.pop() {
+                    if op == "(" {
+                        break;
+                    }
+                    let right = output_stack
+                        .pop()
+                        .ok_or_else(|| anyhow!("Missing operand for operator"))?;
+                    let left = output_stack
+                        .pop()
+                        .ok_or_else(|| anyhow!("Missing left operand for operator"))?;
+                    let expr = match op.as_str() {
+                        "and" => VersionExpr::And(Box::new(left), Box::new(right)),
+                        "or" => VersionExpr::Or(Box::new(left), Box::new(right)),
+                        _ => unreachable!(),
+                    };
+                    output_stack.push(expr);
                 }
-                *pos += 1; // consume ")"
-                Ok(expr)
+                pos += 1;
             }
+            // Handle a bare version literal.
             "version" | "nat" => {
-                *pos += 1; // consume the literal token
                 let version = build_version(token, VersionOperator::Eq, source)?;
-                Ok(VersionExpr::Version(version))
+                output_stack.push(VersionExpr::Version(version));
+                pos += 1;
             }
+            // Handle binary operators.
+            "and" | "or" => {
+                // Define precedence: "and" (2) binds tighter than "or" (1).
+                let curr_prec = if token.kind() == "and" { 2 } else { 1 };
+                while let Some((op, prec)) = op_stack.last() {
+                    if *op != "(" && *prec >= curr_prec {
+                        let (op, _) = op_stack.pop().unwrap();
+                        let right = output_stack
+                            .pop()
+                            .ok_or_else(|| anyhow!("Missing operand for operator"))?;
+                        let left = output_stack
+                            .pop()
+                            .ok_or_else(|| anyhow!("Missing left operand for operator"))?;
+                        let expr = match op.as_str() {
+                            "and" => VersionExpr::And(Box::new(left), Box::new(right)),
+                            "or" => VersionExpr::Or(Box::new(left), Box::new(right)),
+                            _ => unreachable!(),
+                        };
+                        output_stack.push(expr);
+                    } else {
+                        break;
+                    }
+                }
+                op_stack.push((token.kind().to_string(), curr_prec));
+                pos += 1;
+            }
+            // Any unexpected token results in an error.
             other => bail!("Unexpected token in version expression: {}", other),
         }
     }
 
-    fn parse_expr0(tokens: &[Node], pos: &mut usize, source: &str) -> Result<VersionExpr> {
-        let mut left = parse_term(tokens, pos, source)?;
-        while *pos < tokens.len() && tokens[*pos].kind() == "and" {
-            *pos += 1; // consume "and"
-            let right = parse_term(tokens, pos, source)?;
-            left = VersionExpr::And(Box::new(left), Box::new(right));
+    // Finish by unwinding any remaining operators.
+    while let Some((op, _)) = op_stack.pop() {
+        if op == "(" {
+            bail!("Mismatched parenthesis in version expression");
         }
-        Ok(left)
+        let right = output_stack
+            .pop()
+            .ok_or_else(|| anyhow!("Missing operand for operator"))?;
+        let left = output_stack
+            .pop()
+            .ok_or_else(|| anyhow!("Missing left operand for operator"))?;
+        let expr = match op.as_str() {
+            "and" => VersionExpr::And(Box::new(left), Box::new(right)),
+            "or" => VersionExpr::Or(Box::new(left), Box::new(right)),
+            _ => unreachable!(),
+        };
+        output_stack.push(expr);
     }
 
-    fn parse_version_expr(tokens: &[Node], pos: &mut usize, source: &str) -> Result<VersionExpr> {
-        let mut left = parse_expr0(tokens, pos, source)?;
-        while *pos < tokens.len() && tokens[*pos].kind() == "or" {
-            *pos += 1; // consume "or"
-            let right = parse_expr0(tokens, pos, source)?;
-            left = VersionExpr::Or(Box::new(left), Box::new(right));
-        }
-        Ok(left)
-    }
-
-    let version_expr = parse_version_expr(&tokens, &mut pos, source)?;
-    if pos != tokens.len() {
+    if output_stack.len() != 1 {
         bail!("Invalid pragma structure: unused tokens in version expression");
     }
+    let version_expr = output_stack.pop().unwrap();
 
     Ok(Pragma {
         id: node_id(),
