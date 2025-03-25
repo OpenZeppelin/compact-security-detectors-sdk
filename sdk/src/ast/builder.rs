@@ -749,9 +749,10 @@ fn build_statement(node: &Node, source: &str) -> Result<Statement> {
         "return_stmt" => Statement::Return(build_return_statement(node, source)?),
         "assert_stmt" => Statement::Assert(build_assert_statement(node, source)?),
         "const_stmt" => Statement::Const(build_const_statement(node, source)?),
-        "expression_sequence_stmt" => {
-            Statement::ExpressionSequence(build_expression_sequence(node, source)?)
-        }
+        "expression_sequence_stmt" => Statement::ExpressionSequence(build_expression_sequence(
+            &node.named_child(0).unwrap(),
+            source,
+        )?),
         _ => bail!("Unhandled statement kind: {} {:}", kind, node),
     };
     Ok(statement)
@@ -803,7 +804,7 @@ fn build_const_statement(node: &Node, source: &str) -> Result<Rc<Const>> {
             node.utf8_text(source.as_bytes())
         )
     })?;
-    let pattern = build_pattern(&pattern_node.child(0).unwrap(), source)?;
+    let pattern = build_pattern(&pattern_node, source)?;
     let ty_node = node.child_by_field_name("type");
     let ty = if let Some(ty_n) = ty_node {
         Some(build_type(&ty_n, source)?)
@@ -886,7 +887,7 @@ fn build_for_statement(node: &Node, source: &str) -> Result<Rc<For>> {
             node.utf8_text(source.as_bytes())
         )
     })?;
-    let body = build_block(&body_node, source)?;
+    let body = build_block(&body_node.child(0).unwrap(), source)?;
     Ok(Rc::new(For {
         id: node_id(),
         location: location(node),
@@ -1020,15 +1021,16 @@ fn build_expression(node: &Node, source: &str) -> Result<Expression> {
                 operator,
             }))
         }
-        "less_than" | "less_than_or_equal" | "greater_than" | "greater_than_or_equal" => {
-            let left = build_expression(&node.named_child(0).unwrap(), source)?;
-            let right = build_expression(&node.named_child(1).unwrap(), source)?;
-            let operator = match node.kind() {
+        "rel_comparison_expr" => {
+            let left = build_expression(&node.child_by_field_name("left").unwrap(), source)?;
+            let right = build_expression(&node.child_by_field_name("right").unwrap(), source)?;
+            let operator_node = node.child_by_field_name("operator").unwrap();
+            let operator = match operator_node.kind() {
                 "less_than" => BinaryExpressionOperator::Lt,
                 "less_than_or_equal" => BinaryExpressionOperator::Le,
                 "greater_than" => BinaryExpressionOperator::Gt,
                 "greater_than_or_equal" => BinaryExpressionOperator::Ge,
-                _ => unreachable!(),
+                _ => bail!("Invalid comparison operator {operator_node:?}"),
             };
             Expression::Binary(Rc::new(Binary {
                 id: node_id(),
@@ -1634,13 +1636,14 @@ fn build_pargument(node: &Node, source: &str) -> Result<Rc<PatternArgument>> {
 }
 
 fn build_pattern(node: &Node, source: &str) -> Result<Pattern> {
-    let node = if node.kind() == "pattern" {
-        &node.child(0).unwrap()
-    } else {
-        node
-    };
+    // println!("Pattern: {:?}", node);
+    // let node = if node.kind() == "pattern" {
+    //     &node.child(0).unwrap()
+    // } else {
+    //     node
+    // };
     let kind = node.kind();
-    match kind {
+    match node.child(0).unwrap().kind() {
         "id" => {
             let name = build_identifier(node, source)?;
             Ok(Pattern::Identifier(name))
@@ -1649,7 +1652,7 @@ fn build_pattern(node: &Node, source: &str) -> Result<Pattern> {
             let cursor = &mut node.walk();
             let patterns: Result<Vec<_>> = node
                 .children_by_field_name("pattern_tuple_elt", cursor)
-                .map(|pattern_node| build_pattern(&pattern_node, source))
+                .map(|pattern_node| build_pattern(&pattern_node.child(0).unwrap(), source))
                 .collect();
             let patterns = patterns?;
             Ok(Pattern::Tuple(Rc::new(TuplePattern {

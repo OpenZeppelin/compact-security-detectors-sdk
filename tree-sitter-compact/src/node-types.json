@@ -300,6 +300,64 @@
     }
   },
   {
+    "type": "cast_expr",
+    "named": true,
+    "fields": {
+      "expr": {
+        "multiple": true,
+        "required": true,
+        "types": [
+          {
+            "type": "[",
+            "named": false
+          },
+          {
+            "type": "]",
+            "named": false
+          },
+          {
+            "type": "bin_mul_expr",
+            "named": true
+          },
+          {
+            "type": "bin_sum_expr",
+            "named": true
+          },
+          {
+            "type": "cast_expr",
+            "named": true
+          },
+          {
+            "type": "member_access_expr",
+            "named": true
+          },
+          {
+            "type": "nat",
+            "named": true
+          },
+          {
+            "type": "not_expr",
+            "named": true
+          },
+          {
+            "type": "term",
+            "named": true
+          }
+        ]
+      },
+      "type": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "type",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
     "type": "cdefn",
     "named": true,
     "fields": {
@@ -392,10 +450,6 @@
             "named": false
           },
           {
-            "type": "as",
-            "named": false
-          },
-          {
             "type": "bin_mul_expr",
             "named": true
           },
@@ -404,23 +458,11 @@
             "named": true
           },
           {
+            "type": "cast_expr",
+            "named": true
+          },
+          {
             "type": "comparison_expr",
-            "named": true
-          },
-          {
-            "type": "greater_than",
-            "named": true
-          },
-          {
-            "type": "greater_than_or_equal",
-            "named": true
-          },
-          {
-            "type": "less_than",
-            "named": true
-          },
-          {
-            "type": "less_than_or_equal",
             "named": true
           },
           {
@@ -436,11 +478,11 @@
             "named": true
           },
           {
-            "type": "term",
+            "type": "rel_comparison_expr",
             "named": true
           },
           {
-            "type": "type",
+            "type": "term",
             "named": true
           }
         ]
@@ -472,10 +514,6 @@
             "named": false
           },
           {
-            "type": "as",
-            "named": false
-          },
-          {
             "type": "bin_mul_expr",
             "named": true
           },
@@ -484,19 +522,7 @@
             "named": true
           },
           {
-            "type": "greater_than",
-            "named": true
-          },
-          {
-            "type": "greater_than_or_equal",
-            "named": true
-          },
-          {
-            "type": "less_than",
-            "named": true
-          },
-          {
-            "type": "less_than_or_equal",
+            "type": "cast_expr",
             "named": true
           },
           {
@@ -512,11 +538,11 @@
             "named": true
           },
           {
-            "type": "term",
+            "type": "rel_comparison_expr",
             "named": true
           },
           {
-            "type": "type",
+            "type": "term",
             "named": true
           }
         ]
@@ -544,10 +570,6 @@
             "named": true
           },
           {
-            "type": "as",
-            "named": false
-          },
-          {
             "type": "bin_mul_expr",
             "named": true
           },
@@ -556,23 +578,11 @@
             "named": true
           },
           {
+            "type": "cast_expr",
+            "named": true
+          },
+          {
             "type": "comparison_expr",
-            "named": true
-          },
-          {
-            "type": "greater_than",
-            "named": true
-          },
-          {
-            "type": "greater_than_or_equal",
-            "named": true
-          },
-          {
-            "type": "less_than",
-            "named": true
-          },
-          {
-            "type": "less_than_or_equal",
             "named": true
           },
           {
@@ -592,11 +602,11 @@
             "named": true
           },
           {
-            "type": "term",
+            "type": "rel_comparison_expr",
             "named": true
           },
           {
-            "type": "type",
+            "type": "term",
             "named": true
           }
         ]
@@ -915,27 +925,15 @@
           "named": true
         },
         {
+          "type": "cast_expr",
+          "named": true
+        },
+        {
           "type": "comparison_expr",
           "named": true
         },
         {
           "type": "conditional_expr",
-          "named": true
-        },
-        {
-          "type": "greater_than",
-          "named": true
-        },
-        {
-          "type": "greater_than_or_equal",
-          "named": true
-        },
-        {
-          "type": "less_than",
-          "named": true
-        },
-        {
-          "type": "less_than_or_equal",
           "named": true
         },
         {
@@ -955,11 +953,11 @@
           "named": true
         },
         {
-          "type": "term",
+          "type": "rel_comparison_expr",
           "named": true
         },
         {
-          "type": "type",
+          "type": "term",
           "named": true
         }
       ]
@@ -1798,10 +1796,6 @@
             "named": true
           },
           {
-            "type": "as",
-            "named": false
-          },
-          {
             "type": "bin_mul_expr",
             "named": true
           },
@@ -1810,23 +1804,11 @@
             "named": true
           },
           {
+            "type": "cast_expr",
+            "named": true
+          },
+          {
             "type": "comparison_expr",
-            "named": true
-          },
-          {
-            "type": "greater_than",
-            "named": true
-          },
-          {
-            "type": "greater_than_or_equal",
-            "named": true
-          },
-          {
-            "type": "less_than",
-            "named": true
-          },
-          {
-            "type": "less_than_or_equal",
             "named": true
           },
           {
@@ -1846,11 +1828,11 @@
             "named": true
           },
           {
-            "type": "term",
+            "type": "rel_comparison_expr",
             "named": true
           },
           {
-            "type": "type",
+            "type": "term",
             "named": true
           }
         ]
@@ -1872,10 +1854,6 @@
             "named": true
           },
           {
-            "type": "as",
-            "named": false
-          },
-          {
             "type": "bin_mul_expr",
             "named": true
           },
@@ -1884,23 +1862,11 @@
             "named": true
           },
           {
+            "type": "cast_expr",
+            "named": true
+          },
+          {
             "type": "comparison_expr",
-            "named": true
-          },
-          {
-            "type": "greater_than",
-            "named": true
-          },
-          {
-            "type": "greater_than_or_equal",
-            "named": true
-          },
-          {
-            "type": "less_than",
-            "named": true
-          },
-          {
-            "type": "less_than_or_equal",
             "named": true
           },
           {
@@ -1916,11 +1882,11 @@
             "named": true
           },
           {
-            "type": "term",
+            "type": "rel_comparison_expr",
             "named": true
           },
           {
-            "type": "type",
+            "type": "term",
             "named": true
           }
         ]
@@ -2192,6 +2158,122 @@
         "types": [
           {
             "type": "id",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "rel_comparison_expr",
+    "named": true,
+    "fields": {
+      "left": {
+        "multiple": true,
+        "required": true,
+        "types": [
+          {
+            "type": "[",
+            "named": false
+          },
+          {
+            "type": "]",
+            "named": false
+          },
+          {
+            "type": "bin_mul_expr",
+            "named": true
+          },
+          {
+            "type": "bin_sum_expr",
+            "named": true
+          },
+          {
+            "type": "cast_expr",
+            "named": true
+          },
+          {
+            "type": "member_access_expr",
+            "named": true
+          },
+          {
+            "type": "nat",
+            "named": true
+          },
+          {
+            "type": "not_expr",
+            "named": true
+          },
+          {
+            "type": "rel_comparison_expr",
+            "named": true
+          },
+          {
+            "type": "term",
+            "named": true
+          }
+        ]
+      },
+      "operator": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "greater_than",
+            "named": true
+          },
+          {
+            "type": "greater_than_or_equal",
+            "named": true
+          },
+          {
+            "type": "less_than",
+            "named": true
+          },
+          {
+            "type": "less_than_or_equal",
+            "named": true
+          }
+        ]
+      },
+      "right": {
+        "multiple": true,
+        "required": true,
+        "types": [
+          {
+            "type": "[",
+            "named": false
+          },
+          {
+            "type": "]",
+            "named": false
+          },
+          {
+            "type": "bin_mul_expr",
+            "named": true
+          },
+          {
+            "type": "bin_sum_expr",
+            "named": true
+          },
+          {
+            "type": "cast_expr",
+            "named": true
+          },
+          {
+            "type": "member_access_expr",
+            "named": true
+          },
+          {
+            "type": "nat",
+            "named": true
+          },
+          {
+            "type": "not_expr",
+            "named": true
+          },
+          {
+            "type": "term",
             "named": true
           }
         ]

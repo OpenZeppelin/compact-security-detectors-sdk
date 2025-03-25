@@ -67,3 +67,9 @@ ast_nodes_impl! {
         }
     }
 }
+
+impl NamedFunction {
+    pub fn name(&self) -> &str {
+        &self.name.name
+    }
+}

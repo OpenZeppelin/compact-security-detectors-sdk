@@ -161,3 +161,10 @@ impl SymbolNode for Var {
         self.ty_.clone()
     }
 }
+
+impl Assert {
+    #[must_use]
+    pub fn message(&self) -> Option<String> {
+        self.msg.as_ref().map(|msg| msg.value.clone())
+    }
+}
