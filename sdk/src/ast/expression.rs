@@ -4,7 +4,7 @@ use crate::{ast_enum, ast_nodes, ast_nodes_impl};
 
 use super::{
     function::Function,
-    literal::Literal,
+    literal::{Literal, Nat},
     node::{Node, NodeKind, SameScopeNode, SymbolNode},
     ty::Type,
 };
@@ -105,7 +105,7 @@ ast_nodes! {
 
     pub struct IndexAccess {
         pub base: Expression,
-        pub index: Expression,
+        pub index: Rc<Nat>,
     }
 
     pub struct Map {
@@ -219,7 +219,7 @@ ast_nodes_impl! {
         fn children(&self) -> Vec<Rc<NodeKind>> {
             vec![
                 Rc::new(NodeKind::from(&self.base)),
-                Rc::new(NodeKind::from(&self.index)),
+                Rc::new(NodeKind::from(&Literal::Nat(self.index.clone()))),
             ]
         }
     }

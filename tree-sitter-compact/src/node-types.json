@@ -1,5 +1,109 @@
 [
   {
+    "type": "and_expr",
+    "named": true,
+    "fields": {
+      "left": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "and_expr",
+            "named": true
+          },
+          {
+            "type": "bin_mul_expr",
+            "named": true
+          },
+          {
+            "type": "bin_sum_expr",
+            "named": true
+          },
+          {
+            "type": "cast_expr",
+            "named": true
+          },
+          {
+            "type": "comparison_expr",
+            "named": true
+          },
+          {
+            "type": "index_access_expr",
+            "named": true
+          },
+          {
+            "type": "member_access_expr",
+            "named": true
+          },
+          {
+            "type": "not_expr",
+            "named": true
+          },
+          {
+            "type": "rel_comparison_expr",
+            "named": true
+          },
+          {
+            "type": "term",
+            "named": true
+          }
+        ]
+      },
+      "right": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "bin_mul_expr",
+            "named": true
+          },
+          {
+            "type": "bin_sum_expr",
+            "named": true
+          },
+          {
+            "type": "cast_expr",
+            "named": true
+          },
+          {
+            "type": "comparison_expr",
+            "named": true
+          },
+          {
+            "type": "index_access_expr",
+            "named": true
+          },
+          {
+            "type": "member_access_expr",
+            "named": true
+          },
+          {
+            "type": "not_expr",
+            "named": true
+          },
+          {
+            "type": "rel_comparison_expr",
+            "named": true
+          },
+          {
+            "type": "term",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "and",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "arg",
     "named": true,
     "fields": {
@@ -100,27 +204,19 @@
     "named": true,
     "fields": {
       "left": {
-        "multiple": true,
+        "multiple": false,
         "required": true,
         "types": [
-          {
-            "type": "[",
-            "named": false
-          },
-          {
-            "type": "]",
-            "named": false
-          },
           {
             "type": "bin_mul_expr",
             "named": true
           },
           {
-            "type": "member_access_expr",
+            "type": "index_access_expr",
             "named": true
           },
           {
-            "type": "nat",
+            "type": "member_access_expr",
             "named": true
           },
           {
@@ -144,23 +240,15 @@
         ]
       },
       "right": {
-        "multiple": true,
+        "multiple": false,
         "required": true,
         "types": [
           {
-            "type": "[",
-            "named": false
-          },
-          {
-            "type": "]",
-            "named": false
-          },
-          {
-            "type": "member_access_expr",
+            "type": "index_access_expr",
             "named": true
           },
           {
-            "type": "nat",
+            "type": "member_access_expr",
             "named": true
           },
           {
@@ -180,17 +268,9 @@
     "named": true,
     "fields": {
       "left": {
-        "multiple": true,
+        "multiple": false,
         "required": true,
         "types": [
-          {
-            "type": "[",
-            "named": false
-          },
-          {
-            "type": "]",
-            "named": false
-          },
           {
             "type": "bin_mul_expr",
             "named": true
@@ -200,11 +280,11 @@
             "named": true
           },
           {
-            "type": "member_access_expr",
+            "type": "index_access_expr",
             "named": true
           },
           {
-            "type": "nat",
+            "type": "member_access_expr",
             "named": true
           },
           {
@@ -232,27 +312,19 @@
         ]
       },
       "right": {
-        "multiple": true,
+        "multiple": false,
         "required": true,
         "types": [
-          {
-            "type": "[",
-            "named": false
-          },
-          {
-            "type": "]",
-            "named": false
-          },
           {
             "type": "bin_mul_expr",
             "named": true
           },
           {
-            "type": "member_access_expr",
+            "type": "index_access_expr",
             "named": true
           },
           {
-            "type": "nat",
+            "type": "member_access_expr",
             "named": true
           },
           {
@@ -304,17 +376,9 @@
     "named": true,
     "fields": {
       "expr": {
-        "multiple": true,
+        "multiple": false,
         "required": true,
         "types": [
-          {
-            "type": "[",
-            "named": false
-          },
-          {
-            "type": "]",
-            "named": false
-          },
           {
             "type": "bin_mul_expr",
             "named": true
@@ -328,11 +392,11 @@
             "named": true
           },
           {
-            "type": "member_access_expr",
+            "type": "index_access_expr",
             "named": true
           },
           {
-            "type": "nat",
+            "type": "member_access_expr",
             "named": true
           },
           {
@@ -438,17 +502,9 @@
     "named": true,
     "fields": {
       "left": {
-        "multiple": true,
+        "multiple": false,
         "required": true,
         "types": [
-          {
-            "type": "[",
-            "named": false
-          },
-          {
-            "type": "]",
-            "named": false
-          },
           {
             "type": "bin_mul_expr",
             "named": true
@@ -466,11 +522,11 @@
             "named": true
           },
           {
-            "type": "member_access_expr",
+            "type": "index_access_expr",
             "named": true
           },
           {
-            "type": "nat",
+            "type": "member_access_expr",
             "named": true
           },
           {
@@ -502,17 +558,9 @@
         ]
       },
       "right": {
-        "multiple": true,
+        "multiple": false,
         "required": true,
         "types": [
-          {
-            "type": "[",
-            "named": false
-          },
-          {
-            "type": "]",
-            "named": false
-          },
           {
             "type": "bin_mul_expr",
             "named": true
@@ -526,11 +574,11 @@
             "named": true
           },
           {
-            "type": "member_access_expr",
+            "type": "index_access_expr",
             "named": true
           },
           {
-            "type": "nat",
+            "type": "member_access_expr",
             "named": true
           },
           {
@@ -554,19 +602,11 @@
     "named": true,
     "fields": {
       "condition": {
-        "multiple": true,
+        "multiple": false,
         "required": true,
         "types": [
           {
-            "type": "[",
-            "named": false
-          },
-          {
-            "type": "]",
-            "named": false
-          },
-          {
-            "type": "and",
+            "type": "and_expr",
             "named": true
           },
           {
@@ -586,11 +626,11 @@
             "named": true
           },
           {
-            "type": "member_access_expr",
+            "type": "index_access_expr",
             "named": true
           },
           {
-            "type": "nat",
+            "type": "member_access_expr",
             "named": true
           },
           {
@@ -909,11 +949,11 @@
     "named": true,
     "fields": {},
     "children": {
-      "multiple": true,
+      "multiple": false,
       "required": true,
       "types": [
         {
-          "type": "and",
+          "type": "and_expr",
           "named": true
         },
         {
@@ -937,11 +977,11 @@
           "named": true
         },
         {
-          "type": "member_access_expr",
+          "type": "index_access_expr",
           "named": true
         },
         {
-          "type": "nat",
+          "type": "member_access_expr",
           "named": true
         },
         {
@@ -1411,6 +1451,40 @@
     }
   },
   {
+    "type": "index_access_expr",
+    "named": true,
+    "fields": {
+      "base": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "index_access_expr",
+            "named": true
+          },
+          {
+            "type": "member_access_expr",
+            "named": true
+          },
+          {
+            "type": "term",
+            "named": true
+          }
+        ]
+      },
+      "index": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "nat",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
     "type": "lconstructor",
     "named": true,
     "fields": {
@@ -1657,23 +1731,15 @@
         ]
       },
       "base": {
-        "multiple": true,
+        "multiple": false,
         "required": true,
         "types": [
           {
-            "type": "[",
-            "named": false
-          },
-          {
-            "type": "]",
-            "named": false
-          },
-          {
-            "type": "member_access_expr",
+            "type": "index_access_expr",
             "named": true
           },
           {
-            "type": "nat",
+            "type": "member_access_expr",
             "named": true
           },
           {
@@ -1719,23 +1785,15 @@
     "named": true,
     "fields": {
       "expr": {
-        "multiple": true,
+        "multiple": false,
         "required": true,
         "types": [
           {
-            "type": "[",
-            "named": false
-          },
-          {
-            "type": "]",
-            "named": false
-          },
-          {
-            "type": "member_access_expr",
+            "type": "index_access_expr",
             "named": true
           },
           {
-            "type": "nat",
+            "type": "member_access_expr",
             "named": true
           },
           {
@@ -1780,19 +1838,11 @@
     "named": true,
     "fields": {
       "left": {
-        "multiple": true,
+        "multiple": false,
         "required": true,
         "types": [
           {
-            "type": "[",
-            "named": false
-          },
-          {
-            "type": "]",
-            "named": false
-          },
-          {
-            "type": "and",
+            "type": "and_expr",
             "named": true
           },
           {
@@ -1812,11 +1862,11 @@
             "named": true
           },
           {
-            "type": "member_access_expr",
+            "type": "index_access_expr",
             "named": true
           },
           {
-            "type": "nat",
+            "type": "member_access_expr",
             "named": true
           },
           {
@@ -1838,19 +1888,11 @@
         ]
       },
       "right": {
-        "multiple": true,
+        "multiple": false,
         "required": true,
         "types": [
           {
-            "type": "[",
-            "named": false
-          },
-          {
-            "type": "]",
-            "named": false
-          },
-          {
-            "type": "and",
+            "type": "and_expr",
             "named": true
           },
           {
@@ -1870,11 +1912,11 @@
             "named": true
           },
           {
-            "type": "member_access_expr",
+            "type": "index_access_expr",
             "named": true
           },
           {
-            "type": "nat",
+            "type": "member_access_expr",
             "named": true
           },
           {
@@ -2169,17 +2211,9 @@
     "named": true,
     "fields": {
       "left": {
-        "multiple": true,
+        "multiple": false,
         "required": true,
         "types": [
-          {
-            "type": "[",
-            "named": false
-          },
-          {
-            "type": "]",
-            "named": false
-          },
           {
             "type": "bin_mul_expr",
             "named": true
@@ -2193,11 +2227,11 @@
             "named": true
           },
           {
-            "type": "member_access_expr",
+            "type": "index_access_expr",
             "named": true
           },
           {
-            "type": "nat",
+            "type": "member_access_expr",
             "named": true
           },
           {
@@ -2237,17 +2271,9 @@
         ]
       },
       "right": {
-        "multiple": true,
+        "multiple": false,
         "required": true,
         "types": [
-          {
-            "type": "[",
-            "named": false
-          },
-          {
-            "type": "]",
-            "named": false
-          },
           {
             "type": "bin_mul_expr",
             "named": true
@@ -2261,11 +2287,11 @@
             "named": true
           },
           {
-            "type": "member_access_expr",
+            "type": "index_access_expr",
             "named": true
           },
           {
-            "type": "nat",
+            "type": "member_access_expr",
             "named": true
           },
           {

@@ -13,9 +13,9 @@ use super::{
     definition::{Circuit, Definition, Enum, Module, Structure},
     directive::{Directive, Pragma},
     expression::{
-        Binary, BinaryExpressionOperator, Conditional, Disclose, Expression, Fold, FunctionCall,
-        Identifier, Map, MemberAccess, Sequence, StructExpr, StructExprArg, StructNamedField,
-        Unary, UnaryExpressionOperator,
+        Binary, BinaryExpressionOperator, Cast, Conditional, Disclose, Expression, Fold,
+        FunctionCall, Identifier, IndexAccess, Map, MemberAccess, Sequence, StructExpr,
+        StructExprArg, StructNamedField, Unary, UnaryExpressionOperator,
     },
     function::{AnonymousFunction, Function, FunctionArgument, NamedFunction},
     literal::{Array, Bool, Literal, Nat, Pad, Str, Version},
@@ -974,14 +974,34 @@ fn build_expression(node: &Node, source: &str) -> Result<Expression> {
                 else_branch,
             }))
         }
+        "cast_expr" => {
+            let expression = build_expression(
+                &node
+                    .child_by_field_name("expr")
+                    .ok_or_else(|| anyhow!("Missing 'expr' field in cast_expr"))?,
+                source,
+            )?;
+            let ty = build_type(
+                &node
+                    .child_by_field_name("type")
+                    .ok_or_else(|| anyhow!("Missing 'type' field in cast_expr"))?,
+                source,
+            )?;
+            Expression::Cast(Rc::new(Cast {
+                id: node_id(),
+                location: location(node),
+                expression,
+                target_type: ty,
+            }))
+        }
         "expr" => {
             // Otherwise, delegate to the next level.
             build_expression(&node.named_child(0).unwrap(), source)?
         }
         // Binary operators: we assume the node has two named children.
-        "or" => {
-            let left = build_expression(&node.named_child(0).unwrap(), source)?;
-            let right = build_expression(&node.named_child(1).unwrap(), source)?;
+        "or_expr" => {
+            let left = build_expression(&node.child_by_field_name("left").unwrap(), source)?;
+            let right = build_expression(&node.child_by_field_name("right").unwrap(), source)?;
             Expression::Binary(Rc::new(Binary {
                 id: node_id(),
                 location: location(node),
@@ -990,9 +1010,9 @@ fn build_expression(node: &Node, source: &str) -> Result<Expression> {
                 operator: BinaryExpressionOperator::Or,
             }))
         }
-        "and" => {
-            let left = build_expression(&node.named_child(0).unwrap(), source)?;
-            let right = build_expression(&node.named_child(1).unwrap(), source)?;
+        "and_expr" => {
+            let left = build_expression(&node.child_by_field_name("left").unwrap(), source)?;
+            let right = build_expression(&node.child_by_field_name("right").unwrap(), source)?;
             Expression::Binary(Rc::new(Binary {
                 id: node_id(),
                 location: location(node),
@@ -1089,6 +1109,16 @@ fn build_expression(node: &Node, source: &str) -> Result<Expression> {
                 base,
                 member,
                 arguments,
+            }))
+        }
+        "index_access_expr" => {
+            let base = build_expression(&node.child_by_field_name("base").unwrap(), source)?;
+            let index = build_nat(&node.child_by_field_name("index").unwrap(), source)?;
+            Expression::IndexAccess(Rc::new(IndexAccess {
+                id: node_id(),
+                location: location(node),
+                base,
+                index,
             }))
         }
         "expr_seq" => {
@@ -1189,7 +1219,7 @@ fn build_term(node: &Node, source: &str) -> Result<Expression> {
             Expression::Identifier(id)
         }
         "expr_seq_term" => {
-            let seq = build_expression_sequence(term_node, source)?;
+            let seq = build_expression_sequence(&term_node.child(1).unwrap(), source)?;
             Expression::Sequence(seq)
         }
         "function_call_term" => {

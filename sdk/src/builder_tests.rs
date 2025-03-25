@@ -1592,7 +1592,9 @@ mod statements_parsing_tests {
 
     use crate::ast::{
         declaration::Pattern,
-        expression::{BinaryExpressionOperator, Expression},
+        expression::{
+            BinaryExpressionOperator, Expression, StructExprArg, UnaryExpressionOperator,
+        },
         function::Function,
         literal::Literal,
         statement::{AssignOperator, Statement},
@@ -2434,6 +2436,783 @@ mod statements_parsing_tests {
                     }
                 }
                 _ => panic!("Expected map expression"),
+            },
+            _ => panic!("Expected expression statement"),
+        }
+    }
+
+    #[test]
+    fn expression_statement_fold() {
+        let codebase = build_codebase_wrapper("circuit foo(): Bool { fold(g, 0, x, y, z); }");
+        let codebase = codebase.borrow();
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        let circuits = ast.circuits();
+        assert_eq!(circuits.len(), 1);
+        let statement = circuits
+            .first()
+            .unwrap()
+            .body
+            .as_ref()
+            .unwrap()
+            .statements
+            .first()
+            .unwrap();
+        match statement {
+            Statement::ExpressionSequence(expr) => match &expr.expressions[0] {
+                Expression::Fold(fold_expr) => {
+                    match &fold_expr.function {
+                        Function::Named(named_func) => {
+                            assert_eq!(named_func.name(), "g");
+                        }
+                        Function::Anonymous(_) => panic!("Expected named function"),
+                    }
+                    match &fold_expr.initial_value {
+                        Expression::Literal(Literal::Nat(lit)) => {
+                            assert_eq!(lit.value, 0);
+                        }
+                        _ => panic!("Expected literal expression"),
+                    }
+                    assert_eq!(fold_expr.expressions.len(), 3);
+                    match &fold_expr.expressions[0] {
+                        Expression::Identifier(ident) => {
+                            assert_eq!(ident.name, "x");
+                        }
+                        _ => panic!("Expected identifier expression"),
+                    }
+                    match &fold_expr.expressions[1] {
+                        Expression::Identifier(ident) => {
+                            assert_eq!(ident.name, "y");
+                        }
+                        _ => panic!("Expected identifier expression"),
+                    }
+                    match &fold_expr.expressions[2] {
+                        Expression::Identifier(ident) => {
+                            assert_eq!(ident.name, "z");
+                        }
+                        _ => panic!("Expected identifier expression"),
+                    }
+                }
+                _ => panic!("Expected fold expression"),
+            },
+            _ => panic!("Expected expression statement"),
+        }
+    }
+
+    #[test]
+    fn expression_statement_function_call_with_two_arguments() {
+        let codebase = build_codebase_wrapper("circuit foo(): Bool { myFunction(a, b); }");
+        let codebase = codebase.borrow();
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        let circuits = ast.circuits();
+        assert_eq!(circuits.len(), 1);
+        let statement = circuits
+            .first()
+            .unwrap()
+            .body
+            .as_ref()
+            .unwrap()
+            .statements
+            .first()
+            .unwrap();
+        match statement {
+            Statement::ExpressionSequence(expr) => match &expr.expressions[0] {
+                Expression::FunctionCall(func_call) => {
+                    match &func_call.function {
+                        Expression::Function(Function::Named(named_func)) => {
+                            assert_eq!(named_func.name.name, "myFunction");
+                        }
+                        _ => panic!("Expected named function"),
+                    }
+                    assert_eq!(func_call.arguments.len(), 2);
+                    match &func_call.arguments[0] {
+                        Expression::Identifier(ident) => {
+                            assert_eq!(ident.name, "a");
+                        }
+                        _ => panic!("Expected identifier expression"),
+                    }
+                    match &func_call.arguments[1] {
+                        Expression::Identifier(ident) => {
+                            assert_eq!(ident.name, "b");
+                        }
+                        _ => panic!("Expected identifier expression"),
+                    }
+                }
+                _ => panic!("Expected function call expression"),
+            },
+            _ => panic!("Expected expression statement"),
+        }
+    }
+
+    #[test]
+    fn expression_statement_function_call_no_arguments() {
+        let codebase = build_codebase_wrapper("circuit foo(): Bool { myFunction(); }");
+        let codebase = codebase.borrow();
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        let circuits = ast.circuits();
+        assert_eq!(circuits.len(), 1);
+        let statement = circuits
+            .first()
+            .unwrap()
+            .body
+            .as_ref()
+            .unwrap()
+            .statements
+            .first()
+            .unwrap();
+        match statement {
+            Statement::ExpressionSequence(expr) => match &expr.expressions[0] {
+                Expression::FunctionCall(func_call) => {
+                    match &func_call.function {
+                        Expression::Function(Function::Named(named_func)) => {
+                            assert_eq!(named_func.name.name, "myFunction");
+                        }
+                        _ => panic!("Expected named function"),
+                    }
+                    assert_eq!(func_call.arguments.len(), 0);
+                }
+                _ => panic!("Expected function call expression"),
+            },
+            _ => panic!("Expected expression statement"),
+        }
+    }
+
+    #[test]
+    fn expression_statement_disclose() {
+        let codebase = build_codebase_wrapper("circuit foo(): Bool { disclose(x); }");
+        let codebase = codebase.borrow();
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        let circuits = ast.circuits();
+        assert_eq!(circuits.len(), 1);
+        let statement = circuits
+            .first()
+            .unwrap()
+            .body
+            .as_ref()
+            .unwrap()
+            .statements
+            .first()
+            .unwrap();
+        match statement {
+            Statement::ExpressionSequence(expr) => match &expr.expressions[0] {
+                Expression::Disclose(disclose_expr) => match &disclose_expr.expression {
+                    Expression::Identifier(ident) => {
+                        assert_eq!(ident.name, "x");
+                    }
+                    _ => panic!("Expected identifier expression"),
+                },
+                _ => panic!("Expected disclose expression"),
+            },
+            _ => panic!("Expected expression statement"),
+        }
+    }
+
+    #[test]
+    fn struct_initialization_statement() {
+        let codebase = build_codebase_wrapper("circuit foo(): Bool { MyStruct { a: x, b: y }; }");
+        let codebase = codebase.borrow();
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        let circuits = ast.circuits();
+        assert_eq!(circuits.len(), 1);
+        let statement = circuits
+            .first()
+            .unwrap()
+            .body
+            .as_ref()
+            .unwrap()
+            .statements
+            .first()
+            .unwrap();
+        match statement {
+            Statement::ExpressionSequence(expr) => match &expr.expressions[0] {
+                Expression::Struct(struct_init) => {
+                    match &struct_init.ty {
+                        Type::Ref(r) => {
+                            assert_eq!(r.name(), "MyStruct");
+                        }
+                        _ => panic!("Expected reference type"),
+                    }
+                    assert_eq!(struct_init.args.len(), 2);
+                    let field_a = &struct_init.args[0];
+                    match field_a {
+                        StructExprArg::NamedField(field) => {
+                            assert_eq!(field.name.name, "a");
+                            match &field.value {
+                                Expression::Identifier(ident) => {
+                                    assert_eq!(ident.name, "x");
+                                }
+                                _ => panic!("Expected identifier expression for field 'a'"),
+                            }
+                        }
+                        _ => panic!("Expected named field"),
+                    }
+                    let field_b = &struct_init.args[1];
+                    match field_b {
+                        StructExprArg::NamedField(field) => {
+                            assert_eq!(field.name.name, "b");
+                            match &field.value {
+                                Expression::Identifier(ident) => {
+                                    assert_eq!(ident.name, "y");
+                                }
+                                _ => panic!("Expected identifier expression for field 'b'"),
+                            }
+                        }
+                        _ => panic!("Expected named field"),
+                    }
+                }
+                _ => panic!("Expected struct initialization expression"),
+            },
+            _ => panic!("Expected expression statement"),
+        }
+    }
+
+    #[test]
+    fn expression_statement_array() {
+        let codebase = build_codebase_wrapper("circuit foo(): Bool { [x, y, z]; }");
+        let codebase = codebase.borrow();
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        let circuits = ast.circuits();
+        assert_eq!(circuits.len(), 1);
+        let statement = circuits
+            .first()
+            .unwrap()
+            .body
+            .as_ref()
+            .unwrap()
+            .statements
+            .first()
+            .unwrap();
+        match statement {
+            Statement::ExpressionSequence(expr) => match &expr.expressions[0] {
+                Expression::Literal(Literal::Array(array_lit)) => {
+                    assert_eq!(array_lit.elements.len(), 3);
+                    match &array_lit.elements[0] {
+                        Expression::Identifier(ident) => {
+                            assert_eq!(ident.name, "x");
+                        }
+                        _ => panic!("Expected identifier expression"),
+                    }
+                    match &array_lit.elements[1] {
+                        Expression::Identifier(ident) => {
+                            assert_eq!(ident.name, "y");
+                        }
+                        _ => panic!("Expected identifier expression"),
+                    }
+                    match &array_lit.elements[2] {
+                        Expression::Identifier(ident) => {
+                            assert_eq!(ident.name, "z");
+                        }
+                        _ => panic!("Expected identifier expression"),
+                    }
+                }
+                _ => panic!("Expected array expression"),
+            },
+            _ => panic!("Expected expression statement"),
+        }
+    }
+
+    #[test]
+    fn expression_statement_tuple() {
+        let codebase = build_codebase_wrapper("circuit foo(): Bool { ((x + 1), y, z); }");
+        let codebase = codebase.borrow();
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        let circuits = ast.circuits();
+        assert_eq!(circuits.len(), 1);
+        let statement = circuits
+            .first()
+            .unwrap()
+            .body
+            .as_ref()
+            .unwrap()
+            .statements
+            .first()
+            .unwrap();
+        match statement {
+            Statement::ExpressionSequence(expr) => {
+                assert_eq!(expr.expressions.len(), 1);
+                match &expr.expressions[0] {
+                    Expression::Sequence(expt_seq) => {
+                        assert_eq!(expt_seq.expressions.len(), 3);
+                        match &expt_seq.expressions[0] {
+                            Expression::Sequence(inner_seq) => {
+                                assert_eq!(inner_seq.expressions.len(), 1);
+                                match &inner_seq.expressions[0] {
+                                    Expression::Binary(bin_expr) => {
+                                        assert_eq!(
+                                            bin_expr.operator,
+                                            BinaryExpressionOperator::Add
+                                        );
+                                    }
+                                    _ => panic!("Expected binary expression"),
+                                }
+                            }
+                            _ => panic!("Expected sequence expression"),
+                        }
+                        match &expt_seq.expressions[1] {
+                            Expression::Identifier(ident) => {
+                                assert_eq!(ident.name, "y");
+                            }
+                            _ => panic!("Expected identifier expression"),
+                        }
+                        match &expt_seq.expressions[2] {
+                            Expression::Identifier(ident) => {
+                                assert_eq!(ident.name, "z");
+                            }
+                            _ => panic!("Expected identifier expression"),
+                        }
+                    }
+                    _ => panic!("Expected sequence expression"),
+                }
+            }
+            _ => panic!("Expected expression statement"),
+        }
+    }
+
+    #[test]
+    fn conditional_expression() {
+        let codebase = build_codebase_wrapper("circuit foo(): Bool { x > 0 ? x : 10 * x; }");
+        let codebase = codebase.borrow();
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        let circuits = ast.circuits();
+        assert_eq!(circuits.len(), 1);
+        let statement = circuits
+            .first()
+            .unwrap()
+            .body
+            .as_ref()
+            .unwrap()
+            .statements
+            .first()
+            .unwrap();
+        match statement {
+            Statement::ExpressionSequence(expr) => match &expr.expressions[0] {
+                Expression::Conditional(conditional_expr) => {
+                    match &conditional_expr.condition {
+                        Expression::Binary(op) => {
+                            assert_eq!(op.operator, BinaryExpressionOperator::Gt);
+                            match &op.left {
+                                Expression::Identifier(ident) => {
+                                    assert_eq!(ident.name, "x");
+                                }
+                                _ => panic!("Expected identifier"),
+                            }
+                            match &op.right {
+                                Expression::Literal(Literal::Nat(literal)) => {
+                                    assert_eq!(literal.value, 0);
+                                }
+                                _ => panic!("Expected literal expression"),
+                            }
+                        }
+                        _ => panic!("Expected binary expression"),
+                    }
+                    match &conditional_expr.then_branch {
+                        Expression::Identifier(ident) => {
+                            assert_eq!(ident.name, "x");
+                        }
+                        _ => panic!("Expected identifier"),
+                    }
+                    match &conditional_expr.else_branch {
+                        Expression::Binary(op) => {
+                            assert_eq!(op.operator, BinaryExpressionOperator::Mul);
+                            match &op.left {
+                                Expression::Literal(Literal::Nat(literal)) => {
+                                    assert_eq!(literal.value, 10);
+                                }
+                                _ => panic!("Expected literal expression"),
+                            }
+                            match &op.right {
+                                Expression::Identifier(ident) => {
+                                    assert_eq!(ident.name, "x");
+                                }
+                                _ => panic!("Expected identifier"),
+                            }
+                        }
+                        _ => panic!("Expected binary expression"),
+                    }
+                }
+                _ => panic!("Expected ternary expression"),
+            },
+            _ => panic!("Expected expression statement"),
+        }
+    }
+
+    #[test]
+    fn expression_statement_logical_or() {
+        let codebase = build_codebase_wrapper("circuit foo(): Bool { x || y; }");
+        let codebase = codebase.borrow();
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        let circuits = ast.circuits();
+        assert_eq!(circuits.len(), 1);
+        let statement = circuits
+            .first()
+            .unwrap()
+            .body
+            .as_ref()
+            .unwrap()
+            .statements
+            .first()
+            .unwrap();
+        match statement {
+            Statement::ExpressionSequence(expr) => match &expr.expressions[0] {
+                Expression::Binary(bin_expr) => {
+                    assert_eq!(bin_expr.operator, BinaryExpressionOperator::Or);
+                    match &bin_expr.left {
+                        Expression::Identifier(ident) => {
+                            assert_eq!(ident.name, "x");
+                        }
+                        _ => panic!("Expected identifier expression"),
+                    }
+                    match &bin_expr.right {
+                        Expression::Identifier(ident) => {
+                            assert_eq!(ident.name, "y");
+                        }
+                        _ => panic!("Expected identifier expression"),
+                    }
+                }
+                _ => panic!("Expected binary expression"),
+            },
+            _ => panic!("Expected expression statement"),
+        }
+    }
+
+    #[test]
+    fn expression_statement_logical_and() {
+        let codebase = build_codebase_wrapper("circuit foo(): Bool { x && y; }");
+        let codebase = codebase.borrow();
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        let circuits = ast.circuits();
+        assert_eq!(circuits.len(), 1);
+        let statement = circuits
+            .first()
+            .unwrap()
+            .body
+            .as_ref()
+            .unwrap()
+            .statements
+            .first()
+            .unwrap();
+        match statement {
+            Statement::ExpressionSequence(expr) => match &expr.expressions[0] {
+                Expression::Binary(bin_expr) => {
+                    assert_eq!(bin_expr.operator, BinaryExpressionOperator::And);
+                    match &bin_expr.left {
+                        Expression::Identifier(ident) => {
+                            assert_eq!(ident.name, "x");
+                        }
+                        _ => panic!("Expected identifier expression"),
+                    }
+                    match &bin_expr.right {
+                        Expression::Identifier(ident) => {
+                            assert_eq!(ident.name, "y");
+                        }
+                        _ => panic!("Expected identifier expression"),
+                    }
+                }
+                _ => panic!("Expected binary expression"),
+            },
+            _ => panic!("Expected expression statement"),
+        }
+    }
+
+    #[test]
+    fn expression_statement_equality() {
+        let codebase = build_codebase_wrapper("circuit foo(): Bool { x == y; }");
+        let codebase = codebase.borrow();
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        let circuits = ast.circuits();
+        assert_eq!(circuits.len(), 1);
+        let statement = circuits
+            .first()
+            .unwrap()
+            .body
+            .as_ref()
+            .unwrap()
+            .statements
+            .first()
+            .unwrap();
+        match statement {
+            Statement::ExpressionSequence(expr) => match &expr.expressions[0] {
+                Expression::Binary(bin_expr) => {
+                    assert_eq!(bin_expr.operator, BinaryExpressionOperator::Eq);
+                    match &bin_expr.left {
+                        Expression::Identifier(ident) => {
+                            assert_eq!(ident.name, "x");
+                        }
+                        _ => panic!("Expected identifier expression"),
+                    }
+                    match &bin_expr.right {
+                        Expression::Identifier(ident) => {
+                            assert_eq!(ident.name, "y");
+                        }
+                        _ => panic!("Expected identifier expression"),
+                    }
+                }
+                _ => panic!("Expected binary expression"),
+            },
+            _ => panic!("Expected expression statement"),
+        }
+    }
+
+    #[test]
+    fn expression_statement_add_1() {
+        let codebase = build_codebase_wrapper("circuit foo(): Bool { x + y; }");
+        let codebase = codebase.borrow();
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        let circuits = ast.circuits();
+        let statement = circuits
+            .first()
+            .unwrap()
+            .body
+            .as_ref()
+            .unwrap()
+            .statements
+            .first()
+            .unwrap();
+        match statement {
+            Statement::ExpressionSequence(expr) => match &expr.expressions[0] {
+                Expression::Binary(bin_expr) => {
+                    assert_eq!(bin_expr.operator, BinaryExpressionOperator::Add);
+                    match &bin_expr.left {
+                        Expression::Identifier(ident) => {
+                            assert_eq!(ident.name, "x");
+                        }
+                        _ => panic!("Expected identifier expression"),
+                    }
+                    match &bin_expr.right {
+                        Expression::Identifier(ident) => {
+                            assert_eq!(ident.name, "y");
+                        }
+                        _ => panic!("Expected identifier expression"),
+                    }
+                }
+                _ => panic!("Expected binary expression"),
+            },
+            _ => panic!("Expected expression statement"),
+        }
+    }
+
+    #[test]
+    fn expression_statement_subtract() {
+        let codebase = build_codebase_wrapper("circuit foo(): Bool { x - y; }");
+        let codebase = codebase.borrow();
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        let circuits = ast.circuits();
+        assert_eq!(circuits.len(), 1);
+        let statement = circuits
+            .first()
+            .unwrap()
+            .body
+            .as_ref()
+            .unwrap()
+            .statements
+            .first()
+            .unwrap();
+        match statement {
+            Statement::ExpressionSequence(expr) => match &expr.expressions[0] {
+                Expression::Binary(bin_expr) => {
+                    assert_eq!(bin_expr.operator, BinaryExpressionOperator::Sub);
+                    match &bin_expr.left {
+                        Expression::Identifier(ident) => {
+                            assert_eq!(ident.name, "x");
+                        }
+                        _ => panic!("Expected identifier expression"),
+                    }
+                    match &bin_expr.right {
+                        Expression::Identifier(ident) => {
+                            assert_eq!(ident.name, "y");
+                        }
+                        _ => panic!("Expected identifier expression"),
+                    }
+                }
+                _ => panic!("Expected binary expression"),
+            },
+            _ => panic!("Expected expression statement"),
+        }
+    }
+
+    #[test]
+    fn expression_statement_multiply() {
+        let codebase = build_codebase_wrapper("circuit foo(): Bool { x * y; }");
+        let codebase = codebase.borrow();
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        let circuits = ast.circuits();
+        assert_eq!(circuits.len(), 1);
+        let statement = circuits
+            .first()
+            .unwrap()
+            .body
+            .as_ref()
+            .unwrap()
+            .statements
+            .first()
+            .unwrap();
+        match statement {
+            Statement::ExpressionSequence(expr) => match &expr.expressions[0] {
+                Expression::Binary(bin_expr) => {
+                    assert_eq!(bin_expr.operator, BinaryExpressionOperator::Mul);
+                    match &bin_expr.left {
+                        Expression::Identifier(ident) => {
+                            assert_eq!(ident.name, "x");
+                        }
+                        _ => panic!("Expected identifier expression"),
+                    }
+                    match &bin_expr.right {
+                        Expression::Identifier(ident) => {
+                            assert_eq!(ident.name, "y");
+                        }
+                        _ => panic!("Expected identifier expression"),
+                    }
+                }
+                _ => panic!("Expected binary expression"),
+            },
+            _ => panic!("Expected expression statement"),
+        }
+    }
+
+    #[test]
+    fn expression_statement_not() {
+        let codebase = build_codebase_wrapper("circuit foo(): Bool { !x; }");
+        let codebase = codebase.borrow();
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        let circuits = ast.circuits();
+        assert_eq!(circuits.len(), 1);
+        let statement = circuits
+            .first()
+            .unwrap()
+            .body
+            .as_ref()
+            .unwrap()
+            .statements
+            .first()
+            .unwrap();
+        match statement {
+            Statement::ExpressionSequence(expr) => match &expr.expressions[0] {
+                Expression::Unary(unary_expr) => {
+                    assert_eq!(unary_expr.operator, UnaryExpressionOperator::Not);
+                    match &unary_expr.operand {
+                        Expression::Identifier(ident) => {
+                            assert_eq!(ident.name, "x");
+                        }
+                        _ => panic!("Expected identifier expression"),
+                    }
+                }
+                _ => panic!("Expected unary expression"),
+            },
+            _ => panic!("Expected expression statement"),
+        }
+    }
+
+    #[test]
+    fn expression_statement_member_access() {
+        let codebase = build_codebase_wrapper("circuit foo(): Bool { x.y; }");
+        let codebase = codebase.borrow();
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        let circuits = ast.circuits();
+        assert_eq!(circuits.len(), 1);
+        let statement = circuits
+            .first()
+            .unwrap()
+            .body
+            .as_ref()
+            .unwrap()
+            .statements
+            .first()
+            .unwrap();
+        match statement {
+            Statement::ExpressionSequence(expr) => match &expr.expressions[0] {
+                Expression::MemberAccess(member_access) => {
+                    match &member_access.base {
+                        Expression::Identifier(ident) => {
+                            assert_eq!(ident.name, "x");
+                        }
+                        _ => panic!("Expected identifier expression"),
+                    }
+                    assert_eq!(member_access.member.name, "y");
+                }
+                _ => panic!("Expected member access expression"),
+            },
+            _ => panic!("Expected expression statement"),
+        }
+    }
+
+    #[test]
+    fn expression_statement_array_access() {
+        let codebase = build_codebase_wrapper("circuit foo(): Bool { x[0]; }");
+        let codebase = codebase.borrow();
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        let circuits = ast.circuits();
+        assert_eq!(circuits.len(), 1);
+        let statement = circuits
+            .first()
+            .unwrap()
+            .body
+            .as_ref()
+            .unwrap()
+            .statements
+            .first()
+            .unwrap();
+        match statement {
+            Statement::ExpressionSequence(expr) => match &expr.expressions[0] {
+                Expression::IndexAccess(array_access) => {
+                    match &array_access.base {
+                        Expression::Identifier(ident) => {
+                            assert_eq!(ident.name, "x");
+                        }
+                        _ => panic!("Expected identifier expression"),
+                    }
+                    assert_eq!(array_access.index.value, 0);
+                }
+                _ => panic!("Expected array access expression"),
+            },
+            _ => panic!("Expected expression statement"),
+        }
+    }
+
+    #[test]
+    fn expression_statement_cast() {
+        let codebase = build_codebase_wrapper("circuit foo(): Bool { x as Field; }");
+        let codebase = codebase.borrow();
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        let circuits = ast.circuits();
+        assert_eq!(circuits.len(), 1);
+        let statement = circuits
+            .first()
+            .unwrap()
+            .body
+            .as_ref()
+            .unwrap()
+            .statements
+            .first()
+            .unwrap();
+        match statement {
+            Statement::ExpressionSequence(expr) => match &expr.expressions[0] {
+                Expression::Cast(cast_expr) => {
+                    match &cast_expr.expression {
+                        Expression::Identifier(ident) => {
+                            assert_eq!(ident.name, "x");
+                        }
+                        _ => panic!("Expected identifier expression"),
+                    }
+                    assert!(matches!(cast_expr.target_type, Type::Field(_)));
+                }
+                _ => panic!("Expected cast expression"),
             },
             _ => panic!("Expected expression statement"),
         }
