@@ -151,6 +151,7 @@ impl Display for SymbolTable {
     }
 }
 
+#[allow(clippy::map_entry)]
 pub fn build_symbol_table(
     node_kind: Rc<NodeKind>,
     parent: Option<Rc<SymbolTable>>,
