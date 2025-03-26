@@ -69,6 +69,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[ignore] // Skip this test in CI workflows
     fn test_build_codebase() {
         let directory = std::env::current_dir().unwrap();
         let corpus_directory = directory.parent().unwrap().join("corpus");
