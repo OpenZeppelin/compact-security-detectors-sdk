@@ -94,6 +94,12 @@ ast_nodes_impl! {
     }
 }
 
+impl Structure {
+    pub fn name(&self) -> String {
+        self.name.name.clone()
+    }
+}
+
 impl Enum {
     #[must_use = "This method returns the name of the enum"]
     pub fn name(&self) -> String {

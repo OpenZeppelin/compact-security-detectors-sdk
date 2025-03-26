@@ -674,12 +674,11 @@ mod test {
             location: default_location(),
             statements: vec![var_a.clone(), var_b.clone()],
         }));
-        // Build the symbol table for the block.
         let symbol_table =
             build_symbol_table(Rc::new(crate::passes::NodeKind::from(&block)), None)?;
-        // Both symbols should be present with type Int.
-        let sym_a = symbol_table.lookup("a").unwrap();
-        let sym_b = symbol_table.lookup("b").unwrap();
+        println!("{symbol_table}");
+        let sym_a = symbol_table.lookdown("a").unwrap();
+        let sym_b = symbol_table.lookdown("b").unwrap();
         assert!(matches!(sym_a, Type::Nat(_)));
         assert!(matches!(sym_b, Type::Nat(_)));
         Ok(())

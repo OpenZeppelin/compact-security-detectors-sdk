@@ -3218,3 +3218,275 @@ mod statements_parsing_tests {
         }
     }
 }
+
+#[cfg(test)]
+mod struct_parsing_tests {
+    use crate::{
+        ast::{definition::Definition, ty::Type},
+        builder_tests::build_codebase_wrapper,
+    };
+
+    #[test]
+    fn simple_struct() {
+        let codebase = build_codebase_wrapper("struct MyStruct { a: Field; b: Uint<32>; }");
+        let codebase = codebase.borrow();
+        assert_eq!(codebase.fname_ast_map.len(), 1);
+        assert_eq!(codebase.symbol_tables.len(), 1);
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        assert_eq!(ast.definitions.len(), 1);
+        match &ast.definitions[0] {
+            Definition::Structure(struct_def) => {
+                assert_eq!(struct_def.name(), "MyStruct");
+                assert!(struct_def.generic_parameters.is_none());
+                assert_eq!(struct_def.fields.len(), 2);
+                let field_a = &struct_def.fields[0];
+                assert_eq!(field_a.name.name, "a");
+                assert!(matches!(field_a.ty, Type::Field(_)));
+                let field_b = &struct_def.fields[1];
+                assert_eq!(field_b.name.name, "b");
+                match &field_b.ty {
+                    Type::Uint(uint_t) => assert_eq!(uint_t.start.value, 32),
+                    _ => panic!("Expected Uint<32> type"),
+                }
+            }
+            _ => panic!("Expected struct definition"),
+        }
+    }
+
+    #[test]
+    fn generic_struct() {
+        let codebase = build_codebase_wrapper("struct MyStruct<T> { a: Field; b: Uint<32>; }");
+        let codebase = codebase.borrow();
+        assert_eq!(codebase.fname_ast_map.len(), 1);
+        assert_eq!(codebase.symbol_tables.len(), 1);
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        assert_eq!(ast.definitions.len(), 1);
+        match &ast.definitions[0] {
+            Definition::Structure(struct_def) => {
+                assert_eq!(struct_def.name(), "MyStruct");
+                assert!(struct_def.generic_parameters.is_some());
+                assert_eq!(struct_def.generic_parameters.as_ref().unwrap().len(), 1);
+                assert_eq!(struct_def.generic_parameters.as_ref().unwrap()[0].name, "T");
+                assert_eq!(struct_def.fields.len(), 2);
+                let field_a = &struct_def.fields[0];
+                assert_eq!(field_a.name.name, "a");
+                assert!(matches!(field_a.ty, Type::Field(_)));
+                let field_b = &struct_def.fields[1];
+                assert_eq!(field_b.name.name, "b");
+                match &field_b.ty {
+                    Type::Uint(uint_t) => assert_eq!(uint_t.start.value, 32),
+                    _ => panic!("Expected Uint<32> type"),
+                }
+            }
+            _ => panic!("Expected struct definition"),
+        }
+    }
+
+    #[test]
+    fn exported_struct() {
+        let codebase = build_codebase_wrapper("export struct MyStruct { a: Field; b: Field; }");
+        let codebase = codebase.borrow();
+        assert_eq!(codebase.fname_ast_map.len(), 1);
+        assert_eq!(codebase.symbol_tables.len(), 1);
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        assert_eq!(ast.definitions.len(), 1);
+        match &ast.definitions[0] {
+            Definition::Structure(struct_def) => {
+                assert_eq!(struct_def.name(), "MyStruct");
+                assert!(struct_def.is_exported);
+                assert_eq!(struct_def.fields.len(), 2);
+                let field_a = &struct_def.fields[0];
+                assert_eq!(field_a.name.name, "a");
+                assert!(matches!(field_a.ty, Type::Field(_)));
+                let field_b = &struct_def.fields[1];
+                assert_eq!(field_b.name.name, "b");
+                assert!(matches!(field_b.ty, Type::Field(_)));
+            }
+            _ => panic!("Expected struct definition"),
+        }
+    }
+}
+
+#[cfg(test)]
+mod witness_parsing_tests {
+    use crate::{
+        ast::{
+            declaration::Declaration,
+            ty::{Type, VectorSize},
+        },
+        builder_tests::build_codebase_wrapper,
+    };
+
+    #[test]
+    fn simple_witness() {
+        let codebase = build_codebase_wrapper("witness myWitness (x: Field) : Field;");
+        let codebase = codebase.borrow();
+        assert_eq!(codebase.fname_ast_map.len(), 1);
+        assert_eq!(codebase.symbol_tables.len(), 1);
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        assert_eq!(ast.declarations.len(), 1);
+        match &ast.declarations[0] {
+            Declaration::Witness(witness_def) => {
+                assert_eq!(witness_def.name(), "myWitness");
+                assert!(!witness_def.is_exported);
+                assert!(witness_def.generic_parameters.is_none());
+                assert_eq!(witness_def.arguments.len(), 1);
+                let arg = &witness_def.arguments[0];
+                assert_eq!(arg.name(), "x");
+                assert!(matches!(arg.ty, Type::Field(_)));
+                assert!(matches!(witness_def.ty, Type::Field(_)));
+            }
+            _ => panic!("Expected witness definition"),
+        }
+    }
+
+    #[test]
+    fn exported_witness() {
+        let codebase =
+            build_codebase_wrapper("export witness myWitness (x: Field, y: Uint<32>) : Field;");
+        let codebase = codebase.borrow();
+        assert_eq!(codebase.fname_ast_map.len(), 1);
+        assert_eq!(codebase.symbol_tables.len(), 1);
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        assert_eq!(ast.declarations.len(), 1);
+        match &ast.declarations[0] {
+            Declaration::Witness(witness_def) => {
+                assert_eq!(witness_def.name(), "myWitness");
+                assert!(witness_def.is_exported);
+                assert!(witness_def.generic_parameters.is_none());
+                assert_eq!(witness_def.arguments.len(), 2);
+                let arg_x = &witness_def.arguments[0];
+                assert_eq!(arg_x.name(), "x");
+                assert!(matches!(arg_x.ty, Type::Field(_)));
+                let arg_y = &witness_def.arguments[1];
+                assert_eq!(arg_y.name(), "y");
+                match &arg_y.ty {
+                    Type::Uint(uint_t) => assert_eq!(uint_t.start.value, 32),
+                    _ => panic!("Expected Uint<32> type"),
+                }
+                assert!(matches!(witness_def.ty, Type::Field(_)));
+            }
+            _ => panic!("Expected witness definition"),
+        }
+    }
+
+    #[test]
+    fn generic_witness() {
+        let codebase = build_codebase_wrapper("witness myWitness<T> (a: Field) : Field;");
+        let codebase = codebase.borrow();
+        assert_eq!(codebase.fname_ast_map.len(), 1);
+        assert_eq!(codebase.symbol_tables.len(), 1);
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        assert_eq!(ast.declarations.len(), 1);
+        match &ast.declarations[0] {
+            Declaration::Witness(witness_def) => {
+                assert_eq!(witness_def.name(), "myWitness");
+                assert!(!witness_def.is_exported);
+                assert!(witness_def.generic_parameters.is_some());
+                assert_eq!(witness_def.generic_parameters.as_ref().unwrap().len(), 1);
+                assert_eq!(
+                    witness_def.generic_parameters.as_ref().unwrap()[0].name,
+                    "T"
+                );
+                assert_eq!(witness_def.arguments.len(), 1);
+                let arg = &witness_def.arguments[0];
+                assert_eq!(arg.name(), "a");
+                assert!(matches!(arg.ty, Type::Field(_)));
+                assert!(matches!(witness_def.ty, Type::Field(_)));
+            }
+            _ => panic!("Expected witness definition"),
+        }
+    }
+
+    #[test]
+    fn witness_with_multiple_parameters() {
+        let codebase =
+            build_codebase_wrapper("witness myWitness (a: Field, b: Field, c: Boolean) : Boolean;");
+        let codebase = codebase.borrow();
+        assert_eq!(codebase.fname_ast_map.len(), 1);
+        assert_eq!(codebase.symbol_tables.len(), 1);
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        assert_eq!(ast.declarations.len(), 1);
+        match &ast.declarations[0] {
+            Declaration::Witness(witness_def) => {
+                assert_eq!(witness_def.name(), "myWitness");
+                assert!(!witness_def.is_exported);
+                assert!(witness_def.generic_parameters.is_none());
+                assert_eq!(witness_def.arguments.len(), 3);
+                let arg_a = &witness_def.arguments[0];
+                assert_eq!(arg_a.name(), "a");
+                assert!(matches!(arg_a.ty, Type::Field(_)));
+                let arg_b = &witness_def.arguments[1];
+                assert_eq!(arg_b.name(), "b");
+                assert!(matches!(arg_b.ty, Type::Field(_)));
+                let arg_c = &witness_def.arguments[2];
+                assert_eq!(arg_c.name(), "c");
+                assert!(matches!(arg_c.ty, Type::Boolean(_)));
+                assert!(matches!(witness_def.ty, Type::Boolean(_)));
+            }
+            _ => panic!("Expected witness definition"),
+        }
+    }
+
+    #[test]
+    fn witness_with_no_parameters() {
+        let codebase = build_codebase_wrapper("witness myWitness () : Field;");
+        let codebase = codebase.borrow();
+        assert_eq!(codebase.fname_ast_map.len(), 1);
+        assert_eq!(codebase.symbol_tables.len(), 1);
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        assert_eq!(ast.declarations.len(), 1);
+        match &ast.declarations[0] {
+            Declaration::Witness(witness_def) => {
+                assert_eq!(witness_def.name(), "myWitness");
+                assert!(!witness_def.is_exported);
+                assert!(witness_def.generic_parameters.is_none());
+                assert!(witness_def.arguments.is_empty());
+                assert!(matches!(witness_def.ty, Type::Field(_)));
+            }
+            _ => panic!("Expected witness definition"),
+        }
+    }
+
+    #[test]
+    fn witness_with_vector_return_type() {
+        let codebase =
+            build_codebase_wrapper("witness myWitness (data: Field) : Vector<10, Field>;");
+        let codebase = codebase.borrow();
+        assert_eq!(codebase.fname_ast_map.len(), 1);
+        assert_eq!(codebase.symbol_tables.len(), 1);
+        let source_file = codebase.fname_ast_map.get("dummy").unwrap();
+        let ast = &source_file.ast;
+        assert_eq!(ast.declarations.len(), 1);
+        match &ast.declarations[0] {
+            Declaration::Witness(witness_def) => {
+                assert_eq!(witness_def.name(), "myWitness");
+                assert!(!witness_def.is_exported);
+                assert!(witness_def.generic_parameters.is_none());
+                assert_eq!(witness_def.arguments.len(), 1);
+                let arg = &witness_def.arguments[0];
+                assert_eq!(arg.name(), "data");
+                assert!(matches!(arg.ty, Type::Field(_)));
+                match &witness_def.ty {
+                    Type::Vector(vec_t) => {
+                        match &vec_t.size {
+                            VectorSize::Nat(size) => assert_eq!(size.value, 10),
+                            VectorSize::Ref(_) => panic!("Expected Vector<10, Field> type"),
+                        }
+                        assert!(matches!(vec_t.ty, Type::Field(_)));
+                    }
+                    _ => panic!("Expected Vector<10, Field> type"),
+                }
+            }
+            _ => panic!("Expected witness definition"),
+        }
+    }
+}

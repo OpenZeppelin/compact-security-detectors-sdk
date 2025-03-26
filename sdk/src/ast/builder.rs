@@ -1667,13 +1667,13 @@ fn build_pargument(node: &Node, source: &str) -> Result<Rc<PatternArgument>> {
 
 fn build_pattern(node: &Node, source: &str) -> Result<Pattern> {
     // println!("Pattern: {:?}", node);
-    // let node = if node.kind() == "pattern" {
-    //     &node.child(0).unwrap()
-    // } else {
-    //     node
-    // };
+    let node = if node.kind() == "pattern" {
+        &node.child(0).unwrap()
+    } else {
+        node
+    };
     let kind = node.kind();
-    match node.child(0).unwrap().kind() {
+    match kind {
         "id" => {
             let name = build_identifier(node, source)?;
             Ok(Pattern::Identifier(name))
@@ -1681,6 +1681,8 @@ fn build_pattern(node: &Node, source: &str) -> Result<Pattern> {
         "[" => {
             let cursor = &mut node.walk();
             let patterns: Result<Vec<_>> = node
+                .parent()
+                .unwrap()
                 .children_by_field_name("pattern_tuple_elt", cursor)
                 .map(|pattern_node| build_pattern(&pattern_node.child(0).unwrap(), source))
                 .collect();

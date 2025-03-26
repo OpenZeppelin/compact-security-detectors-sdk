@@ -241,6 +241,13 @@ impl SymbolNode for PatternArgument {
     }
 }
 
+impl Argument {
+    #[must_use]
+    pub fn name(&self) -> String {
+        self.name.name.clone()
+    }
+}
+
 impl PatternArgument {
     #[must_use = "Use this function to get the name of the pattern argument. If the pattern is an identifier, it will return the name of the identifier."]
     pub fn name(&self) -> Option<String> {
@@ -248,5 +255,12 @@ impl PatternArgument {
             Pattern::Identifier(id) => Some(id.name.clone()),
             _ => None,
         }
+    }
+}
+
+impl Witness {
+    #[must_use]
+    pub fn name(&self) -> String {
+        self.name.name.clone()
     }
 }

@@ -158,7 +158,7 @@ impl SymbolNode for Var {
         self.ident.name.clone()
     }
     fn type_expr(&self) -> Option<Expression> {
-        self.ty_.clone()
+        self.ty_.clone().or_else(|| Some(self.value.clone()))
     }
 }
 
