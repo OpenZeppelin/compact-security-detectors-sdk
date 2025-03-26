@@ -95,6 +95,7 @@ ast_nodes_impl! {
 }
 
 impl Structure {
+    #[must_use]
     pub fn name(&self) -> String {
         self.name.name.clone()
     }
