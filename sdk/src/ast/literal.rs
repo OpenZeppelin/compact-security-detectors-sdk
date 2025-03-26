@@ -81,7 +81,15 @@ ast_nodes_impl! {
     }
     impl Node for Version {
         fn children(&self) -> Vec<Rc<NodeKind>> {
-            vec![]
+            let mut res = vec![];
+            res.push(Rc::new(NodeKind::from(&Literal::Nat(self.major.clone()))));
+            if let Some(minor) = &self.minor {
+                res.push(Rc::new(NodeKind::from(&Literal::Nat(minor.clone()))));
+            }
+            if let Some(bugfix) = &self.bugfix {
+                res.push(Rc::new(NodeKind::from(&Literal::Nat(bugfix.clone()))));
+            }
+            res
         }
     }
     impl Node for Pad {

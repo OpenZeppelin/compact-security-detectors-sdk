@@ -14,10 +14,10 @@ use super::{
 
 ast_enum! {
     pub enum Declaration {
+        Argument(Rc<Argument>),
         Import(Rc<Import>),
         Include(Rc<Include>),
         Export(Rc<Export>),
-        External(Rc<External>),
         Witness(Rc<Witness>),
         Ledger(Rc<Ledger>),
         @scope Constructor(Rc<Constructor>),
@@ -63,8 +63,6 @@ ast_nodes! {
     pub struct Export {
         pub values: Vec<Rc<Identifier>>,
     }
-
-    pub struct External {}
 
     pub struct Witness {
         pub is_exported: bool,
@@ -120,7 +118,16 @@ ast_nodes! {
 ast_nodes_impl! {
     impl Node for Import {
         fn children(&self) -> Vec<Rc<NodeKind>> {
-            vec![]
+            let mut res = vec![Rc::new(NodeKind::from(&Expression::Identifier(self.value.clone())))];
+            if let Some(prefix) = &self.prefix {
+                res.push(Rc::new(NodeKind::from(&Expression::Identifier(prefix.clone()))));
+            }
+            if let Some(generic_parameters) = &self.generic_parameters {
+                for param in generic_parameters {
+                    res.push(Rc::new(NodeKind::from(param)));
+                }
+            }
+            res
         }
     }
     impl Node for Include {
@@ -130,22 +137,33 @@ ast_nodes_impl! {
     }
     impl Node for Export {
         fn children(&self) -> Vec<Rc<NodeKind>> {
-            vec![]
-        }
-    }
-    impl Node for External {
-        fn children(&self) -> Vec<Rc<NodeKind>> {
-            vec![]
+            self.values
+                .iter()
+                .map(|id| Rc::new(NodeKind::from(&Expression::Identifier(id.clone())))
+                )
+                .collect()
         }
     }
     impl Node for Witness {
         fn children(&self) -> Vec<Rc<NodeKind>> {
-            vec![]
+            let mut res = vec![Rc::new(NodeKind::from(&Expression::Identifier(self.name.clone())))];
+            if let Some(generic_parameters) = &self.generic_parameters {
+                for param in generic_parameters {
+                    res.push(Rc::new(NodeKind::from(&Expression::Identifier(param.clone()))));
+                }
+            }
+            for arg in &self.arguments {
+                res.push(Rc::new(NodeKind::from(&Declaration::Argument(arg.clone()))));
+            }
+            res.push(Rc::new(NodeKind::from(&self.ty)));
+            res
         }
     }
     impl Node for Ledger {
         fn children(&self) -> Vec<Rc<NodeKind>> {
-            vec![]
+            let mut res = vec![Rc::new(NodeKind::from(&Expression::Identifier(self.name.clone())))];
+            res.push(Rc::new(NodeKind::from(&self.ty)));
+            res
         }
     }
     impl Node for Constructor {
@@ -161,7 +179,11 @@ ast_nodes_impl! {
     }
     impl Node for Contract {
         fn children(&self) -> Vec<Rc<NodeKind>> {
-            vec![]
+            let mut res = vec![Rc::new(NodeKind::from(&Expression::Identifier(self.name.clone())))];
+            for circuit in &self.circuits {
+                res.push(Rc::new(NodeKind::from(&Definition::Circuit(circuit.clone()))));
+            }
+            res
         }
     }
     impl Node for Argument {

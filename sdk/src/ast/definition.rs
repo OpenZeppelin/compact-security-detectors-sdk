@@ -56,7 +56,20 @@ ast_nodes! {
 ast_nodes_impl! {
     impl Node for Module {
         fn children(&self) -> Vec<Rc<NodeKind>> {
-            vec![]
+            let name = Rc::new(NodeKind::from(&Expression::Identifier(self.name.clone())));
+            let generic_parameters: Vec<Rc<NodeKind>> = self
+                .generic_parameters
+                .iter()
+                .flatten()
+                .map(|arg| Rc::new(NodeKind::from(&Expression::Identifier(arg.clone())))
+                )
+                .collect();
+            let nodes: Vec<Rc<NodeKind>> = self.nodes.iter().map(|node| Rc::new(NodeKind::from(node))).collect();
+            vec![name]
+                .into_iter()
+                .chain(generic_parameters)
+                .chain(nodes)
+                .collect()
         }
     }
     impl Node for Circuit {
@@ -84,12 +97,40 @@ ast_nodes_impl! {
     }
     impl Node for Structure {
         fn children(&self) -> Vec<Rc<NodeKind>> {
-            vec![]
+            let name = Rc::new(NodeKind::from(&Expression::Identifier(self.name.clone())));
+            let generic_parameters: Vec<Rc<NodeKind>> = self
+                .generic_parameters
+                .iter()
+                .flatten()
+                .map(|arg| Rc::new(NodeKind::from(&Expression::Identifier(arg.clone())))
+                )
+                .collect();
+            let fields: Vec<Rc<NodeKind>> = self
+                .fields
+                .iter()
+                .map(|arg| Rc::new(NodeKind::from(&Declaration::Argument(arg.clone())))
+                )
+                .collect();
+            vec![name]
+                .into_iter()
+                .chain(generic_parameters)
+                .chain(fields)
+                .collect()
         }
     }
     impl Node for Enum {
         fn children(&self) -> Vec<Rc<NodeKind>> {
-            vec![]
+            let name = Rc::new(NodeKind::from(&Expression::Identifier(self.name.clone())));
+            let options: Vec<Rc<NodeKind>> = self
+                .options
+                .iter()
+                .map(|arg| Rc::new(NodeKind::from(&Expression::Identifier(arg.clone())))
+                )
+                .collect();
+            vec![name]
+                .into_iter()
+                .chain(options)
+                .collect()
         }
     }
 }

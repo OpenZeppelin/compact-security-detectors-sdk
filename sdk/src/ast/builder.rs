@@ -148,8 +148,8 @@ fn build_compact_node(node: &Node, source: &str) -> Result<CompactNode> {
             Ok(CompactNode::Module(Rc::new(module)))
         }
         "comment" => {
-            let comment = node.utf8_text(source.as_bytes())?;
-            Ok(CompactNode::Comment(comment.to_string()))
+            let comment = build_str(node, source)?;
+            Ok(CompactNode::Comment(comment))
         }
         other => bail!("Unhandled node kind: {}", other),
     }

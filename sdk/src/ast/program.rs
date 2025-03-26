@@ -7,6 +7,7 @@ use super::{
     declaration::{Constructor, Declaration},
     definition::{Circuit, Definition, Module},
     directive::Directive,
+    literal::{Literal, Str},
     node::{Node, NodeKind, SameScopeNode},
 };
 
@@ -96,5 +97,17 @@ pub enum CompactNode {
     Declaration(Declaration),
     Definition(Definition),
     Module(Rc<Module>),
-    Comment(String),
+    Comment(Rc<Str>),
+}
+
+impl From<&CompactNode> for NodeKind {
+    fn from(node: &CompactNode) -> Self {
+        match node {
+            CompactNode::Directive(d) => NodeKind::from(d),
+            CompactNode::Declaration(d) => NodeKind::from(d),
+            CompactNode::Definition(d) => NodeKind::from(d),
+            CompactNode::Module(m) => NodeKind::from(&Definition::Module(m.clone())),
+            CompactNode::Comment(c) => NodeKind::from(&Literal::Str(c.clone())),
+        }
+    }
 }
