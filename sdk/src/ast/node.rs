@@ -91,6 +91,13 @@ impl From<Rc<dyn Node>> for NodeKind {
 
 pub trait Node: Any + std::fmt::Debug {
     fn id(&self) -> u128;
+    fn node_type_name(&self) -> String {
+        std::any::type_name::<Self>()
+            .split("::")
+            .last()
+            .unwrap_or_default()
+            .to_string()
+    }
     fn children(&self) -> Vec<Rc<NodeKind>>;
     fn sorted_children(&self) -> Vec<Rc<NodeKind>> {
         let mut children = self.children();
@@ -131,6 +138,18 @@ macro_rules! ast_enum {
         }
 
         impl $name {
+
+            #[must_use]
+            pub fn id(&self) -> u128 {
+                match self {
+                    $(
+                        $name::$arm(_a) => {
+                            ast_enum!(@id _a, $( $conv )?)
+                        }
+                    )*
+                }
+            }
+
             #[must_use]
             pub fn location(&self) -> $crate::ast::node::Location {
                 match self {
@@ -198,6 +217,30 @@ macro_rules! ast_enum {
 
     (@convert $inner:ident, ) => {
         $crate::ast::node::NodeKind::SameScopeNode($crate::ast::node::SameScopeNode::Composite($inner.clone()))
+    };
+
+    (@id $inner:ident, raw) => {
+        $inner.id()
+    };
+
+    (@id $inner:ident, symbol) => {
+        $inner.id
+    };
+
+    (@id $inner:ident, scope) => {
+        $inner.id
+    };
+
+    (@id $inner:ident, block) => {
+        $inner.id
+    };
+
+    (@id $inner:ident, skip_location) => {
+        $inner.id
+    };
+
+    (@id $inner:ident, ) => {
+        $inner.id
     };
 
 }

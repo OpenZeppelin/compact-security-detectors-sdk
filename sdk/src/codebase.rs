@@ -1,7 +1,12 @@
 #![warn(clippy::pedantic)]
 use crate::{
-    ast::{node::NodeKind, program::Program, ty::Type},
+    ast::{
+        node::{Node, NodeKind},
+        program::Program,
+        ty::Type,
+    },
     passes::{build_symbol_table, SymbolTable},
+    storage::NodesStorage,
 };
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -26,6 +31,7 @@ pub struct SourceCodeFile {
 
 #[derive(Serialize, Deserialize, Default)]
 pub struct Codebase<S> {
+    pub(crate) storage: NodesStorage,
     #[serde(skip)]
     pub(crate) fname_ast_map: HashMap<String, SourceCodeFile>,
     pub(crate) symbol_tables: HashMap<String, Rc<SymbolTable>>,
@@ -36,6 +42,7 @@ impl Codebase<OpenState> {
     #[must_use]
     pub fn new() -> Self {
         Self {
+            storage: NodesStorage::default(),
             fname_ast_map: HashMap::new(),
             symbol_tables: HashMap::new(),
             _state: PhantomData,
@@ -66,6 +73,7 @@ impl Codebase<OpenState> {
             // println!("{}", &symbol_tables.get(file_path).unwrap());
         }
         Ok(Codebase {
+            storage: self.storage,
             fname_ast_map: self.fname_ast_map,
             symbol_tables,
             _state: PhantomData,

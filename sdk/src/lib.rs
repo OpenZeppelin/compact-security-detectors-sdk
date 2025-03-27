@@ -8,6 +8,7 @@ pub mod ast;
 mod builder_tests;
 pub mod codebase;
 mod passes;
+mod storage;
 
 pub trait Rule {
     fn check(
