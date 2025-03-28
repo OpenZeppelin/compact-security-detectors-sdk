@@ -54,7 +54,7 @@ impl Codebase<OpenState> {
     /// # Panics
     ///
     /// This function will panic if there is an error loading the Inference grammar.
-    pub fn add_file(&mut self, fname: &str, source_code: &str) -> Result<()> {
+    pub fn add_file(&mut self, fname: &str, source_code: &str) {
         let compact_language = tree_sitter_compact::LANGUAGE.into();
         let mut parser = tree_sitter::Parser::new();
         parser
@@ -62,14 +62,13 @@ impl Codebase<OpenState> {
             .expect("Error loading Inference grammar");
         let tree = parser.parse(source_code, None).unwrap();
         let root_node = tree.root_node();
-        let ast = build_ast(self, &root_node, source_code)?;
+        let ast = build_ast(self, &root_node, source_code).unwrap();
         let source_code_file = SourceCodeFile {
             fname: fname.to_string(),
             ast,
         };
         self.fname_ast_map
             .insert(source_code_file.fname.clone(), source_code_file);
-        Ok(())
     }
 
     pub(crate) fn add_node(&mut self, node: NodeType, parent: u128) {
