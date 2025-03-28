@@ -19,7 +19,7 @@ impl Rule for AssertionErrorMessageConsistency {
 
     fn check(&self, codebase: &RefCell<Codebase<SealedState>>) -> Option<HashMap<String, Vec<(usize, usize)>>> {
         let codebase = codebase.borrow();
-        
+        todo!("Implement this function")
     }
 }
 

@@ -3,8 +3,15 @@ use std::rc::Rc;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    declaration::Declaration, definition::Definition, directive::Directive, expression::Expression,
-    function::Function, literal::Literal, node::Location, program::Program, statement::Statement,
+    declaration::{Declaration, GArgument, Pattern},
+    definition::Definition,
+    directive::Directive,
+    expression::{Expression, StructExprArg},
+    function::Function,
+    literal::Literal,
+    node::Location,
+    program::Program,
+    statement::Statement,
     ty::Type,
 };
 
@@ -19,6 +26,9 @@ pub enum NodeType {
     Function(Function),
     Literal(Literal),
     Type(Type),
+    Pattern(Pattern),
+    GArgument(GArgument),
+    StructExprArg(StructExprArg),
 }
 
 impl NodeType {
@@ -34,6 +44,9 @@ impl NodeType {
             NodeType::Function(node) => node.id(),
             NodeType::Literal(node) => node.id(),
             NodeType::Type(node) => node.id(),
+            NodeType::Pattern(node) => node.id(),
+            NodeType::GArgument(node) => node.id(),
+            NodeType::StructExprArg(node) => node.id(),
         }
     }
 }
@@ -51,6 +64,9 @@ impl NodeType {
             NodeType::Function(node) => node.location(),
             NodeType::Literal(node) => node.location(),
             NodeType::Type(node) => node.location(),
+            NodeType::Pattern(node) => node.location(),
+            NodeType::GArgument(node) => node.location(),
+            NodeType::StructExprArg(node) => node.location(),
         }
     }
 }

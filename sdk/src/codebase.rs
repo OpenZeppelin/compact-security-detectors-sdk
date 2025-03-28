@@ -1,10 +1,6 @@
 #![warn(clippy::pedantic)]
 use crate::{
-    ast::{
-        node::{Node, NodeKind},
-        program::Program,
-        ty::Type,
-    },
+    ast::{builder::build_ast, node::NodeKind, node_type::NodeType, program::Program, ty::Type},
     passes::{build_symbol_table, SymbolTable},
     storage::NodesStorage,
 };
@@ -49,9 +45,35 @@ impl Codebase<OpenState> {
         }
     }
 
-    pub fn add_file(&mut self, source_code_file: SourceCodeFile) {
+    /// Parses the content of a source code file and returns a `SourceCodeFile` object.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if the AST cannot be built from the source code.
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if there is an error loading the Inference grammar.
+    pub fn add_file(&mut self, fname: &str, source_code: &str) -> Result<()> {
+        let compact_language = tree_sitter_compact::LANGUAGE.into();
+        let mut parser = tree_sitter::Parser::new();
+        parser
+            .set_language(&compact_language)
+            .expect("Error loading Inference grammar");
+        let tree = parser.parse(source_code, None).unwrap();
+        let root_node = tree.root_node();
+        let ast = build_ast(self, &root_node, source_code)?;
+        let source_code_file = SourceCodeFile {
+            fname: fname.to_string(),
+            ast,
+        };
         self.fname_ast_map
             .insert(source_code_file.fname.clone(), source_code_file);
+        Ok(())
+    }
+
+    pub(crate) fn add_node(&mut self, node: NodeType, parent: u128) {
+        self.storage.add_node(node, parent);
     }
 
     /// Seals the codebase, preventing further modifications.
@@ -63,7 +85,7 @@ impl Codebase<OpenState> {
     /// # Panics
     ///
     /// This function will panic if the symbol table for a file path is not found.
-    pub fn seal(self) -> Result<Codebase<SealedState>> {
+    pub fn seal(mut self) -> Result<Codebase<SealedState>> {
         let mut symbol_tables = HashMap::new();
         for (file_path, source_code_file) in &self.fname_ast_map {
             let symbol_table =
@@ -72,6 +94,7 @@ impl Codebase<OpenState> {
 
             // println!("{}", &symbol_tables.get(file_path).unwrap());
         }
+        self.storage.seal();
         Ok(Codebase {
             storage: self.storage,
             fname_ast_map: self.fname_ast_map,
