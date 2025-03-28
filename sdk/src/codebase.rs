@@ -1,6 +1,13 @@
 #![warn(clippy::pedantic)]
 use crate::{
-    ast::{builder::build_ast, node::NodeKind, node_type::NodeType, program::Program, ty::Type},
+    ast::{
+        builder::build_ast,
+        node::NodeKind,
+        node_type::NodeType,
+        program::Program,
+        statement::{Assert, Statement},
+        ty::Type,
+    },
     passes::{build_symbol_table, SymbolTable},
     storage::NodesStorage,
 };
@@ -113,5 +120,15 @@ impl Codebase<SealedState> {
         self.symbol_tables
             .get(file_path)
             .and_then(|table| table.lookdown_by_id(id))
+    }
+
+    pub fn list_assert_nodes(&self) -> impl Iterator<Item = Rc<Assert>> {
+        let mut res = Vec::new();
+        for item in &self.storage.nodes {
+            if let NodeType::Statement(Statement::Assert(assert_stmt)) = item {
+                res.push(assert_stmt.clone());
+            }
+        }
+        res.into_iter()
     }
 }
