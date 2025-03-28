@@ -24,6 +24,7 @@ ast_enum! {
         @scope Contract(Rc<Contract>),
         @raw Definition(Definition),
         @symbol PatternArgument(Rc<PatternArgument>),
+        StructPatternField(Rc<StructPatternField>),
     }
 }
 

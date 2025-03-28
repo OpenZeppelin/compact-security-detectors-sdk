@@ -3,7 +3,10 @@ use anyhow::{anyhow, bail, Ok, Result};
 use std::rc::Rc;
 use tree_sitter::Node;
 
-use crate::ast::{directive::VersionExpr, literal::VersionOperator};
+use crate::{
+    ast::{directive::VersionExpr, literal::VersionOperator},
+    codebase::{Codebase, OpenState},
+};
 
 use super::{
     declaration::{
@@ -20,6 +23,7 @@ use super::{
     function::{AnonymousFunction, Function, FunctionArgument, NamedFunction},
     literal::{Array, Bool, Literal, Nat, Pad, Str, Version},
     node::Location,
+    node_type::NodeType,
     program::{CompactNode, Program},
     statement::{Assert, Assign, AssignOperator, Block, Const, For, If, Return, Statement},
     ty::{Bytes, Opaque, Ref, Sum, Type, TypeBool, TypeField, Uint, Vector, VectorSize},
@@ -32,7 +36,11 @@ use super::{
 ///
 /// # Panics
 /// This function will panic if `root.named_child(i).unwrap()` fails.
-pub fn build_ast(root: &Node, source: &str) -> Result<Rc<Program>> {
+pub fn build_ast(
+    codebase: &mut Codebase<OpenState>,
+    root: &Node,
+    source: &str,
+) -> Result<Rc<Program>> {
     if root.kind() != "source_file" {
         bail!("Invalid root node kind: {}", root.kind());
     }
@@ -41,9 +49,10 @@ pub fn build_ast(root: &Node, source: &str) -> Result<Rc<Program>> {
     let mut definitions: Vec<Definition> = Vec::new();
     let mut modules: Vec<Rc<Module>> = Vec::new();
 
+    let node_id = node_id();
     for i in 0..root.named_child_count() {
         let child = root.named_child(i).unwrap();
-        match build_compact_node(&child, source)? {
+        match build_compact_node(codebase, &child, source, node_id)? {
             CompactNode::Directive(d) => directives.push(d),
             CompactNode::Declaration(d) => declarations.push(d),
             CompactNode::Definition(d) => definitions.push(d),
@@ -51,111 +60,111 @@ pub fn build_ast(root: &Node, source: &str) -> Result<Rc<Program>> {
             CompactNode::Comment(_) => {}
         }
     }
-    Ok(Rc::new(Program {
-        id: node_id(),
+    let p = Rc::new(Program {
+        id: node_id,
         location: location(root),
         directives,
         declarations,
         definitions,
         modules,
-    }))
+    });
+    codebase.add_node(NodeType::Program(p.clone()), 0);
+    Ok(p)
 }
 
-fn build_compact_node(node: &Node, source: &str) -> Result<CompactNode> {
+fn build_compact_node(
+    codebase: &mut Codebase<OpenState>,
+    node: &Node,
+    source: &str,
+    parent_id: u128,
+) -> Result<CompactNode> {
     match node.kind() {
         "pragma" => {
-            let pragma = build_pragma(node, source)?;
+            let pragma = build_pragma(codebase, node, source, parent_id)?;
             Ok(CompactNode::Directive(Directive::Pragma(Rc::new(pragma))))
         }
-        // include
         "incld" => {
-            let include = build_include(node, source)?;
+            let include = build_include(codebase, node, source, parent_id)?;
             Ok(CompactNode::Declaration(Declaration::Include(Rc::new(
                 include,
             ))))
         }
-        // import declaration
         "idecl" => {
-            let import_decl = build_import(node, source)?;
+            let import_decl = build_import(codebase, node, source, parent_id)?;
             Ok(CompactNode::Declaration(Declaration::Import(Rc::new(
                 import_decl,
             ))))
         }
-        // export declaration
         "xdecl" => {
-            let export_decl = build_export(node, source)?;
+            let export_decl = build_export(codebase, node, source, parent_id)?;
             Ok(CompactNode::Declaration(Declaration::Export(Rc::new(
                 export_decl,
             ))))
         }
-        // ledger declaration
         "ldecl" => {
-            let ledger_decl = build_ledger(node, source)?;
+            let ledger_decl = build_ledger(codebase, node, source, parent_id)?;
             Ok(CompactNode::Declaration(Declaration::Ledger(Rc::new(
                 ledger_decl,
             ))))
         }
-        // // witness declaration
         "wdecl" => {
-            let witness_decl = build_witness(node, source)?;
+            let witness_decl = build_witness(codebase, node, source, parent_id)?;
             Ok(CompactNode::Declaration(Declaration::Witness(Rc::new(
                 witness_decl,
             ))))
         }
-        // circuit definition
         "cdefn" => {
-            let circuit = build_circuit(node, source)?;
+            let circuit = build_circuit(codebase, node, source, parent_id)?;
             Ok(CompactNode::Definition(Definition::Circuit(Rc::new(
                 circuit,
             ))))
         }
-        //
         "edecl" => {
-            let circuit = build_external_circuit(node, source)?;
+            let circuit = build_external_circuit(codebase, node, source, parent_id)?;
             Ok(CompactNode::Definition(Definition::Circuit(Rc::new(
                 circuit,
             ))))
         }
-        // struct definition
         "struct" => {
-            let structure = build_structure(node, source)?;
+            let structure = build_structure(codebase, node, source, parent_id)?;
             Ok(CompactNode::Definition(Definition::Structure(Rc::new(
                 structure,
             ))))
         }
-        // enum definition
         "enumdef" => {
-            let enum_def = build_enum(node, source)?;
+            let enum_def = build_enum(codebase, node, source, parent_id)?;
             Ok(CompactNode::Definition(Definition::Enum(Rc::new(enum_def))))
         }
-        // external contract
         "ecdecl" => {
-            let contract = build_external_contract(node, source)?;
+            let contract = build_external_contract(codebase, node, source, parent_id)?;
             Ok(CompactNode::Declaration(Declaration::Contract(Rc::new(
                 contract,
             ))))
         }
-        // constructor definition
         "lconstructor" => {
-            let constructor = build_constructor(node, source)?;
+            let constructor = build_constructor(codebase, node, source, parent_id)?;
             Ok(CompactNode::Declaration(Declaration::Constructor(Rc::new(
                 constructor,
             ))))
         }
-        // module definition
         "mdefn" => {
-            let module = build_module(node, source)?;
+            let module = build_module(codebase, node, source, parent_id)?;
             Ok(CompactNode::Module(Rc::new(module)))
         }
         "comment" => {
-            let comment = build_str(node, source)?;
+            let comment = build_str(codebase, node, source, parent_id)?;
             Ok(CompactNode::Comment(comment))
         }
         other => bail!("Unhandled node kind: {}", other),
     }
 }
 
-fn build_module(node: &Node, source: &str) -> Result<Module> {
+fn build_module(
+    codebase: &mut Codebase<OpenState>,
+    node: &Node,
+    source: &str,
+    parent_id: u128,
+) -> Result<Module> {
     let is_exported = node.child_by_field_name("export").is_some();
     let name_node = node.child_by_field_name("name").ok_or_else(|| {
         anyhow!(
@@ -163,29 +172,40 @@ fn build_module(node: &Node, source: &str) -> Result<Module> {
             node.utf8_text(source.as_bytes())
         )
     })?;
-    let name = build_identifier(&name_node, source)?;
+    let name = build_identifier(codebase, &name_node, source, parent_id)?;
     let generic_parameters_node = node.child_by_field_name("gparams");
     let generic_parameters = generic_parameters_node
         .as_ref()
-        .map(|generic_node| build_generic_parameters(generic_node, source));
+        .map(|generic_node| build_generic_parameters(codebase, generic_node, source, parent_id));
     let cursor = &mut node.walk();
     let module_element_nodes = node.children_by_field_name("module_element", cursor);
     let mut nodes = Vec::new();
+    let module_id = node_id();
     for child in module_element_nodes {
-        let compact_node = build_compact_node(&child, source)?;
+        let compact_node = build_compact_node(codebase, &child, source, module_id)?;
         nodes.push(compact_node);
     }
-    Ok(Module {
-        id: node_id(),
+    let module = Module {
+        id: module_id,
         location: location(node),
         is_exported,
         name,
         generic_parameters,
         nodes,
-    })
+    };
+    codebase.add_node(
+        NodeType::Definition(Definition::Module(Rc::new(module.clone()))),
+        parent_id,
+    );
+    Ok(module)
 }
 
-fn build_enum(node: &Node, source: &str) -> Result<Enum> {
+fn build_enum(
+    codebase: &mut Codebase<OpenState>,
+    node: &Node,
+    source: &str,
+    parent_id: u128,
+) -> Result<Enum> {
     let is_exported = node.child_by_field_name("export").is_some();
     let name_node = node.child_by_field_name("name").ok_or_else(|| {
         anyhow!(
@@ -193,28 +213,41 @@ fn build_enum(node: &Node, source: &str) -> Result<Enum> {
             node.utf8_text(source.as_bytes())
         )
     })?;
-    let name = build_identifier(&name_node, source)?;
+    let name = build_identifier(codebase, &name_node, source, parent_id)?;
+    let enum_id = node_id();
     let ids = node
         .children_by_field_name("id", &mut node.walk())
-        .map(|id_node| build_identifier(&id_node, source))
+        .map(|id_node| build_identifier(codebase, &id_node, source, enum_id))
         .collect::<Result<Vec<_>>>()?;
 
-    Ok(Enum {
-        id: node_id(),
+    let enum_def = Enum {
+        id: enum_id,
         location: location(node),
         is_exported,
         name,
         options: ids,
-    })
+    };
+
+    codebase.add_node(
+        NodeType::Definition(Definition::Enum(Rc::new(enum_def.clone()))),
+        parent_id,
+    );
+
+    Ok(enum_def)
 }
 
 #[allow(clippy::too_many_lines)]
-fn build_pragma(node: &Node, source: &str) -> Result<Pragma> {
+fn build_pragma(
+    codebase: &mut Codebase<OpenState>,
+    node: &Node,
+    source: &str,
+    parent_id: u128,
+) -> Result<Pragma> {
     // Retrieve the 'id' field and build the pragma identifier.
     let id_node = node
         .child_by_field_name("id")
         .ok_or_else(|| anyhow!("Missing 'id' field in pragma"))?;
-    let identifier = build_identifier(&id_node, source)?;
+    let identifier = build_identifier(codebase, &id_node, source, parent_id)?;
 
     // Ensure the pragma has at least one version expression (after the id).
     let child_count = node.named_child_count();
@@ -260,7 +293,7 @@ fn build_pragma(node: &Node, source: &str) -> Result<Pragma> {
                         literal.kind()
                     );
                 }
-                let version = build_version(literal, operator, source)?;
+                let version = build_version(codebase, literal, operator, source, parent_id)?;
                 output_stack.push(VersionExpr::Version(version));
                 pos += 1;
             }
@@ -292,7 +325,8 @@ fn build_pragma(node: &Node, source: &str) -> Result<Pragma> {
             }
             // Handle a bare version literal.
             "version" | "nat" => {
-                let version = build_version(token, VersionOperator::Eq, source)?;
+                let version =
+                    build_version(codebase, token, VersionOperator::Eq, source, parent_id)?;
                 output_stack.push(VersionExpr::Version(version));
                 pos += 1;
             }
@@ -351,18 +385,27 @@ fn build_pragma(node: &Node, source: &str) -> Result<Pragma> {
     }
     let version_expr = output_stack.pop().unwrap();
 
-    Ok(Pragma {
+    let pragma = Pragma {
         id: node_id(),
         location: location(node),
         version: version_expr,
         value: identifier,
-    })
+    };
+
+    codebase.add_node(
+        NodeType::Directive(Directive::Pragma(Rc::new(pragma.clone()))),
+        parent_id,
+    );
+
+    Ok(pragma)
 }
 
 fn build_version(
+    codebase: &mut Codebase<OpenState>,
     version_node: &Node,
     version_operator: VersionOperator,
     source: &str,
+    parent_id: u128,
 ) -> Result<Rc<Version>> {
     let version_text = version_node.utf8_text(source.as_bytes())?;
     let parts: Vec<&str> = version_text.split('.').collect();
@@ -375,31 +418,60 @@ fn build_version(
         .and_then(|s| s.parse::<u64>().ok())
         .unwrap_or(0);
     let bugfix = parts.get(2).and_then(|s| s.parse::<u64>().ok());
-    Ok(Rc::new(Version {
+
+    let major_nat = Rc::new(Nat {
         id: node_id(),
         location: location(version_node),
-        major: Rc::new(Nat {
+        value: major,
+    });
+    codebase.add_node(
+        NodeType::Literal(Literal::Nat(major_nat.clone())),
+        parent_id,
+    );
+
+    let minor_nat = Rc::new(Nat {
+        id: node_id(),
+        location: location(version_node),
+        value: minor,
+    });
+    codebase.add_node(
+        NodeType::Literal(Literal::Nat(minor_nat.clone())),
+        parent_id,
+    );
+
+    let bugfix_nat = bugfix.map(|b| {
+        let nat = Rc::new(Nat {
             id: node_id(),
             location: location(version_node),
-            value: major,
-        }),
-        minor: Some(Rc::new(Nat {
-            id: node_id(),
-            location: location(version_node),
-            value: minor,
-        })),
-        bugfix: bugfix.map(|b| {
-            Rc::new(Nat {
-                id: node_id(),
-                location: location(version_node),
-                value: b,
-            })
-        }),
+            value: b,
+        });
+        codebase.add_node(NodeType::Literal(Literal::Nat(nat.clone())), parent_id);
+        nat
+    });
+
+    let version = Rc::new(Version {
+        id: node_id(),
+        location: location(version_node),
+        major: major_nat,
+        minor: Some(minor_nat),
+        bugfix: bugfix_nat,
         operator: version_operator,
-    }))
+    });
+
+    codebase.add_node(
+        NodeType::Literal(Literal::Version(version.clone())),
+        parent_id,
+    );
+    Ok(version)
 }
 
-fn build_include(node: &Node, source: &str) -> Result<Include> {
+fn build_include(
+    codebase: &mut Codebase<OpenState>,
+    node: &Node,
+    source: &str,
+    parent_id: u128,
+) -> Result<Include> {
+    let include_id = node_id();
     let path_node = node.child_by_field_name("file").ok_or_else(|| {
         anyhow!(
             "Missing 'file' field in include declaration: {:?}",
@@ -407,61 +479,101 @@ fn build_include(node: &Node, source: &str) -> Result<Include> {
         )
     })?;
     let path = path_node.utf8_text(source.as_bytes())?;
-    Ok(Include {
-        id: node_id(),
+    let include = Include {
+        id: include_id,
         location: location(node),
         path: path.to_string(),
-    })
+    };
+    codebase.add_node(
+        NodeType::Declaration(Declaration::Include(Rc::new(include.clone()))),
+        parent_id,
+    );
+    Ok(include)
 }
 
-fn build_import(node: &Node, source: &str) -> Result<Import> {
+fn build_import(
+    codebase: &mut Codebase<OpenState>,
+    node: &Node,
+    source: &str,
+    parent_id: u128,
+) -> Result<Import> {
+    let import_id = node_id();
     let import_name_node = node.child_by_field_name("id").ok_or_else(|| {
         anyhow!(
             "Missing 'id' field in import declaration: {:?}",
             node.utf8_text(source.as_bytes())
         )
     })?;
-    let identifier = build_identifier(&import_name_node, source)?;
+    let identifier = build_identifier(codebase, &import_name_node, source, import_id)?;
     let generic_parameters_node = node.child_by_field_name("gargs");
     let mut generic_parameters: Option<Vec<GArgument>> = None;
     if let Some(generics_node) = generic_parameters_node {
         let cursor = &mut generics_node.walk();
         let generic_nodes: Result<Vec<_>> = generics_node
             .children_by_field_name("garg", cursor)
-            .map(|type_node| build_gargument(&type_node.child(0).unwrap(), source))
+            .map(|type_node| {
+                build_gargument(codebase, &type_node.child(0).unwrap(), source, import_id)
+            })
             .collect();
         generic_parameters = Some(generic_nodes?);
     }
     let prefix = node
         .child_by_field_name("prefix")
         .map(|prefix_node| {
-            build_identifier(&prefix_node.child_by_field_name("id").unwrap(), source)
+            build_identifier(
+                codebase,
+                &prefix_node.child_by_field_name("id").unwrap(),
+                source,
+                import_id,
+            )
         })
         .transpose()?;
-    Ok(Import {
-        id: node_id(),
+    let import = Import {
+        id: import_id,
         location: location(node),
         value: identifier,
         prefix,
         generic_parameters,
-    })
+    };
+    codebase.add_node(
+        NodeType::Declaration(Declaration::Import(Rc::new(import.clone()))),
+        parent_id,
+    );
+    Ok(import)
 }
 
-fn build_export(node: &Node, source: &str) -> Result<Export> {
+fn build_export(
+    codebase: &mut Codebase<OpenState>,
+    node: &Node,
+    source: &str,
+    parent_id: u128,
+) -> Result<Export> {
+    let export_id = node_id();
     let mut cursor = node.walk();
     let export_names: Result<Vec<_>> = node
         .children_by_field_name("id", &mut cursor)
-        .map(|id_node| build_identifier(&id_node, source))
+        .map(|id_node| build_identifier(codebase, &id_node, source, export_id))
         .collect();
     let export_names = export_names?;
-    Ok(Export {
-        id: node_id(),
+    let export = Export {
+        id: export_id,
         location: location(node),
         values: export_names,
-    })
+    };
+    codebase.add_node(
+        NodeType::Declaration(Declaration::Export(Rc::new(export.clone()))),
+        parent_id,
+    );
+    Ok(export)
 }
 
-fn build_ledger(node: &Node, source: &str) -> Result<Ledger> {
+fn build_ledger(
+    codebase: &mut Codebase<OpenState>,
+    node: &Node,
+    source: &str,
+    parent_id: u128,
+) -> Result<Ledger> {
+    let ledger_id = node_id();
     let ledger_name_node = node.child_by_field_name("name").ok_or_else(|| {
         anyhow!(
             "Missing 'name' field in ledger declaration: {:?}",
@@ -470,25 +582,36 @@ fn build_ledger(node: &Node, source: &str) -> Result<Ledger> {
     })?;
     let is_exported = node.child_by_field_name("export").is_some();
     let is_sealed = node.child_by_field_name("sealed").is_some();
-    let name = build_identifier(&ledger_name_node, source)?;
+    let name = build_identifier(codebase, &ledger_name_node, source, ledger_id)?;
     let type_node = node.child_by_field_name("type").ok_or_else(|| {
         anyhow!(
             "Missing 'type' field in ledger declaration: {:?}",
             node.utf8_text(source.as_bytes())
         )
     })?;
-    let ty = build_type(&type_node, source)?;
-    Ok(Ledger {
-        id: node_id(),
+    let ty = build_type(codebase, &type_node, source, ledger_id)?;
+    let ledger = Ledger {
+        id: ledger_id,
         location: location(node),
         name,
         is_exported,
         is_sealed,
         ty,
-    })
+    };
+    codebase.add_node(
+        NodeType::Declaration(Declaration::Ledger(Rc::new(ledger.clone()))),
+        parent_id,
+    );
+    Ok(ledger)
 }
 
-fn build_witness(node: &Node, source: &str) -> Result<Witness> {
+fn build_witness(
+    codebase: &mut Codebase<OpenState>,
+    node: &Node,
+    source: &str,
+    parent_id: u128,
+) -> Result<Witness> {
+    let witness_id = node_id();
     let witness_name_node = node.child_by_field_name("id").ok_or_else(|| {
         anyhow!(
             "Missing 'id' field in witness declaration: {:?}",
@@ -496,16 +619,16 @@ fn build_witness(node: &Node, source: &str) -> Result<Witness> {
         )
     })?;
     let is_exported = node.child_by_field_name("export").is_some();
-    let name = build_identifier(&witness_name_node, source)?;
+    let name = build_identifier(codebase, &witness_name_node, source, witness_id)?;
     let generic_parameters_node = node.child_by_field_name("gparams");
     let generic_parameters = generic_parameters_node
         .as_ref()
-        .map(|generic_node| build_generic_parameters(generic_node, source));
+        .map(|generic_node| build_generic_parameters(codebase, generic_node, source, witness_id));
 
     let cursor = &mut node.walk();
     let arguments = node
         .children_by_field_name("arg", cursor)
-        .map(|arg_node| build_argument(&arg_node, source))
+        .map(|arg_node| build_argument(codebase, &arg_node, source, witness_id))
         .collect::<Result<Vec<_>>>()?;
 
     let type_node = node.child_by_field_name("type").ok_or_else(|| {
@@ -514,37 +637,51 @@ fn build_witness(node: &Node, source: &str) -> Result<Witness> {
             node.utf8_text(source.as_bytes())
         )
     })?;
-    let ty = build_type(&type_node, source)?;
-    Ok(Witness {
-        id: node_id(),
+    let ty = build_type(codebase, &type_node, source, witness_id)?;
+
+    let witness = Witness {
+        id: witness_id,
         location: location(node),
         name,
         generic_parameters,
         arguments,
         ty,
         is_exported,
-    })
+    };
+
+    codebase.add_node(
+        NodeType::Declaration(Declaration::Witness(Rc::new(witness.clone()))),
+        parent_id,
+    );
+
+    Ok(witness)
 }
 
-fn build_circuit(node: &Node, source: &str) -> Result<Circuit> {
+fn build_circuit(
+    codebase: &mut Codebase<OpenState>,
+    node: &Node,
+    source: &str,
+    parent_id: u128,
+) -> Result<Circuit> {
+    let circuit_id = node_id();
     let circuit_name_node = node.child_by_field_name("id").ok_or_else(|| {
         anyhow!(
             "Missing 'id' field in circuit definition: {:?}",
             node.utf8_text(source.as_bytes())
         )
     })?;
-    let name = build_identifier(&circuit_name_node, source)?;
+    let name = build_identifier(codebase, &circuit_name_node, source, circuit_id)?;
     let is_exported = node.child_by_field_name("export").is_some();
     let is_pure = node.child_by_field_name("pure").is_some();
 
     let generic_parameters_node = node.child_by_field_name("gparams");
     let generic_parameters = generic_parameters_node
         .as_ref()
-        .map(|generic_node| build_generic_parameters(generic_node, source));
+        .map(|generic_node| build_generic_parameters(codebase, generic_node, source, circuit_id));
 
     let arguments = node
         .children_by_field_name("parg", &mut node.walk())
-        .map(|arg_node| build_pargument(&arg_node, source))
+        .map(|arg_node| build_pargument(codebase, &arg_node, source, circuit_id))
         .collect::<Result<Vec<_>>>()?;
 
     let body_node = node.child_by_field_name("body").ok_or_else(|| {
@@ -554,17 +691,17 @@ fn build_circuit(node: &Node, source: &str) -> Result<Circuit> {
         )
     })?;
 
-    let body = build_block(&body_node, source)?;
+    let body = build_block(codebase, &body_node, source, circuit_id)?;
     let type_node = node.child_by_field_name("type").ok_or_else(|| {
         anyhow!(
             "Missing 'type' field in circuit definition: {:?}",
             node.utf8_text(source.as_bytes())
         )
     })?;
-    let ty = build_type(&type_node, source)?;
+    let ty = build_type(codebase, &type_node, source, circuit_id)?;
 
-    Ok(Circuit {
-        id: node_id(),
+    let circuit = Circuit {
+        id: circuit_id,
         location: location(node),
         name,
         is_exported,
@@ -573,27 +710,42 @@ fn build_circuit(node: &Node, source: &str) -> Result<Circuit> {
         arguments,
         body: Some(body),
         ty,
-    })
+    };
+
+    codebase.add_node(
+        NodeType::Definition(Definition::Circuit(Rc::new(circuit.clone()))),
+        parent_id,
+    );
+
+    Ok(circuit)
 }
 
-fn build_external_circuit(node: &Node, source: &str) -> Result<Circuit> {
+fn build_external_circuit(
+    codebase: &mut Codebase<OpenState>,
+    node: &Node,
+    source: &str,
+    parent_id: u128,
+) -> Result<Circuit> {
     let is_exported = node.child_by_field_name("export").is_some();
-    let name = build_identifier(
-        &node
-            .child_by_field_name("id")
-            .ok_or_else(|| anyhow!("Missing 'id' field in external circuit"))?,
-        source,
-    )?;
+    let name_node = node.child_by_field_name("id").ok_or_else(|| {
+        anyhow!(
+            "Missing 'id' field in external circuit: {:?}",
+            node.utf8_text(source.as_bytes())
+        )
+    })?;
+    let circuit_id = node_id();
+    let name = build_identifier(codebase, &name_node, source, circuit_id)?;
+
     let generic_parameters_node = node.child_by_field_name("gparams");
     let generic_parameters = generic_parameters_node
         .as_ref()
-        .map(|generic_node| build_generic_parameters(generic_node, source));
-    let cursor = &mut node.walk();
+        .map(|generic_node| build_generic_parameters(codebase, generic_node, source, circuit_id));
 
+    let cursor = &mut node.walk();
     let arguments = node
         .children_by_field_name("arg", cursor)
         .map(|arg_node| {
-            let arg = build_argument(&arg_node, source)?;
+            let arg = build_argument(codebase, &arg_node, source, circuit_id)?;
             Ok(Rc::new(PatternArgument {
                 id: node_id(),
                 location: location(&arg_node),
@@ -609,10 +761,10 @@ fn build_external_circuit(node: &Node, source: &str) -> Result<Circuit> {
             node.utf8_text(source.as_bytes())
         )
     })?;
-    let ty = build_type(&type_node, source)?;
+    let ty = build_type(codebase, &type_node, source, circuit_id)?;
 
-    Ok(Circuit {
-        id: node_id(),
+    let circuit = Circuit {
+        id: circuit_id,
         location: location(node),
         is_exported,
         is_pure: false,
@@ -621,13 +773,26 @@ fn build_external_circuit(node: &Node, source: &str) -> Result<Circuit> {
         generic_parameters,
         body: None,
         ty,
-    })
+    };
+
+    codebase.add_node(
+        NodeType::Definition(Definition::Circuit(Rc::new(circuit.clone()))),
+        parent_id,
+    );
+
+    Ok(circuit)
 }
 
-fn build_constructor(node: &Node, source: &str) -> Result<Constructor> {
+fn build_constructor(
+    codebase: &mut Codebase<OpenState>,
+    node: &Node,
+    source: &str,
+    parent_id: u128,
+) -> Result<Constructor> {
+    let constructor_id = node_id();
     let arguments = node
         .children_by_field_name("parg", &mut node.walk())
-        .map(|arg_node| build_pargument(&arg_node, source))
+        .map(|arg_node| build_pargument(codebase, &arg_node, source, constructor_id))
         .collect::<Result<Vec<_>>>()?;
 
     let body_node = node.child_by_field_name("body").ok_or_else(|| {
@@ -637,104 +802,167 @@ fn build_constructor(node: &Node, source: &str) -> Result<Constructor> {
         )
     })?;
 
-    let body = build_block(&body_node, source)?;
+    let body = build_block(codebase, &body_node, source, constructor_id)?;
 
-    Ok(Constructor {
-        id: node_id(),
+    let constructor = Constructor {
+        id: constructor_id,
         location: location(node),
         arguments,
         body,
-    })
+    };
+
+    codebase.add_node(
+        NodeType::Declaration(Declaration::Constructor(Rc::new(constructor.clone()))),
+        parent_id,
+    );
+
+    Ok(constructor)
 }
 
-fn build_external_contract(node: &Node, source: &str) -> Result<Contract> {
+fn build_external_contract(
+    codebase: &mut Codebase<OpenState>,
+    node: &Node,
+    source: &str,
+    parent_id: u128,
+) -> Result<Contract> {
     let is_exported = node.child_by_field_name("export").is_some();
-    let name = build_identifier(
-        &node
-            .child_by_field_name("name")
-            .ok_or_else(|| anyhow!("Missing 'id' field in external contract"))?,
-        source,
-    )?;
+    let name_node = node.child_by_field_name("name").ok_or_else(|| {
+        anyhow!(
+            "Missing 'name' field in external contract: {:?}",
+            node.utf8_text(source.as_bytes())
+        )
+    })?;
+    let contract_id = node_id();
+    let name = build_identifier(codebase, &name_node, source, contract_id)?;
+
     let cursor = &mut node.walk();
     let contract_circuit_nodes = node.children_by_field_name("contract_circuit", cursor);
     let mut circuits = Vec::new();
+
     for circuit_node in contract_circuit_nodes {
         let is_pure = circuit_node.child_by_field_name("pure").is_some();
-        let id_node = circuit_node
-            .child_by_field_name("id")
-            .ok_or_else(|| anyhow!("Missing 'id' field in contract circuit"))?;
-        let name = build_identifier(&id_node, source)?;
-        let cursor = &mut circuit_node.walk();
+        let id_node = circuit_node.child_by_field_name("id").ok_or_else(|| {
+            anyhow!(
+                "Missing 'id' field in contract circuit: {:?}",
+                circuit_node.utf8_text(source.as_bytes())
+            )
+        })?;
+        let circuit_name = build_identifier(codebase, &id_node, source, contract_id)?;
+
+        let circuit_id = node_id();
         let arguments = circuit_node
-            .children_by_field_name("arg", cursor)
+            .children_by_field_name("arg", &mut node.walk())
             .map(|arg_node| {
-                let arg = build_argument(&arg_node, source)?;
-                Ok(Rc::new(PatternArgument {
+                let arg = build_argument(codebase, &arg_node, source, circuit_id)?;
+                codebase.add_node(
+                    NodeType::Declaration(Declaration::Argument(arg.clone())),
+                    circuit_id,
+                );
+                let pa = Rc::new(PatternArgument {
                     id: node_id(),
                     location: location(&arg_node),
                     pattern: Pattern::Identifier(arg.name.clone()),
                     ty: arg.ty.clone(),
-                }))
+                });
+                codebase.add_node(
+                    NodeType::Declaration(Declaration::PatternArgument(pa.clone())),
+                    circuit_id,
+                );
+                Ok(pa)
             })
             .collect::<Result<Vec<_>>>()?;
+
         let ty_node = circuit_node.child_by_field_name("type").ok_or_else(|| {
             anyhow!(
                 "Missing 'type' field in contract circuit: {:?}",
                 circuit_node.utf8_text(source.as_bytes())
             )
         })?;
-        let ty = build_type(&ty_node, source)?;
-        circuits.push(Rc::new(Circuit {
-            id: node_id(),
+        let ty = build_type(codebase, &ty_node, source, circuit_id)?;
+
+        let circuit = Rc::new(Circuit {
+            id: circuit_id,
             location: location(&circuit_node),
-            name,
+            name: circuit_name,
             arguments,
             generic_parameters: None,
             is_exported: false,
             is_pure,
             ty,
             body: None,
-        }));
+        });
+
+        codebase.add_node(
+            NodeType::Definition(Definition::Circuit(circuit.clone())),
+            contract_id,
+        );
+        circuits.push(circuit);
     }
-    Ok(Contract {
-        id: node_id(),
+
+    let contract = Contract {
+        id: contract_id,
         location: location(node),
         is_exported,
         name,
         circuits,
-    })
+    };
+
+    codebase.add_node(
+        NodeType::Declaration(Declaration::Contract(Rc::new(contract.clone()))),
+        parent_id,
+    );
+
+    Ok(contract)
 }
 
-fn build_structure(node: &Node, source: &str) -> Result<Structure> {
+fn build_structure(
+    codebase: &mut Codebase<OpenState>,
+    node: &Node,
+    source: &str,
+    parent_id: u128,
+) -> Result<Structure> {
     let structure_name_node = node.child_by_field_name("name").ok_or_else(|| {
         anyhow!(
             "Missing 'name' field in structure definition: {:?}",
             node.utf8_text(source.as_bytes())
         )
     })?;
-    let name = build_identifier(&structure_name_node, source)?;
+    let name = build_identifier(codebase, &structure_name_node, source, parent_id)?;
     let is_exported = node.child_by_field_name("export").is_some();
     let generic_parameters_node = node.child_by_field_name("gparams");
     let generic_parameters = generic_parameters_node
         .as_ref()
-        .map(|generic_node| build_generic_parameters(generic_node, source));
+        .map(|generic_node| build_generic_parameters(codebase, generic_node, source, parent_id));
 
+    let structure_id = node_id();
     let fields = node
         .children_by_field_name("arg", &mut node.walk())
-        .map(|field_node| build_argument(&field_node, source))
+        .map(|field_node| build_argument(codebase, &field_node, source, structure_id))
         .collect::<Result<Vec<_>>>()?;
 
-    Ok(Structure {
-        id: node_id(),
+    let structure = Structure {
+        id: structure_id,
         location: location(node),
         name,
         is_exported,
         generic_parameters,
         fields,
-    })
+    };
+
+    codebase.add_node(
+        NodeType::Definition(Definition::Structure(Rc::new(structure.clone()))),
+        parent_id,
+    );
+
+    Ok(structure)
 }
 
-fn build_statement(node: &Node, source: &str) -> Result<Statement> {
+fn build_statement(
+    codebase: &mut Codebase<OpenState>,
+    node: &Node,
+    source: &str,
+    parent_id: u128,
+) -> Result<Statement> {
     let node = if node.kind() == "stmt" {
         &node.child(0).unwrap()
     } else {
@@ -742,37 +970,53 @@ fn build_statement(node: &Node, source: &str) -> Result<Statement> {
     };
     let kind = node.kind();
     let statement = match kind {
-        "assign_stmt" => Statement::Assign(build_assign_statement(node, source)?),
-        "block" => Statement::Block(build_block(node, source)?),
-        "if_stmt" => Statement::If(build_if_statement(node, source)?),
-        "for_stmt" => Statement::For(build_for_statement(node, source)?),
-        "return_stmt" => Statement::Return(build_return_statement(node, source)?),
-        "assert_stmt" => Statement::Assert(build_assert_statement(node, source)?),
-        "const_stmt" => Statement::Const(build_const_statement(node, source)?),
+        "assign_stmt" => {
+            Statement::Assign(build_assign_statement(codebase, node, source, parent_id)?)
+        }
+        "block" => Statement::Block(build_block(codebase, node, source, parent_id)?),
+        "if_stmt" => Statement::If(build_if_statement(codebase, node, source, parent_id)?),
+        "for_stmt" => Statement::For(build_for_statement(codebase, node, source, parent_id)?),
+        "return_stmt" => {
+            Statement::Return(build_return_statement(codebase, node, source, parent_id)?)
+        }
+        "assert_stmt" => {
+            Statement::Assert(build_assert_statement(codebase, node, source, parent_id)?)
+        }
+        "const_stmt" => Statement::Const(build_const_statement(codebase, node, source, parent_id)?),
         "expression_sequence_stmt" => Statement::ExpressionSequence(build_expression_sequence(
+            codebase,
             &node.named_child(0).unwrap(),
             source,
+            parent_id,
         )?),
-        _ => bail!("Unhandled statement kind: {} {:}", kind, node),
+        _ => bail!("Unhandled statement kind: {} {:?}", kind, node),
     };
-    Ok(statement)
+    let statement_rc = statement;
+    codebase.add_node(NodeType::Statement(statement_rc.clone()), parent_id);
+    Ok(statement_rc)
 }
 
-fn build_assign_statement(node: &Node, source: &str) -> Result<Rc<Assign>> {
+fn build_assign_statement(
+    codebase: &mut Codebase<OpenState>,
+    node: &Node,
+    source: &str,
+    parent_id: u128,
+) -> Result<Rc<Assign>> {
+    let assign_id = node_id();
     let target_node = node.child_by_field_name("target").ok_or_else(|| {
         anyhow!(
             "Missing 'target' field in assign statement: {:?}",
             node.utf8_text(source.as_bytes())
         )
     })?;
-    let target = build_expression(&target_node, source)?;
+    let target = build_expression(codebase, &target_node, source, assign_id)?;
     let value_node = node.child_by_field_name("value").ok_or_else(|| {
         anyhow!(
             "Missing 'value' field in assign statement: {:?}",
             node.utf8_text(source.as_bytes())
         )
     })?;
-    let value = build_expression(&value_node, source)?;
+    let value = build_expression(codebase, &value_node, source, assign_id)?;
     let operator_node = node.child_by_field_name("operator").ok_or_else(|| {
         anyhow!(
             "Missing 'operator' field in assign statement: {:?}",
@@ -788,26 +1032,37 @@ fn build_assign_statement(node: &Node, source: &str) -> Result<Rc<Assign>> {
             operator_node.utf8_text(source.as_bytes())?
         ),
     };
-    Ok(Rc::new(Assign {
-        id: node_id(),
+    let assign_stmt = Rc::new(Assign {
+        id: assign_id,
         location: location(node),
         target,
         value,
         operator,
-    }))
+    });
+    codebase.add_node(
+        NodeType::Statement(Statement::Assign(assign_stmt.clone())),
+        parent_id,
+    );
+    Ok(assign_stmt)
 }
 
-fn build_const_statement(node: &Node, source: &str) -> Result<Rc<Const>> {
+fn build_const_statement(
+    codebase: &mut Codebase<OpenState>,
+    node: &Node,
+    source: &str,
+    parent_id: u128,
+) -> Result<Rc<Const>> {
+    let const_id = node_id();
     let pattern_node = node.child_by_field_name("pattern").ok_or_else(|| {
         anyhow!(
             "Missing 'pattern' field in const statement: {:?}",
             node.utf8_text(source.as_bytes())
         )
     })?;
-    let pattern = build_pattern(&pattern_node, source)?;
+    let pattern = build_pattern(codebase, &pattern_node, source, const_id)?;
     let ty_node = node.child_by_field_name("type");
     let ty = if let Some(ty_n) = ty_node {
-        Some(build_type(&ty_n, source)?)
+        Some(build_type(codebase, &ty_n, source, const_id)?)
     } else {
         None
     };
@@ -817,65 +1072,87 @@ fn build_const_statement(node: &Node, source: &str) -> Result<Rc<Const>> {
             node.utf8_text(source.as_bytes())
         )
     })?;
-    let value = build_expression(&value_node, source)?;
-    Ok(Rc::new(Const {
-        id: node_id(),
+    let value = build_expression(codebase, &value_node, source, const_id)?;
+    let const_stmt = Rc::new(Const {
+        id: const_id,
         location: location(node),
         pattern,
         value,
         ty,
-    }))
+    });
+    codebase.add_node(
+        NodeType::Statement(Statement::Const(const_stmt.clone())),
+        parent_id,
+    );
+    Ok(const_stmt)
 }
 
-fn build_if_statement(node: &Node, source: &str) -> Result<Rc<If>> {
+fn build_if_statement(
+    codebase: &mut Codebase<OpenState>,
+    node: &Node,
+    source: &str,
+    parent_id: u128,
+) -> Result<Rc<If>> {
+    let if_id = node_id();
     let condition_node = node.child_by_field_name("condition").ok_or_else(|| {
         anyhow!(
             "Missing 'condition' field in if statement: {:?}",
             node.utf8_text(source.as_bytes())
         )
     })?;
-    let condition = build_expression_sequence(&condition_node, source)?;
+    let condition = build_expression_sequence(codebase, &condition_node, source, if_id)?;
     let then_branch_node = node.child_by_field_name("then_branch").ok_or_else(|| {
         anyhow!(
             "Missing 'then' field in if statement: {:?}",
             node.utf8_text(source.as_bytes())
         )
     })?;
-    let then_branch = build_statement(&then_branch_node, source)?;
+    let then_branch = build_statement(codebase, &then_branch_node, source, if_id)?;
     let else_branch_node = node.child_by_field_name("else_branch");
     let else_branch = else_branch_node
-        .map(|node| build_statement(&node, source))
+        .map(|node| build_statement(codebase, &node, source, if_id))
         .transpose()?;
-    Ok(Rc::new(If {
-        id: node_id(),
+    let if_stmt = Rc::new(If {
+        id: if_id,
         location: location(node),
         condition: Expression::Sequence(condition),
         then_branch,
         else_branch,
-    }))
+    });
+    codebase.add_node(
+        NodeType::Statement(Statement::If(if_stmt.clone())),
+        parent_id,
+    );
+    Ok(if_stmt)
 }
 
-fn build_for_statement(node: &Node, source: &str) -> Result<Rc<For>> {
+fn build_for_statement(
+    codebase: &mut Codebase<OpenState>,
+    node: &Node,
+    source: &str,
+    parent_id: u128,
+) -> Result<Rc<For>> {
+    let for_id = node_id();
     let counter_node = node.child_by_field_name("counter").ok_or_else(|| {
         anyhow!(
             "Missing 'counter' field in for statement: {:?}",
             node.utf8_text(source.as_bytes())
         )
     })?;
-    let counter = build_identifier(&counter_node, source)?;
+    let counter = build_identifier(codebase, &counter_node, source, for_id)?;
     let range_start_node = node.child_by_field_name("range_start");
     let range_end_node = node.child_by_field_name("range_end");
     let limit_node = node.child_by_field_name("limit");
 
     let limit = if let Some(limit) = limit_node {
-        Some(build_expression(&limit, source)?)
+        Some(build_expression(codebase, &limit, source, for_id)?)
     } else {
         None
     };
 
     let range = if let (Some(start), Some(end)) = (range_start_node, range_end_node) {
-        let start = build_nat(&start, source)?;
-        let end = build_nat(&end, source)?;
+        let start = build_nat(codebase, &start, source, for_id)?;
+        let end = build_nat(codebase, &end, source, for_id)?;
         Some((start, end))
     } else {
         None
@@ -887,143 +1164,242 @@ fn build_for_statement(node: &Node, source: &str) -> Result<Rc<For>> {
             node.utf8_text(source.as_bytes())
         )
     })?;
-    let body = build_block(&body_node.child(0).unwrap(), source)?;
-    Ok(Rc::new(For {
-        id: node_id(),
+    let body = build_block(codebase, &body_node.child(0).unwrap(), source, for_id)?;
+    let for_stmt = Rc::new(For {
+        id: for_id,
         location: location(node),
         counter,
         limit,
         range,
         body,
-    }))
+    });
+    codebase.add_node(
+        NodeType::Statement(Statement::For(for_stmt.clone())),
+        parent_id,
+    );
+    Ok(for_stmt)
 }
 
-fn build_return_statement(node: &Node, source: &str) -> Result<Rc<Return>> {
+fn build_return_statement(
+    codebase: &mut Codebase<OpenState>,
+    node: &Node,
+    source: &str,
+    parent_id: u128,
+) -> Result<Rc<Return>> {
+    let return_id = node_id();
     let value_node = node.child_by_field_name("value");
     let value = if let Some(value_node) = value_node {
-        Some(build_expression(&value_node, source)?)
+        Some(build_expression(codebase, &value_node, source, return_id)?)
     } else {
         None
     };
-    Ok(Rc::new(Return {
-        id: node_id(),
+    let return_stmt = Rc::new(Return {
+        id: return_id,
         location: location(node),
         value,
-    }))
+    });
+    codebase.add_node(
+        NodeType::Statement(Statement::Return(return_stmt.clone())),
+        parent_id,
+    );
+    Ok(return_stmt)
 }
 
-fn build_assert_statement(node: &Node, source: &str) -> Result<Rc<Assert>> {
+fn build_assert_statement(
+    codebase: &mut Codebase<OpenState>,
+    node: &Node,
+    source: &str,
+    parent_id: u128,
+) -> Result<Rc<Assert>> {
+    let assert_id = node_id();
     let condition_node = node
         .child_by_field_name("condition")
         .ok_or_else(|| anyhow!("Missing 'condition' field in assert statement: {:?}", node))?;
-    let condition = build_expression(&condition_node, source)?;
+    let condition = build_expression(codebase, &condition_node, source, assert_id)?;
     let message_node = node.child_by_field_name("message");
-    let message = if message_node.is_some() {
-        Some(build_str(&message_node.unwrap(), source)?)
+    let message = if let Some(message_node) = message_node {
+        Some(build_str(codebase, &message_node, source, assert_id)?)
     } else {
         None
     };
-    Ok(Rc::new(Assert {
-        id: node_id(),
+    let assert = Rc::new(Assert {
+        id: assert_id,
         location: location(node),
         condition,
         msg: message,
-    }))
+    });
+    codebase.add_node(
+        NodeType::Statement(Statement::Assert(assert.clone())),
+        parent_id,
+    );
+    Ok(assert)
 }
 
-fn build_block(node: &Node, source: &str) -> Result<Rc<Block>> {
+fn build_block(
+    codebase: &mut Codebase<OpenState>,
+    node: &Node,
+    source: &str,
+    parent_id: u128,
+) -> Result<Rc<Block>> {
+    let block_id = node_id();
     let mut cursor = node.walk();
     let statements: Result<Vec<_>> = node
         .children_by_field_name("stmt", &mut cursor)
-        .map(|stmt_node| build_statement(&stmt_node, source))
+        .map(|stmt_node| build_statement(codebase, &stmt_node, source, block_id))
         .collect();
-    Ok(Rc::new(Block {
-        id: node_id(),
+    let block = Rc::new(Block {
+        id: block_id,
         location: location(node),
         statements: statements?,
-    }))
+    });
+    codebase.add_node(
+        NodeType::Statement(Statement::Block(block.clone())),
+        parent_id,
+    );
+    Ok(block)
 }
 
 #[allow(clippy::too_many_lines)]
-fn build_expression(node: &Node, source: &str) -> Result<Expression> {
+fn build_expression(
+    codebase: &mut Codebase<OpenState>,
+    node: &Node,
+    source: &str,
+    parent_id: u128,
+) -> Result<Expression> {
     let expression = match node.kind() {
         "conditional_expr" => {
             let condition = build_expression(
+                codebase,
                 &node
                     .child_by_field_name("condition")
                     .ok_or_else(|| anyhow!("Missing 'condition' field in conditional_expr"))?,
                 source,
+                parent_id,
             )?;
             let then_branch = build_expression(
+                codebase,
                 &node
                     .child_by_field_name("then_branch")
                     .ok_or_else(|| anyhow!("Missing 'then_branch' field in conditional_expr"))?,
                 source,
+                parent_id,
             )?;
             let else_branch = build_expression(
+                codebase,
                 &node
                     .child_by_field_name("else_branch")
                     .ok_or_else(|| anyhow!("Missing 'else_branch' field in conditional_expr"))?,
                 source,
+                parent_id,
             )?;
-            Expression::Conditional(Rc::new(Conditional {
+            let conditional = Rc::new(Conditional {
                 id: node_id(),
                 location: location(node),
                 condition,
                 then_branch,
                 else_branch,
-            }))
+            });
+            codebase.add_node(
+                NodeType::Expression(Expression::Conditional(conditional.clone())),
+                parent_id,
+            );
+            Expression::Conditional(conditional)
         }
         "cast_expr" => {
             let expression = build_expression(
+                codebase,
                 &node
                     .child_by_field_name("expr")
                     .ok_or_else(|| anyhow!("Missing 'expr' field in cast_expr"))?,
                 source,
+                parent_id,
             )?;
             let ty = build_type(
+                codebase,
                 &node
                     .child_by_field_name("type")
                     .ok_or_else(|| anyhow!("Missing 'type' field in cast_expr"))?,
                 source,
+                parent_id,
             )?;
-            Expression::Cast(Rc::new(Cast {
+            let cast = Rc::new(Cast {
                 id: node_id(),
                 location: location(node),
                 expression,
                 target_type: ty,
-            }))
+            });
+            codebase.add_node(
+                NodeType::Expression(Expression::Cast(cast.clone())),
+                parent_id,
+            );
+            Expression::Cast(cast)
         }
-        "expr" => {
-            // Otherwise, delegate to the next level.
-            build_expression(&node.named_child(0).unwrap(), source)?
-        }
-        // Binary operators: we assume the node has two named children.
+        "expr" => build_expression(codebase, &node.named_child(0).unwrap(), source, parent_id)?,
         "or_expr" => {
-            let left = build_expression(&node.child_by_field_name("left").unwrap(), source)?;
-            let right = build_expression(&node.child_by_field_name("right").unwrap(), source)?;
-            Expression::Binary(Rc::new(Binary {
+            let left = build_expression(
+                codebase,
+                &node.child_by_field_name("left").unwrap(),
+                source,
+                parent_id,
+            )?;
+            let right = build_expression(
+                codebase,
+                &node.child_by_field_name("right").unwrap(),
+                source,
+                parent_id,
+            )?;
+            let binary = Rc::new(Binary {
                 id: node_id(),
                 location: location(node),
                 left,
                 right,
                 operator: BinaryExpressionOperator::Or,
-            }))
+            });
+            codebase.add_node(
+                NodeType::Expression(Expression::Binary(binary.clone())),
+                parent_id,
+            );
+            Expression::Binary(binary)
         }
         "and_expr" => {
-            let left = build_expression(&node.child_by_field_name("left").unwrap(), source)?;
-            let right = build_expression(&node.child_by_field_name("right").unwrap(), source)?;
-            Expression::Binary(Rc::new(Binary {
+            let left = build_expression(
+                codebase,
+                &node.child_by_field_name("left").unwrap(),
+                source,
+                parent_id,
+            )?;
+            let right = build_expression(
+                codebase,
+                &node.child_by_field_name("right").unwrap(),
+                source,
+                parent_id,
+            )?;
+            let binary = Rc::new(Binary {
                 id: node_id(),
                 location: location(node),
                 left,
                 right,
                 operator: BinaryExpressionOperator::And,
-            }))
+            });
+            codebase.add_node(
+                NodeType::Expression(Expression::Binary(binary.clone())),
+                parent_id,
+            );
+            Expression::Binary(binary)
         }
         "comparison_expr" => {
-            let left = build_expression(&node.child_by_field_name("left").unwrap(), source)?;
-            let right = build_expression(&node.child_by_field_name("right").unwrap(), source)?;
+            let left = build_expression(
+                codebase,
+                &node.child_by_field_name("left").unwrap(),
+                source,
+                parent_id,
+            )?;
+            let right = build_expression(
+                codebase,
+                &node.child_by_field_name("right").unwrap(),
+                source,
+                parent_id,
+            )?;
             let operator_node = node.child_by_field_name("operator").unwrap();
             let operator = match operator_node.utf8_text(source.as_bytes())? {
                 "==" => BinaryExpressionOperator::Eq,
@@ -1033,17 +1409,32 @@ fn build_expression(node: &Node, source: &str) -> Result<Expression> {
                     operator_node.utf8_text(source.as_bytes())?
                 ),
             };
-            Expression::Binary(Rc::new(Binary {
+            let binary = Rc::new(Binary {
                 id: node_id(),
                 location: location(node),
                 left,
                 right,
                 operator,
-            }))
+            });
+            codebase.add_node(
+                NodeType::Expression(Expression::Binary(binary.clone())),
+                parent_id,
+            );
+            Expression::Binary(binary)
         }
         "rel_comparison_expr" => {
-            let left = build_expression(&node.child_by_field_name("left").unwrap(), source)?;
-            let right = build_expression(&node.child_by_field_name("right").unwrap(), source)?;
+            let left = build_expression(
+                codebase,
+                &node.child_by_field_name("left").unwrap(),
+                source,
+                parent_id,
+            )?;
+            let right = build_expression(
+                codebase,
+                &node.child_by_field_name("right").unwrap(),
+                source,
+                parent_id,
+            )?;
             let operator_node = node.child_by_field_name("operator").unwrap();
             let operator = match operator_node.kind() {
                 "less_than" => BinaryExpressionOperator::Lt,
@@ -1052,17 +1443,32 @@ fn build_expression(node: &Node, source: &str) -> Result<Expression> {
                 "greater_than_or_equal" => BinaryExpressionOperator::Ge,
                 _ => bail!("Invalid comparison operator {operator_node:?}"),
             };
-            Expression::Binary(Rc::new(Binary {
+            let binary = Rc::new(Binary {
                 id: node_id(),
                 location: location(node),
                 left,
                 right,
                 operator,
-            }))
+            });
+            codebase.add_node(
+                NodeType::Expression(Expression::Binary(binary.clone())),
+                parent_id,
+            );
+            Expression::Binary(binary)
         }
         "bin_sum_expr" | "bin_mul_expr" => {
-            let left = build_expression(&node.child_by_field_name("left").unwrap(), source)?;
-            let right = build_expression(&node.child_by_field_name("right").unwrap(), source)?;
+            let left = build_expression(
+                codebase,
+                &node.child_by_field_name("left").unwrap(),
+                source,
+                parent_id,
+            )?;
+            let right = build_expression(
+                codebase,
+                &node.child_by_field_name("right").unwrap(),
+                source,
+                parent_id,
+            )?;
             let operator = match node
                 .child_by_field_name("operator")
                 .unwrap()
@@ -1073,66 +1479,120 @@ fn build_expression(node: &Node, source: &str) -> Result<Expression> {
                 "*" => BinaryExpressionOperator::Mul,
                 _ => bail!("Invalid binary operator"),
             };
-            Expression::Binary(Rc::new(Binary {
+            let binary = Rc::new(Binary {
                 id: node_id(),
                 location: location(node),
                 left,
                 right,
                 operator,
-            }))
+            });
+            codebase.add_node(
+                NodeType::Expression(Expression::Binary(binary.clone())),
+                parent_id,
+            );
+            Expression::Binary(binary)
         }
         "not_expr" => {
-            let expr = build_expression(&node.child_by_field_name("expr").unwrap(), source)?;
-            Expression::Unary(Rc::new(Unary {
+            let expr = build_expression(
+                codebase,
+                &node.child_by_field_name("expr").unwrap(),
+                source,
+                parent_id,
+            )?;
+            let unary = Rc::new(Unary {
                 id: node_id(),
                 location: location(node),
                 operator: UnaryExpressionOperator::Not,
                 operand: expr,
-            }))
+            });
+            codebase.add_node(
+                NodeType::Expression(Expression::Unary(unary.clone())),
+                parent_id,
+            );
+            Expression::Unary(unary)
         }
         "member_access_expr" => {
-            let base = build_expression(&node.child_by_field_name("base").unwrap(), source)?;
-            let member = build_identifier(&node.child_by_field_name("member").unwrap(), source)?;
+            let base = build_expression(
+                codebase,
+                &node.child_by_field_name("base").unwrap(),
+                source,
+                parent_id,
+            )?;
+            let member = build_identifier(
+                codebase,
+                &node.child_by_field_name("member").unwrap(),
+                source,
+                parent_id,
+            )?;
             let arguments_node = node.child_by_field_name("arguments");
             let arguments = if let Some(arguments_node) = arguments_node {
                 let arguments: Result<Vec<_>> = arguments_node
                     .children_by_field_name("expr", &mut arguments_node.walk())
-                    .map(|arg_node| build_expression(&arg_node, source))
+                    .map(|arg_node| build_expression(codebase, &arg_node, source, parent_id))
                     .collect();
                 Some(arguments?)
             } else {
                 None
             };
-            Expression::MemberAccess(Rc::new(MemberAccess {
+            let member_access = Rc::new(MemberAccess {
                 id: node_id(),
                 location: location(node),
                 base,
                 member,
                 arguments,
-            }))
+            });
+            codebase.add_node(
+                NodeType::Expression(Expression::MemberAccess(member_access.clone())),
+                parent_id,
+            );
+            Expression::MemberAccess(member_access)
         }
         "index_access_expr" => {
-            let base = build_expression(&node.child_by_field_name("base").unwrap(), source)?;
-            let index = build_nat(&node.child_by_field_name("index").unwrap(), source)?;
-            Expression::IndexAccess(Rc::new(IndexAccess {
+            let base = build_expression(
+                codebase,
+                &node.child_by_field_name("base").unwrap(),
+                source,
+                parent_id,
+            )?;
+            let index = build_nat(
+                codebase,
+                &node.child_by_field_name("index").unwrap(),
+                source,
+                parent_id,
+            )?;
+            let index_access = Rc::new(IndexAccess {
                 id: node_id(),
                 location: location(node),
                 base,
                 index,
-            }))
+            });
+            codebase.add_node(
+                NodeType::Expression(Expression::IndexAccess(index_access.clone())),
+                parent_id,
+            );
+            Expression::IndexAccess(index_access)
         }
         "expr_seq" => {
-            let seq = build_expression_sequence(node, source)?;
+            let seq = build_expression_sequence(codebase, node, source, parent_id)?;
+            codebase.add_node(
+                NodeType::Expression(Expression::Sequence(seq.clone())),
+                parent_id,
+            );
             Expression::Sequence(seq)
         }
-        "term" => build_term(node, source)?,
+        "term" => build_term(codebase, node, source, parent_id)?,
         _ => bail!("Unhandled expression kind: {}", node.kind()),
     };
     Ok(expression)
 }
 
 #[allow(clippy::too_many_lines)]
-fn build_term(node: &Node, source: &str) -> Result<Expression> {
+fn build_term(
+    codebase: &mut Codebase<OpenState>,
+    node: &Node,
+    source: &str,
+    parent_id: u128,
+) -> Result<Expression> {
     let term_node = if node.kind() == "term" {
         &node.child(0).ok_or_else(|| anyhow!("Empty term node"))?
     } else {
@@ -1140,115 +1600,156 @@ fn build_term(node: &Node, source: &str) -> Result<Expression> {
     };
 
     let term = match term_node.kind() {
-        "lit" => build_literal(&term_node.child(0).unwrap(), source)?,
+        "lit" => build_literal(codebase, &term_node.child(0).unwrap(), source, parent_id)?,
         "default_term" => {
+            let node_id = node_id();
             let type_node = term_node.child_by_field_name("type").ok_or_else(|| {
                 anyhow!(
                     "Missing 'type' field in default term: {:?}",
                     term_node.utf8_text(source.as_bytes())
                 )
             })?;
-            let ty = build_type(&type_node, source)?;
+            let ty = build_type(codebase, &type_node, source, node_id)?;
+            codebase.add_node(
+                NodeType::Expression(Expression::Default(ty.clone())),
+                parent_id,
+            );
             Expression::Default(ty)
         }
         "map_term" => {
+            let node_id = node_id();
             let fun_node = term_node.child_by_field_name("fun").ok_or_else(|| {
                 anyhow!(
                     "Missing function in map term: {:?}",
                     term_node.utf8_text(source.as_bytes())
                 )
             })?;
-            let fun = build_function(&fun_node, source)?;
+            let fun = build_function(codebase, &fun_node, source, node_id)?;
             let expr_nodes = term_node
                 .children_by_field_name("expr", &mut term_node.walk())
                 .collect::<Vec<_>>();
             let expressions: Result<Vec<_>> = expr_nodes
                 .into_iter()
-                .map(|n| build_expression(&n, source))
+                .map(|n| build_expression(codebase, &n, source, node_id))
                 .collect();
-            Expression::Map(Rc::new(Map {
-                id: node_id(),
+            let t_map = Rc::new(Map {
+                id: node_id,
                 location: location(term_node),
                 function: fun,
                 expressions: expressions?,
-            }))
+            });
+            codebase.add_node(
+                NodeType::Expression(Expression::Map(t_map.clone())),
+                parent_id,
+            );
+            Expression::Map(t_map)
         }
         "fold_term" => {
+            let node_id = node_id();
             let fun_node = term_node.child_by_field_name("fun").ok_or_else(|| {
                 anyhow!(
                     "Missing function in fold term: {:?}",
                     term_node.utf8_text(source.as_bytes())
                 )
             })?;
-            let fun = build_function(&fun_node, source)?;
+            let fun = build_function(codebase, &fun_node, source, node_id)?;
             let init_value_node = term_node
                 .child_by_field_name("init_value")
                 .unwrap_or_else(|| term_node.child(4).unwrap());
-            let initial_value = build_expression(&init_value_node, source)?;
+            let initial_value = build_expression(codebase, &init_value_node, source, node_id)?;
             let exprs: Vec<_> = term_node
                 .children_by_field_name("expr", &mut term_node.walk())
                 .collect();
             let expressions: Result<Vec<_>> = exprs
                 .into_iter()
-                .map(|n| build_expression(&n, source))
+                .map(|n| build_expression(codebase, &n, source, node_id))
                 .collect();
-            Expression::Fold(Rc::new(Fold {
-                id: node_id(),
+            let e_fold = Rc::new(Fold {
+                id: node_id,
                 location: location(term_node),
                 function: fun,
                 initial_value,
                 expressions: expressions?,
-            }))
+            });
+            codebase.add_node(
+                NodeType::Expression(Expression::Fold(e_fold.clone())),
+                parent_id,
+            );
+            Expression::Fold(e_fold)
         }
         "disclose_term" => {
+            let node_id = node_id();
             let expr_node = term_node.child_by_field_name("expr").ok_or_else(|| {
                 anyhow!(
                     "Missing expression in disclose term: {:?}",
                     term_node.utf8_text(source.as_bytes())
                 )
             })?;
-            let expr = build_expression(&expr_node, source)?;
-            Expression::Disclose(Rc::new(Disclose {
-                id: node_id(),
+            let expr = build_expression(codebase, &expr_node, source, node_id)?;
+            let disclose = Rc::new(Disclose {
+                id: node_id,
                 location: location(term_node),
                 expression: expr,
-            }))
+            });
+            codebase.add_node(
+                NodeType::Expression(Expression::Disclose(disclose.clone())),
+                parent_id,
+            );
+            Expression::Disclose(disclose)
         }
         "id" => {
-            let id = build_identifier(term_node, source)?;
+            let id = build_identifier(codebase, term_node, source, parent_id)?;
             Expression::Identifier(id)
         }
         "expr_seq_term" => {
-            let seq = build_expression_sequence(&term_node.child(1).unwrap(), source)?;
+            let node_id = node_id();
+            let seq =
+                build_expression_sequence(codebase, &term_node.child(1).unwrap(), source, node_id)?;
+            codebase.add_node(
+                NodeType::Expression(Expression::Sequence(seq.clone())),
+                parent_id,
+            );
             Expression::Sequence(seq)
         }
         "function_call_term" => {
+            let fc_id = node_id();
             let fun_node = term_node.child_by_field_name("fun").ok_or_else(|| {
                 anyhow!(
                     "Missing 'fun' field in function_call_term: {:?}",
                     term_node.utf8_text(source.as_bytes())
                 )
             })?;
-            let fun = build_function(&fun_node, source)?;
+            let fun = build_function(codebase, &fun_node, source, fc_id)?;
             let expr_nodes = term_node
                 .children_by_field_name("expr", &mut term_node.walk())
                 .collect::<Vec<_>>();
             let arguments = expr_nodes
                 .into_iter()
-                .map(|expr_node| build_expression(&expr_node, source))
+                .map(|expr_node| build_expression(codebase, &expr_node, source, fc_id))
                 .collect::<Result<Vec<_>>>()?;
-            Expression::FunctionCall(Rc::new(FunctionCall {
-                id: node_id(),
+            let fun = Rc::new(FunctionCall {
+                id: fc_id,
                 location: location(term_node),
                 function: Expression::Function(fun),
                 arguments,
-            }))
+            });
+            codebase.add_node(
+                NodeType::Expression(Expression::FunctionCall(fun.clone())),
+                parent_id,
+            );
+            Expression::FunctionCall(fun)
         }
         "struct_term" => {
-            let struct_expr = build_struct_expression(term_node, source)?;
+            let node_id = node_id();
+            let struct_expr = build_struct_expression(codebase, term_node, source, node_id)?;
+            codebase.add_node(
+                NodeType::Expression(Expression::Struct(struct_expr.clone())),
+                parent_id,
+            );
             Expression::Struct(struct_expr)
         }
         "[" => {
+            let node_id = node_id();
             let expr_nodes = term_node
                 .parent()
                 .unwrap()
@@ -1256,49 +1757,63 @@ fn build_term(node: &Node, source: &str) -> Result<Expression> {
                 .collect::<Vec<_>>();
             let elements = expr_nodes
                 .into_iter()
-                .map(|expr_node| build_expression(&expr_node, source))
+                .map(|expr_node| build_expression(codebase, &expr_node, source, node_id))
                 .collect::<Result<Vec<_>>>()?;
-            Expression::Literal(Literal::Array(Rc::new(Array {
-                id: node_id(),
+            let arr = Rc::new(Array {
+                id: node_id,
                 location: location(term_node),
                 elements,
-            })))
+            });
+            codebase.add_node(
+                NodeType::Expression(Expression::Literal(Literal::Array(arr.clone()))),
+                parent_id,
+            );
+            Expression::Literal(Literal::Array(arr))
         }
         _ => bail!("Unhandled term kind: {}", term_node.kind()),
     };
     Ok(term)
 }
 
-fn build_function(node: &Node, source: &str) -> Result<Function> {
+fn build_function(
+    codebase: &mut Codebase<OpenState>,
+    node: &Node,
+    source: &str,
+    parent_id: u128,
+) -> Result<Function> {
     let name_node = node.child_by_field_name("id");
-
+    let node_id = node_id();
     if let Some(name_n) = name_node {
-        let name = build_identifier(&name_n, source)?;
+        let name = build_identifier(codebase, &name_n, source, node_id)?;
         let generic_parameters_node = node.child_by_field_name("gargs");
         let mut generic_parameters = None;
         if let Some(generics_node) = generic_parameters_node {
             let cursor = &mut generics_node.walk();
             let generic_nodes: Result<Vec<_>> = generics_node
                 .children_by_field_name("garg", cursor)
-                .map(|type_node| build_gargument(&type_node.child(0).unwrap(), source))
+                .map(|type_node| {
+                    build_gargument(codebase, &type_node.child(0).unwrap(), source, node_id)
+                })
                 .collect();
             generic_parameters = Some(generic_nodes?);
         }
-        Ok(Function::Named(Rc::new(NamedFunction {
-            id: node_id(),
+        let nf = Rc::new(NamedFunction {
+            id: node_id,
             location: location(node),
             name,
             generic_parameters,
-        })))
+        });
+        codebase.add_node(NodeType::Function(Function::Named(nf.clone())), parent_id);
+        Ok(Function::Named(nf))
     } else {
         let cursor = &mut node.walk();
         let pattern_nodes = node
             .children_by_field_name("pattern", cursor)
-            .map(|pattern_node| build_pattern(&pattern_node, source))
+            .map(|pattern_node| build_pattern(codebase, &pattern_node, source, node_id))
             .collect::<Result<Vec<_>>>()?;
         let parg_nodes = node
             .children_by_field_name("parg", cursor)
-            .map(|parg_node| build_pargument(&parg_node, source))
+            .map(|parg_node| build_pargument(codebase, &parg_node, source, node_id))
             .collect::<Result<Vec<_>>>()?;
         let mut arguments = Vec::new();
         for pn in pattern_nodes {
@@ -1309,25 +1824,30 @@ fn build_function(node: &Node, source: &str) -> Result<Function> {
         }
         let return_node = node.child_by_field_name("type");
         let return_type = if let Some(return_node) = return_node {
-            Some(build_type(&return_node, source)?)
+            Some(build_type(codebase, &return_node, source, node_id)?)
         } else {
             None
         };
         let block_node = node.child_by_field_name("block");
         let block = if let Some(block_node) = block_node {
-            Some(build_block(&block_node, source)?)
+            Some(build_block(codebase, &block_node, source, node_id)?)
         } else {
             None
         };
         if block.is_some() {
-            Ok(Function::Anonymous(Rc::new(AnonymousFunction {
-                id: node_id(),
+            let af = Rc::new(AnonymousFunction {
+                id: node_id,
                 location: location(node),
                 arguments,
                 return_type,
                 body: block,
                 expr_body: None,
-            })))
+            });
+            codebase.add_node(
+                NodeType::Function(Function::Anonymous(af.clone())),
+                parent_id,
+            );
+            Ok(Function::Anonymous(af))
         } else {
             let expr_node = node.child_by_field_name("expr").ok_or_else(|| {
                 anyhow!(
@@ -1335,72 +1855,99 @@ fn build_function(node: &Node, source: &str) -> Result<Function> {
                     node.utf8_text(source.as_bytes())
                 )
             })?;
-            let expr = build_expression(&expr_node, source)?;
-            Ok(Function::Anonymous(Rc::new(AnonymousFunction {
-                id: node_id(),
+            let expr = build_expression(codebase, &expr_node, source, parent_id)?;
+            let af = Rc::new(AnonymousFunction {
+                id: node_id,
                 location: location(node),
                 arguments,
                 return_type,
                 body: None,
                 expr_body: Some(expr),
-            })))
+            });
+            codebase.add_node(
+                NodeType::Function(Function::Anonymous(af.clone())),
+                parent_id,
+            );
+            Ok(Function::Anonymous(af))
         }
     }
 }
 
-fn build_literal(node: &Node, source: &str) -> Result<Expression> {
+fn build_literal(
+    codebase: &mut Codebase<OpenState>,
+    node: &Node,
+    source: &str,
+    parent_id: u128,
+) -> Result<Expression> {
     let kind = node.kind();
     let literal = match kind {
-        "true" => Expression::Literal(Literal::Bool(Rc::new(Bool {
-            id: node_id(),
-            location: location(node),
-            value: true,
-        }))),
-        "false" => Expression::Literal(Literal::Bool(Rc::new(Bool {
-            id: node_id(),
-            location: location(node),
-            value: false,
-        }))),
+        "true" => {
+            let b = Rc::new(Bool {
+                id: node_id(),
+                location: location(node),
+                value: true,
+            });
+            codebase.add_node(NodeType::Literal(Literal::Bool(b.clone())), parent_id);
+            Expression::Literal(Literal::Bool(b))
+        }
+        "false" => {
+            let b = Rc::new(Bool {
+                id: node_id(),
+                location: location(node),
+                value: false,
+            });
+            codebase.add_node(NodeType::Literal(Literal::Bool(b.clone())), parent_id);
+            Expression::Literal(Literal::Bool(b))
+        }
         "nat" => {
-            let nat = build_nat(node, source)?;
+            let nat = build_nat(codebase, node, source, parent_id)?;
             Expression::Literal(Literal::Nat(nat))
         }
         "str" => {
-            let str = build_str(node, source)?;
+            let str = build_str(codebase, node, source, parent_id)?;
             Expression::Literal(Literal::Str(str))
         }
         "pad" => {
+            let node_id = node_id();
             let nat_node = node.child_by_field_name("nat").ok_or_else(|| {
                 anyhow!(
                     "Missing 'nat' field in pad literal: {:?}",
                     node.utf8_text(source.as_bytes())
                 )
             })?;
-            let nat = build_nat(&nat_node, source)?;
+            let nat = build_nat(codebase, &nat_node, source, node_id)?;
             let str_node = node.child_by_field_name("str").ok_or_else(|| {
                 anyhow!(
                     "Missing 'str' field in pad literal: {:?}",
                     node.utf8_text(source.as_bytes())
                 )
             })?;
-            let str = build_str(&str_node, source)?;
-            Expression::Literal(Literal::Pad(Rc::new(Pad {
-                id: node_id(),
+            let str = build_str(codebase, &str_node, source, node_id)?;
+            let pad = Rc::new(Pad {
+                id: node_id,
                 location: location(node),
                 number: nat,
                 name: str,
-            })))
+            });
+            codebase.add_node(NodeType::Literal(Literal::Pad(pad.clone())), parent_id);
+            Expression::Literal(Literal::Pad(pad))
         }
         _ => bail!("Unhandled literal kind: {:?}", node),
     };
     Ok(literal)
 }
 
-fn build_struct_expression(node: &Node, source: &str) -> Result<Rc<StructExpr>> {
+fn build_struct_expression(
+    codebase: &mut Codebase<OpenState>,
+    node: &Node,
+    source: &str,
+    parent_id: u128,
+) -> Result<Rc<StructExpr>> {
+    let struct_expr_id = node_id();
     let tref_node = node
         .child_by_field_name("tref")
         .ok_or_else(|| anyhow!("Missing 'tref' field in struct expression: {:?}", node))?;
-    let tref = build_type(&tref_node, source)?;
+    let tref = build_type(codebase, &tref_node, source, struct_expr_id)?;
     let cursor = &mut node.walk();
     let mut struct_args = Vec::new();
     for child in node.children(cursor) {
@@ -1408,10 +1955,12 @@ fn build_struct_expression(node: &Node, source: &str) -> Result<Rc<StructExpr>> 
             let struct_arg_node = child.named_child(0).unwrap();
             match struct_arg_node.kind() {
                 "expr" => {
-                    let expr = build_expression(&struct_arg_node, source)?;
+                    let expr =
+                        build_expression(codebase, &struct_arg_node, source, struct_expr_id)?;
                     struct_args.push(StructExprArg::Expression(expr));
                 }
                 "struct_named_filed_initializer" => {
+                    let struct_named_filed_initializer = node_id();
                     let id_node = struct_arg_node.child_by_field_name("id").ok_or_else(|| {
                         anyhow!(
                             "Missing 'id' field in struct_named_filed_initializer {:?}",
@@ -1422,50 +1971,84 @@ fn build_struct_expression(node: &Node, source: &str) -> Result<Rc<StructExpr>> 
                         struct_arg_node.child_by_field_name("expr").ok_or_else(|| {
                             anyhow!("Missing 'expr' field in struct_named_filed_initializer")
                         })?;
-                    let name = build_identifier(&id_node, source)?;
-                    let expr = build_expression(&expr_node, source)?;
-                    struct_args.push(StructExprArg::NamedField(Rc::new(StructNamedField {
-                        id: node_id(),
+                    let name = build_identifier(
+                        codebase,
+                        &id_node,
+                        source,
+                        struct_named_filed_initializer,
+                    )?;
+                    let expr = build_expression(
+                        codebase,
+                        &expr_node,
+                        source,
+                        struct_named_filed_initializer,
+                    )?;
+                    let struct_arg = StructExprArg::NamedField(Rc::new(StructNamedField {
+                        id: struct_named_filed_initializer,
                         location: location(&struct_arg_node),
                         name,
                         value: expr,
-                    })));
+                    }));
+                    codebase.add_node(NodeType::StructExprArg(struct_arg.clone()), struct_expr_id);
+                    struct_args.push(struct_arg);
                 }
                 "struct_update_field" => {
                     let expr_node = struct_arg_node
                         .child_by_field_name("expr")
                         .ok_or_else(|| anyhow!("Missing 'expr' field in struct_update_field"))?;
-                    let expr = build_expression(&expr_node, source)?;
-                    struct_args.push(StructExprArg::Update(expr));
+                    let expr = build_expression(codebase, &expr_node, source, parent_id)?;
+                    let struct_arg = StructExprArg::Update(expr.clone());
+                    codebase.add_node(NodeType::StructExprArg(struct_arg.clone()), struct_expr_id);
+                    struct_args.push(struct_arg);
                 }
                 _ => bail!("Unhandled struct_arg node: {}", struct_arg_node.kind()),
             }
         }
     }
-
-    Ok(Rc::new(StructExpr {
-        id: node_id(),
+    let struct_expr = Rc::new(StructExpr {
+        id: struct_expr_id,
         location: location(node),
         ty: tref,
         args: struct_args,
-    }))
+    });
+    codebase.add_node(
+        NodeType::Expression(Expression::Struct(struct_expr.clone())),
+        parent_id,
+    );
+    Ok(struct_expr)
 }
 
-fn build_expression_sequence(node: &Node, source: &str) -> Result<Rc<Sequence>> {
+fn build_expression_sequence(
+    codebase: &mut Codebase<OpenState>,
+    node: &Node,
+    source: &str,
+    parent_id: u128,
+) -> Result<Rc<Sequence>> {
+    let node_id = node_id();
     let mut cursor = node.walk();
     let expressions: Result<Vec<_>> = node
         .children_by_field_name("expr", &mut cursor)
-        .map(|expr_node| build_expression(&expr_node, source))
+        .map(|expr_node| build_expression(codebase, &expr_node, source, node_id))
         .collect();
-    Ok(Rc::new(Sequence {
-        id: node_id(),
+    let seq = Rc::new(Sequence {
+        id: node_id,
         location: location(node),
         expressions: expressions?,
-    }))
+    });
+    codebase.add_node(
+        NodeType::Expression(Expression::Sequence(seq.clone())),
+        parent_id,
+    );
+    Ok(seq)
 }
 
 #[allow(clippy::too_many_lines)]
-fn build_type(node: &Node, source: &str) -> Result<Type> {
+fn build_type(
+    codebase: &mut Codebase<OpenState>,
+    node: &Node,
+    source: &str,
+    parent_id: u128,
+) -> Result<Type> {
     let node = if node.kind() == "type" {
         &node.child(0).unwrap()
     } else {
@@ -1474,44 +2057,57 @@ fn build_type(node: &Node, source: &str) -> Result<Type> {
     let kind = node.kind();
     match kind {
         "tref" => {
+            let node_id = node_id();
             let ref_node = node.child_by_field_name("id").ok_or_else(|| {
                 anyhow!(
                     "Missing 'id' field in type reference: {:?}",
                     node.utf8_text(source.as_bytes())
                 )
             })?;
-            let ref_name = build_identifier(&ref_node, source)?;
+            let ref_name = build_identifier(codebase, &ref_node, source, node_id)?;
             let generic_parameters_node = node.child_by_field_name("gargs");
             let mut generic_parameters: Option<Vec<GArgument>> = None;
             if let Some(generics_node) = generic_parameters_node {
                 let cursor = &mut generics_node.walk();
                 let generic_nodes: Result<Vec<_>> = generics_node
                     .children_by_field_name("garg", cursor)
-                    .map(|type_node| build_gargument(&type_node.child(0).unwrap(), source))
+                    .map(|type_node| {
+                        build_gargument(codebase, &type_node.child(0).unwrap(), source, node_id)
+                    })
                     .collect();
                 generic_parameters = Some(generic_nodes?);
             }
-
-            Ok(Type::Ref(Rc::new(Ref {
-                id: node_id(),
+            let t_ref = Type::Ref(Rc::new(Ref {
+                id: node_id,
                 location: location(node),
                 name: ref_name,
                 generic_parameters,
-            })))
+            }));
+            codebase.add_node(NodeType::Type(t_ref.clone()), parent_id);
+            Ok(t_ref)
         }
-        "Boolean" => Ok(Type::Boolean(Rc::new(TypeBool {
-            id: node_id(),
-            location: location(node),
-        }))),
-        "Field" => Ok(Type::Field(Rc::new(TypeField {
-            id: node_id(),
-            location: location(node),
-        }))),
+        "Boolean" => {
+            let b = Type::Boolean(Rc::new(TypeBool {
+                id: node_id(),
+                location: location(node),
+            }));
+            codebase.add_node(NodeType::Type(b.clone()), parent_id);
+            Ok(b)
+        }
+        "Field" => {
+            let f = Type::Field(Rc::new(TypeField {
+                id: node_id(),
+                location: location(node),
+            }));
+            codebase.add_node(NodeType::Type(f.clone()), parent_id);
+            Ok(f)
+        }
         "uint_type" => {
+            let node_id = node_id();
             let cursor = &mut node.walk();
             let size_nodes = node
                 .children_by_field_name("tsize", cursor)
-                .map(|size_node| build_nat(&size_node, source).unwrap())
+                .map(|size_node| build_nat(codebase, &size_node, source, node_id).unwrap())
                 .collect::<Vec<_>>();
             let start = size_nodes.first().cloned().ok_or_else(|| {
                 anyhow!(
@@ -1524,42 +2120,51 @@ fn build_type(node: &Node, source: &str) -> Result<Type> {
             } else {
                 None
             };
-            Ok(Type::Uint(Rc::new(Uint {
-                id: node_id(),
+            let t_uint = Type::Uint(Rc::new(Uint {
+                id: node_id,
                 location: location(node),
                 start,
                 end,
-            })))
+            }));
+            codebase.add_node(NodeType::Type(t_uint.clone()), parent_id);
+            Ok(t_uint)
         }
         "bytes_type" => {
+            let node_id = node_id();
             let size_node = node.child_by_field_name("tsize").ok_or_else(|| {
                 anyhow!(
                     "Missing 'tsize' field in Bytes type: {:?}",
                     node.utf8_text(source.as_bytes())
                 )
             })?;
-            let nat = build_nat(&size_node, source)?;
-            Ok(Type::Bytes(Rc::new(Bytes {
-                id: node_id(),
+            let nat = build_nat(codebase, &size_node, source, parent_id)?;
+            let t_bytes = Type::Bytes(Rc::new(Bytes {
+                id: node_id,
                 location: location(node),
                 size: nat,
-            })))
+            }));
+            codebase.add_node(NodeType::Type(t_bytes.clone()), parent_id);
+            Ok(t_bytes)
         }
         "opaque_type" => {
+            let node_id = node_id();
             let size_node = node.child_by_field_name("str").ok_or_else(|| {
                 anyhow!(
                     "Missing 'str' field in Opaque type: {:?}",
                     node.utf8_text(source.as_bytes())
                 )
             })?;
-            let str = build_str(&size_node, source)?;
-            Ok(Type::Opaque(Rc::new(Opaque {
-                id: node_id(),
+            let str = build_str(codebase, &size_node, source, node_id)?;
+            let t_opaque = Type::Opaque(Rc::new(Opaque {
+                id: node_id,
                 location: location(node),
                 value: str,
-            })))
+            }));
+            codebase.add_node(NodeType::Type(t_opaque.clone()), parent_id);
+            Ok(t_opaque)
         }
         "vector_type" => {
+            let node_id = node_id();
             let size_node = node.child_by_field_name("tsize").ok_or_else(|| {
                 anyhow!(
                     "Missing 'tsize' field in Vector type: {:?}",
@@ -1567,8 +2172,8 @@ fn build_type(node: &Node, source: &str) -> Result<Type> {
                 )
             })?;
             let size = match size_node.child(0).unwrap().kind() {
-                "nat" => VectorSize::Nat(build_nat(&size_node, source)?),
-                "id" => VectorSize::Ref(build_identifier(&size_node, source)?),
+                "nat" => VectorSize::Nat(build_nat(codebase, &size_node, source, node_id)?),
+                "id" => VectorSize::Ref(build_identifier(codebase, &size_node, source, node_id)?),
                 _ => bail!("Invalid size kind: {:?}", size_node.kind()),
             };
             let element_node = node.child_by_field_name("type").ok_or_else(|| {
@@ -1577,39 +2182,51 @@ fn build_type(node: &Node, source: &str) -> Result<Type> {
                     node.utf8_text(source.as_bytes())
                 )
             })?;
-            let element_type = build_type(&element_node, source)?;
-            Ok(Type::Vector(Rc::new(Vector {
-                id: node_id(),
+            let element_type = build_type(codebase, &element_node, source, node_id)?;
+            let t_vector = Type::Vector(Rc::new(Vector {
+                id: node_id,
                 location: location(node),
                 size,
                 ty: element_type,
-            })))
+            }));
+            codebase.add_node(NodeType::Type(t_vector.clone()), parent_id);
+            Ok(t_vector)
         }
         "[" => {
+            let node_id = node_id();
             let mut cursor = node.walk();
             let type_nodes: Result<Vec<_>> = node
                 .children_by_field_name("type", &mut cursor)
-                .map(|size_node| build_type(&size_node, source))
+                .map(|size_node| build_type(codebase, &size_node, source, node_id))
                 .collect();
             let sizes = type_nodes?;
-            Ok(Type::Sum(Rc::new(Sum {
-                id: node_id(),
+            let l_sum = Type::Sum(Rc::new(Sum {
+                id: node_id,
                 location: location(node),
                 types: sizes,
-            })))
+            }));
+            codebase.add_node(NodeType::Type(l_sum.clone()), parent_id);
+            Ok(l_sum)
         }
         _ => bail!("Unhandled type kind: {}", kind),
     }
 }
 
-fn build_gargument(node: &Node, source: &str) -> Result<GArgument> {
+fn build_gargument(
+    codebase: &mut Codebase<OpenState>,
+    node: &Node,
+    source: &str,
+    parent_id: u128,
+) -> Result<GArgument> {
     match node.kind() {
         "nat" => {
-            let nat = build_nat(node, source)?;
+            let nat = build_nat(codebase, node, source, parent_id)?;
+            codebase.add_node(NodeType::GArgument(GArgument::Nat(nat.clone())), parent_id);
             Ok(GArgument::Nat(nat))
         }
         "type" => {
-            let ty = build_type(node, source)?;
+            let ty = build_type(codebase, node, source, parent_id)?;
+            codebase.add_node(NodeType::GArgument(GArgument::Type(ty.clone())), parent_id);
             Ok(GArgument::Type(ty))
         }
         _ => bail!(
@@ -1619,54 +2236,80 @@ fn build_gargument(node: &Node, source: &str) -> Result<GArgument> {
     }
 }
 
-fn build_argument(node: &Node, source: &str) -> Result<Rc<Argument>> {
+fn build_argument(
+    codebase: &mut Codebase<OpenState>,
+    node: &Node,
+    source: &str,
+    parent_id: u128,
+) -> Result<Rc<Argument>> {
+    let node_id = node_id();
     let name_node = node.child_by_field_name("id").ok_or_else(|| {
         anyhow!(
             "Missing 'id' field in argument: {:?}",
             node.utf8_text(source.as_bytes())
         )
     })?;
-    let name = build_identifier(&name_node, source)?;
+    let name = build_identifier(codebase, &name_node, source, node_id)?;
     let type_node = node.child_by_field_name("type").ok_or_else(|| {
         anyhow!(
             "Missing 'type' field in argument: {:?}",
             node.utf8_text(source.as_bytes())
         )
     })?;
-    let ty = build_type(&type_node, source)?;
-    Ok(Rc::new(Argument {
-        id: node_id(),
+    let ty = build_type(codebase, &type_node, source, node_id)?;
+    let argument = Rc::new(Argument {
+        id: node_id,
         location: location(node),
         name,
         ty,
-    }))
+    });
+    codebase.add_node(
+        NodeType::Declaration(Declaration::Argument(argument.clone())),
+        parent_id,
+    );
+    Ok(argument)
 }
 
-fn build_pargument(node: &Node, source: &str) -> Result<Rc<PatternArgument>> {
+fn build_pargument(
+    codebase: &mut Codebase<OpenState>,
+    node: &Node,
+    source: &str,
+    parent_id: u128,
+) -> Result<Rc<PatternArgument>> {
+    let node_id = node_id();
     let pattern_node = node.child_by_field_name("pattern").ok_or_else(|| {
         anyhow!(
             "Missing 'pattern' field in argument: {:?}",
             node.utf8_text(source.as_bytes())
         )
     })?;
-    let pattern = build_pattern(&pattern_node.child(0).unwrap(), source)?;
+    let pattern = build_pattern(codebase, &pattern_node.child(0).unwrap(), source, node_id)?;
     let type_node = node.child_by_field_name("type").ok_or_else(|| {
         anyhow!(
             "Missing 'type' field in argument: {:?}",
             node.utf8_text(source.as_bytes())
         )
     })?;
-    let ty = build_type(&type_node, source)?;
-    Ok(Rc::new(PatternArgument {
-        id: node_id(),
+    let ty = build_type(codebase, &type_node, source, node_id)?;
+    let pattern = Rc::new(PatternArgument {
+        id: node_id,
         location: location(node),
         pattern,
         ty,
-    }))
+    });
+    codebase.add_node(
+        NodeType::Declaration(Declaration::PatternArgument(pattern.clone())),
+        parent_id,
+    );
+    Ok(pattern)
 }
 
-fn build_pattern(node: &Node, source: &str) -> Result<Pattern> {
-    // println!("Pattern: {:?}", node);
+fn build_pattern(
+    codebase: &mut Codebase<OpenState>,
+    node: &Node,
+    source: &str,
+    parent_id: u128,
+) -> Result<Pattern> {
     let node = if node.kind() == "pattern" {
         &node.child(0).unwrap()
     } else {
@@ -1675,99 +2318,149 @@ fn build_pattern(node: &Node, source: &str) -> Result<Pattern> {
     let kind = node.kind();
     match kind {
         "id" => {
-            let name = build_identifier(node, source)?;
+            let name = build_identifier(codebase, node, source, parent_id)?;
             Ok(Pattern::Identifier(name))
         }
         "[" => {
+            let node_id = node_id();
             let cursor = &mut node.walk();
             let patterns: Result<Vec<_>> = node
                 .parent()
                 .unwrap()
                 .children_by_field_name("pattern_tuple_elt", cursor)
-                .map(|pattern_node| build_pattern(&pattern_node.child(0).unwrap(), source))
+                .map(|pattern_node| {
+                    build_pattern(codebase, &pattern_node.child(0).unwrap(), source, node_id)
+                })
                 .collect();
             let patterns = patterns?;
-            Ok(Pattern::Tuple(Rc::new(TuplePattern {
-                id: node_id(),
+            let tuple_pattern = Rc::new(TuplePattern {
+                id: node_id,
                 location: location(node),
                 patterns,
-            })))
+            });
+            codebase.add_node(
+                NodeType::Pattern(Pattern::Tuple(tuple_pattern.clone())),
+                parent_id,
+            );
+            Ok(Pattern::Tuple(tuple_pattern))
         }
         "{" => {
+            let struct_pattern_node_id = node_id();
             let mut cursor = node.walk();
             let field_nodes = node
                 .children_by_field_name("pattern_struct_elt", &mut cursor)
                 .collect::<Vec<_>>();
             let mut fields = Vec::new();
             for field_node in field_nodes {
+                let struct_pattern_node_id = node_id();
                 let name_node = field_node.child_by_field_name("id").ok_or_else(|| {
                     anyhow!(
                         "Missing 'id' field in struct pattern field: {:?}",
                         field_node.utf8_text(source.as_bytes())
                     )
                 })?;
-                let name = build_identifier(&name_node, source)?;
+                let name = build_identifier(codebase, &name_node, source, struct_pattern_node_id)?;
                 let pattern_node = field_node.child_by_field_name("pattern").ok_or_else(|| {
                     anyhow!(
                         "Missing 'pattern' field in struct pattern field: {:?}",
                         field_node.utf8_text(source.as_bytes())
                     )
                 })?;
-                let pattern = build_pattern(&pattern_node, source)?;
-                fields.push(Rc::new(StructPatternField {
-                    id: node_id(),
+                let pattern =
+                    build_pattern(codebase, &pattern_node, source, struct_pattern_node_id)?;
+                let field = Rc::new(StructPatternField {
+                    id: struct_pattern_node_id,
                     location: location(&field_node),
                     name,
                     pattern,
-                }));
+                });
+                codebase.add_node(
+                    NodeType::Declaration(Declaration::StructPatternField(field.clone())),
+                    struct_pattern_node_id,
+                );
+                fields.push(field);
             }
-            Ok(Pattern::Struct(Rc::new(StructPattern {
-                id: node_id(),
+            let struct_pattern = Rc::new(StructPattern {
+                id: struct_pattern_node_id,
                 location: location(node),
                 fields,
-            })))
+            });
+            codebase.add_node(
+                NodeType::Pattern(Pattern::Struct(struct_pattern.clone())),
+                parent_id,
+            );
+            Ok(Pattern::Struct(struct_pattern))
         }
         _ => bail!("Unhandled pattern kind: {:?}", kind),
     }
 }
 
-fn build_generic_parameters(node: &Node, source: &str) -> Vec<Rc<Identifier>> {
+fn build_generic_parameters(
+    codebase: &mut Codebase<OpenState>,
+    node: &Node,
+    source: &str,
+    parent_id: u128,
+) -> Vec<Rc<Identifier>> {
     let mut cursor = node.walk();
     let generic_nodes: Result<Vec<_>> = node
         .children_by_field_name("gparam", &mut cursor)
-        .map(|ident_node| build_identifier(&ident_node, source))
+        .map(|ident_node| build_identifier(codebase, &ident_node, source, parent_id))
         .collect();
     generic_nodes.unwrap()
 }
 
-fn build_identifier(node: &Node, source: &str) -> Result<Rc<Identifier>> {
+fn build_identifier(
+    codebase: &mut Codebase<OpenState>,
+    node: &Node,
+    source: &str,
+    parent_id: u128,
+) -> Result<Rc<Identifier>> {
     let text = node.utf8_text(source.as_bytes())?.to_string();
-    Ok(Rc::new(Identifier {
+    let id = Rc::new(Identifier {
         id: node_id(),
         location: location(node),
         name: text,
-    }))
+    });
+    codebase.add_node(
+        NodeType::Expression(Expression::Identifier(id.clone())),
+        parent_id,
+    );
+    Ok(id)
 }
 
-fn build_nat(node: &Node, source: &str) -> Result<Rc<Nat>> {
+fn build_nat(
+    codebase: &mut Codebase<OpenState>,
+    node: &Node,
+    source: &str,
+    parent_id: u128,
+) -> Result<Rc<Nat>> {
     let text = node.utf8_text(source.as_bytes())?.to_string();
     let value = text
         .parse::<u64>()
         .map_err(|_| anyhow!("Invalid Nat value: {}", text))?;
-    Ok(Rc::new(Nat {
+    let nat = Rc::new(Nat {
         id: node_id(),
         location: location(node),
         value,
-    }))
+    });
+    codebase.add_node(NodeType::Literal(Literal::Nat(nat.clone())), parent_id);
+    Ok(nat)
 }
 
-fn build_str(node: &Node, source: &str) -> Result<Rc<Str>> {
+fn build_str(
+    codebase: &mut Codebase<OpenState>,
+    node: &Node,
+    source: &str,
+    parent_id: u128,
+) -> Result<Rc<Str>> {
     let text = node.utf8_text(source.as_bytes())?.to_string();
-    Ok(Rc::new(Str {
+    let str = Rc::new(Str {
         id: node_id(),
         location: location(node),
         value: text,
-    }))
+    });
+    codebase.add_node(NodeType::Literal(Literal::Str(str.clone())), parent_id);
+    Ok(str)
 }
 
 fn location(node: &Node) -> Location {
@@ -1787,9 +2480,27 @@ fn node_id() -> u128 {
 #[cfg(test)]
 #[rustfmt::skip]
 mod tests {
-    use crate::parse_content;
+
+    use crate::codebase::SourceCodeFile;
 
     use super::*;
+
+    fn parse_content(fname: &str, content: &str) -> Result<SourceCodeFile> {
+        let compact_language = tree_sitter_compact::LANGUAGE.into();
+        let mut parser = tree_sitter::Parser::new();
+        parser
+            .set_language(&compact_language)
+            .expect("Error loading Inference grammar");
+        let tree = parser.parse(content, None).unwrap();
+        let root_node = tree.root_node();
+        let mut codebase = Codebase::new();
+        let ast = build_ast(&mut codebase, &root_node, content)?;
+        let source_code_file = SourceCodeFile {
+            fname: fname.to_string(),
+            ast,
+        };
+        Ok(source_code_file)
+    }
 
     #[test]
     fn test_pragma_directive() {
