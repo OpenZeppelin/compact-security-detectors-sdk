@@ -1,20 +1,19 @@
 #![warn(clippy::pedantic)]
 use crate::ast::node_type::NodeType;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 #[allow(clippy::module_name_repetitions)]
 #[derive(Clone, Default, Serialize, Deserialize)]
 pub struct NodesStorage {
     node_routes: Vec<NodeRoute>,
+    #[serde(skip)]
     pub nodes: Vec<NodeType>,
-    file_content_map: HashMap<u128, String>,
 }
 
 impl NodesStorage {
-    // pub fn find_node(&self, id: u128) -> Option<NodeType> {
-    //     self.nodes.iter().find(|n| n.id() == id).cloned()
-    // }
+    pub fn find_node(&self, id: u128) -> Option<NodeType> {
+        self.nodes.iter().find(|n| n.id() == id).cloned()
+    }
 
     // pub fn find_node_file(&self, id: u128) -> Option<Rc<Program>> {
     //     if self.file_content_map.contains_key(&id) {
@@ -39,19 +38,14 @@ impl NodesStorage {
     //     }
     // }
 
-    // #[must_use = "Use this method to find a Node's parent Node"]
-    // pub fn find_parent_node(&self, id: u128) -> Option<NodeRoute> {
-    //     self.node_routes.iter().find(|n| n.id == id).cloned()
-    // }
-
-    // //TODO test this function and remove source_code attr from nodes
-    // #[must_use = "Use this method to get a Node's source code"]
-    // /// # Panics
-    // ///
-    // /// This function will panic if the node with the given id is not found.
-    // pub fn get_node_source_code(&self, id: u128) -> Option<String> {
-    //     todo!("Implement this function")
-    // }
+    #[must_use = "Use this method to find a Node's parent Node"]
+    pub fn find_parent_node(&self, id: u128) -> Option<u128> {
+        self.node_routes
+            .iter()
+            .find(|n| n.id == id)
+            .cloned()
+            .and_then(|node| node.parent)
+    }
 
     pub fn add_node(&mut self, item: NodeType, parent: u128) {
         let id = item.id();
@@ -88,7 +82,7 @@ impl NodesStorage {
 
 #[derive(Clone, Default, Serialize, Deserialize)]
 pub struct NodeRoute {
-    id: u128,
+    pub id: u128,
     parent: Option<u128>,
     children: Vec<u128>,
 }

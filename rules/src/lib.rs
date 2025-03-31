@@ -1,6 +1,7 @@
 use std::{cell::RefCell, collections::HashMap};
 
 use midnight_security_rules_sdk::{
+    ast::{definition::Definition, node_type::NodeType},
     codebase::{Codebase, SealedState},
     Rule,
 };
@@ -28,9 +29,18 @@ impl Rule for AssertionErrorMessageConsistency {
                 || assert_node.message().unwrap().trim().is_empty()
                 || assert_node.message().unwrap().len() < 3
             {
+                let parent = codebase.get_parent_container(assert_node.id);
+                let parent_name = match parent {
+                    Some(NodeType::Definition(Definition::Circuit(c))) => c.name(),
+                    Some(NodeType::Definition(Definition::Module(m))) => m.name(),
+                    _ => String::new(),
+                };
                 errors.insert(
-                    String::new(),
-                    vec![(assert_node.location.start, assert_node.location.end)],
+                    parent_name,
+                    vec![(
+                        assert_node.location.start_line,
+                        assert_node.location.start_column,
+                    )],
                 );
             }
         }
@@ -66,5 +76,6 @@ mod tests {
         let codebase = build_codebase(data).unwrap();
         let result = rule.check(&codebase);
         assert!(result.is_some());
+        assert!(result.unwrap().contains_key("set_admin"));
     }
 }

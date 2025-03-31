@@ -278,8 +278,13 @@ fn infer_expr(expr: &Expression, env: &Rc<SymbolTable>) -> Option<Type> {
             Some(Type::Sum(Rc::new(Sum {
                 id: 0,
                 location: Location {
-                    start: tv.first().unwrap().location().start,
-                    end: tv.last().unwrap().location().end,
+                    offset_start: tv.first().unwrap().location().offset_start,
+                    offset_end: tv.last().unwrap().location().offset_end,
+                    start_line: tv.first().unwrap().location().start_line,
+                    start_column: tv.first().unwrap().location().start_column,
+                    end_line: tv.last().unwrap().location().end_line,
+                    end_column: tv.last().unwrap().location().end_column,
+                    source: expression_sequence.location.source.clone(),
                 },
                 types: tv,
             })))
@@ -308,7 +313,15 @@ mod test {
     // --- Helpers: create a default structs ---
     // ============================
     fn default_location() -> crate::ast::node::Location {
-        crate::ast::node::Location { start: 0, end: 0 }
+        crate::ast::node::Location {
+            offset_start: 0,
+            offset_end: 0,
+            start_line: 0,
+            start_column: 0,
+            end_line: 0,
+            end_column: 0,
+            source: String::default(),
+        }
     }
 
     fn mock_identifier(id: u128, name: &str) -> Rc<Identifier> {

@@ -135,6 +135,13 @@ ast_nodes_impl! {
     }
 }
 
+impl Module {
+    #[must_use = "This method returns the name of the module"]
+    pub fn name(&self) -> String {
+        self.name.name.clone()
+    }
+}
+
 impl Structure {
     #[must_use]
     pub fn name(&self) -> String {

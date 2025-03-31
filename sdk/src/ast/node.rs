@@ -5,14 +5,35 @@ use std::{any::Any, cmp::Reverse, rc::Rc};
 use super::expression::Expression;
 #[derive(Clone, PartialEq, Eq, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct Location {
-    pub start: usize,
-    pub end: usize,
+    pub offset_start: usize,
+    pub offset_end: usize,
+    pub start_line: usize,
+    pub start_column: usize,
+    pub end_line: usize,
+    pub end_column: usize,
+    pub source: String,
 }
 
 impl Location {
     #[must_use]
-    pub fn new(start: usize, end: usize) -> Self {
-        Self { start, end }
+    pub fn new(
+        offset_start: usize,
+        offset_end: usize,
+        start_line: usize,
+        start_column: usize,
+        end_line: usize,
+        end_column: usize,
+        source: String,
+    ) -> Self {
+        Self {
+            offset_start,
+            offset_end,
+            start_line,
+            start_column,
+            end_line,
+            end_column,
+            source,
+        }
     }
 }
 

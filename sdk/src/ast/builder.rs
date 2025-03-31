@@ -62,7 +62,7 @@ pub fn build_ast(
     }
     let p = Rc::new(Program {
         id: node_id,
-        location: location(root),
+        location: location(root, source),
         directives,
         declarations,
         definitions,
@@ -187,7 +187,7 @@ fn build_module(
     }
     let module = Module {
         id: module_id,
-        location: location(node),
+        location: location(node, source),
         is_exported,
         name,
         generic_parameters,
@@ -222,7 +222,7 @@ fn build_enum(
 
     let enum_def = Enum {
         id: enum_id,
-        location: location(node),
+        location: location(node, source),
         is_exported,
         name,
         options: ids,
@@ -387,7 +387,7 @@ fn build_pragma(
 
     let pragma = Pragma {
         id: node_id(),
-        location: location(node),
+        location: location(node, source),
         version: version_expr,
         value: identifier,
     };
@@ -421,7 +421,7 @@ fn build_version(
 
     let major_nat = Rc::new(Nat {
         id: node_id(),
-        location: location(version_node),
+        location: location(version_node, source),
         value: major,
     });
     codebase.add_node(
@@ -431,7 +431,7 @@ fn build_version(
 
     let minor_nat = Rc::new(Nat {
         id: node_id(),
-        location: location(version_node),
+        location: location(version_node, source),
         value: minor,
     });
     codebase.add_node(
@@ -442,7 +442,7 @@ fn build_version(
     let bugfix_nat = bugfix.map(|b| {
         let nat = Rc::new(Nat {
             id: node_id(),
-            location: location(version_node),
+            location: location(version_node, source),
             value: b,
         });
         codebase.add_node(NodeType::Literal(Literal::Nat(nat.clone())), parent_id);
@@ -451,7 +451,7 @@ fn build_version(
 
     let version = Rc::new(Version {
         id: node_id(),
-        location: location(version_node),
+        location: location(version_node, source),
         major: major_nat,
         minor: Some(minor_nat),
         bugfix: bugfix_nat,
@@ -481,7 +481,7 @@ fn build_include(
     let path = path_node.utf8_text(source.as_bytes())?;
     let include = Include {
         id: include_id,
-        location: location(node),
+        location: location(node, source),
         path: path.to_string(),
     };
     codebase.add_node(
@@ -530,7 +530,7 @@ fn build_import(
         .transpose()?;
     let import = Import {
         id: import_id,
-        location: location(node),
+        location: location(node, source),
         value: identifier,
         prefix,
         generic_parameters,
@@ -557,7 +557,7 @@ fn build_export(
     let export_names = export_names?;
     let export = Export {
         id: export_id,
-        location: location(node),
+        location: location(node, source),
         values: export_names,
     };
     codebase.add_node(
@@ -592,7 +592,7 @@ fn build_ledger(
     let ty = build_type(codebase, &type_node, source, ledger_id)?;
     let ledger = Ledger {
         id: ledger_id,
-        location: location(node),
+        location: location(node, source),
         name,
         is_exported,
         is_sealed,
@@ -641,7 +641,7 @@ fn build_witness(
 
     let witness = Witness {
         id: witness_id,
-        location: location(node),
+        location: location(node, source),
         name,
         generic_parameters,
         arguments,
@@ -702,7 +702,7 @@ fn build_circuit(
 
     let circuit = Circuit {
         id: circuit_id,
-        location: location(node),
+        location: location(node, source),
         name,
         is_exported,
         is_pure,
@@ -748,7 +748,7 @@ fn build_external_circuit(
             let arg = build_argument(codebase, &arg_node, source, circuit_id)?;
             Ok(Rc::new(PatternArgument {
                 id: node_id(),
-                location: location(&arg_node),
+                location: location(&arg_node, source),
                 pattern: Pattern::Identifier(arg.name.clone()),
                 ty: arg.ty.clone(),
             }))
@@ -765,7 +765,7 @@ fn build_external_circuit(
 
     let circuit = Circuit {
         id: circuit_id,
-        location: location(node),
+        location: location(node, source),
         is_exported,
         is_pure: false,
         arguments,
@@ -806,7 +806,7 @@ fn build_constructor(
 
     let constructor = Constructor {
         id: constructor_id,
-        location: location(node),
+        location: location(node, source),
         arguments,
         body,
     };
@@ -860,7 +860,7 @@ fn build_external_contract(
                 );
                 let pa = Rc::new(PatternArgument {
                     id: node_id(),
-                    location: location(&arg_node),
+                    location: location(&arg_node, source),
                     pattern: Pattern::Identifier(arg.name.clone()),
                     ty: arg.ty.clone(),
                 });
@@ -882,7 +882,7 @@ fn build_external_contract(
 
         let circuit = Rc::new(Circuit {
             id: circuit_id,
-            location: location(&circuit_node),
+            location: location(&circuit_node, source),
             name: circuit_name,
             arguments,
             generic_parameters: None,
@@ -901,7 +901,7 @@ fn build_external_contract(
 
     let contract = Contract {
         id: contract_id,
-        location: location(node),
+        location: location(node, source),
         is_exported,
         name,
         circuits,
@@ -942,7 +942,7 @@ fn build_structure(
 
     let structure = Structure {
         id: structure_id,
-        location: location(node),
+        location: location(node, source),
         name,
         is_exported,
         generic_parameters,
@@ -1034,7 +1034,7 @@ fn build_assign_statement(
     };
     let assign_stmt = Rc::new(Assign {
         id: assign_id,
-        location: location(node),
+        location: location(node, source),
         target,
         value,
         operator,
@@ -1075,7 +1075,7 @@ fn build_const_statement(
     let value = build_expression(codebase, &value_node, source, const_id)?;
     let const_stmt = Rc::new(Const {
         id: const_id,
-        location: location(node),
+        location: location(node, source),
         pattern,
         value,
         ty,
@@ -1114,7 +1114,7 @@ fn build_if_statement(
         .transpose()?;
     let if_stmt = Rc::new(If {
         id: if_id,
-        location: location(node),
+        location: location(node, source),
         condition: Expression::Sequence(condition),
         then_branch,
         else_branch,
@@ -1167,7 +1167,7 @@ fn build_for_statement(
     let body = build_block(codebase, &body_node.child(0).unwrap(), source, for_id)?;
     let for_stmt = Rc::new(For {
         id: for_id,
-        location: location(node),
+        location: location(node, source),
         counter,
         limit,
         range,
@@ -1195,7 +1195,7 @@ fn build_return_statement(
     };
     let return_stmt = Rc::new(Return {
         id: return_id,
-        location: location(node),
+        location: location(node, source),
         value,
     });
     codebase.add_node(
@@ -1224,7 +1224,7 @@ fn build_assert_statement(
     };
     let assert = Rc::new(Assert {
         id: assert_id,
-        location: location(node),
+        location: location(node, source),
         condition,
         msg: message,
     });
@@ -1249,7 +1249,7 @@ fn build_block(
         .collect();
     let block = Rc::new(Block {
         id: block_id,
-        location: location(node),
+        location: location(node, source),
         statements: statements?,
     });
     codebase.add_node(
@@ -1294,7 +1294,7 @@ fn build_expression(
             )?;
             let conditional = Rc::new(Conditional {
                 id: node_id(),
-                location: location(node),
+                location: location(node, source),
                 condition,
                 then_branch,
                 else_branch,
@@ -1324,7 +1324,7 @@ fn build_expression(
             )?;
             let cast = Rc::new(Cast {
                 id: node_id(),
-                location: location(node),
+                location: location(node, source),
                 expression,
                 target_type: ty,
             });
@@ -1350,7 +1350,7 @@ fn build_expression(
             )?;
             let binary = Rc::new(Binary {
                 id: node_id(),
-                location: location(node),
+                location: location(node, source),
                 left,
                 right,
                 operator: BinaryExpressionOperator::Or,
@@ -1376,7 +1376,7 @@ fn build_expression(
             )?;
             let binary = Rc::new(Binary {
                 id: node_id(),
-                location: location(node),
+                location: location(node, source),
                 left,
                 right,
                 operator: BinaryExpressionOperator::And,
@@ -1411,7 +1411,7 @@ fn build_expression(
             };
             let binary = Rc::new(Binary {
                 id: node_id(),
-                location: location(node),
+                location: location(node, source),
                 left,
                 right,
                 operator,
@@ -1445,7 +1445,7 @@ fn build_expression(
             };
             let binary = Rc::new(Binary {
                 id: node_id(),
-                location: location(node),
+                location: location(node, source),
                 left,
                 right,
                 operator,
@@ -1481,7 +1481,7 @@ fn build_expression(
             };
             let binary = Rc::new(Binary {
                 id: node_id(),
-                location: location(node),
+                location: location(node, source),
                 left,
                 right,
                 operator,
@@ -1501,7 +1501,7 @@ fn build_expression(
             )?;
             let unary = Rc::new(Unary {
                 id: node_id(),
-                location: location(node),
+                location: location(node, source),
                 operator: UnaryExpressionOperator::Not,
                 operand: expr,
             });
@@ -1536,7 +1536,7 @@ fn build_expression(
             };
             let member_access = Rc::new(MemberAccess {
                 id: node_id(),
-                location: location(node),
+                location: location(node, source),
                 base,
                 member,
                 arguments,
@@ -1562,7 +1562,7 @@ fn build_expression(
             )?;
             let index_access = Rc::new(IndexAccess {
                 id: node_id(),
-                location: location(node),
+                location: location(node, source),
                 base,
                 index,
             });
@@ -1634,7 +1634,7 @@ fn build_term(
                 .collect();
             let t_map = Rc::new(Map {
                 id: node_id,
-                location: location(term_node),
+                location: location(term_node, source),
                 function: fun,
                 expressions: expressions?,
             });
@@ -1666,7 +1666,7 @@ fn build_term(
                 .collect();
             let e_fold = Rc::new(Fold {
                 id: node_id,
-                location: location(term_node),
+                location: location(term_node, source),
                 function: fun,
                 initial_value,
                 expressions: expressions?,
@@ -1688,7 +1688,7 @@ fn build_term(
             let expr = build_expression(codebase, &expr_node, source, node_id)?;
             let disclose = Rc::new(Disclose {
                 id: node_id,
-                location: location(term_node),
+                location: location(term_node, source),
                 expression: expr,
             });
             codebase.add_node(
@@ -1729,7 +1729,7 @@ fn build_term(
                 .collect::<Result<Vec<_>>>()?;
             let fun = Rc::new(FunctionCall {
                 id: fc_id,
-                location: location(term_node),
+                location: location(term_node, source),
                 function: Expression::Function(fun),
                 arguments,
             });
@@ -1761,7 +1761,7 @@ fn build_term(
                 .collect::<Result<Vec<_>>>()?;
             let arr = Rc::new(Array {
                 id: node_id,
-                location: location(term_node),
+                location: location(term_node, source),
                 elements,
             });
             codebase.add_node(
@@ -1799,7 +1799,7 @@ fn build_function(
         }
         let nf = Rc::new(NamedFunction {
             id: node_id,
-            location: location(node),
+            location: location(node, source),
             name,
             generic_parameters,
         });
@@ -1837,7 +1837,7 @@ fn build_function(
         if block.is_some() {
             let af = Rc::new(AnonymousFunction {
                 id: node_id,
-                location: location(node),
+                location: location(node, source),
                 arguments,
                 return_type,
                 body: block,
@@ -1858,7 +1858,7 @@ fn build_function(
             let expr = build_expression(codebase, &expr_node, source, parent_id)?;
             let af = Rc::new(AnonymousFunction {
                 id: node_id,
-                location: location(node),
+                location: location(node, source),
                 arguments,
                 return_type,
                 body: None,
@@ -1884,7 +1884,7 @@ fn build_literal(
         "true" => {
             let b = Rc::new(Bool {
                 id: node_id(),
-                location: location(node),
+                location: location(node, source),
                 value: true,
             });
             codebase.add_node(NodeType::Literal(Literal::Bool(b.clone())), parent_id);
@@ -1893,7 +1893,7 @@ fn build_literal(
         "false" => {
             let b = Rc::new(Bool {
                 id: node_id(),
-                location: location(node),
+                location: location(node, source),
                 value: false,
             });
             codebase.add_node(NodeType::Literal(Literal::Bool(b.clone())), parent_id);
@@ -1925,7 +1925,7 @@ fn build_literal(
             let str = build_str(codebase, &str_node, source, node_id)?;
             let pad = Rc::new(Pad {
                 id: node_id,
-                location: location(node),
+                location: location(node, source),
                 number: nat,
                 name: str,
             });
@@ -1985,7 +1985,7 @@ fn build_struct_expression(
                     )?;
                     let struct_arg = StructExprArg::NamedField(Rc::new(StructNamedField {
                         id: struct_named_filed_initializer,
-                        location: location(&struct_arg_node),
+                        location: location(&struct_arg_node, source),
                         name,
                         value: expr,
                     }));
@@ -2007,7 +2007,7 @@ fn build_struct_expression(
     }
     let struct_expr = Rc::new(StructExpr {
         id: struct_expr_id,
-        location: location(node),
+        location: location(node, source),
         ty: tref,
         args: struct_args,
     });
@@ -2032,7 +2032,7 @@ fn build_expression_sequence(
         .collect();
     let seq = Rc::new(Sequence {
         id: node_id,
-        location: location(node),
+        location: location(node, source),
         expressions: expressions?,
     });
     codebase.add_node(
@@ -2079,7 +2079,7 @@ fn build_type(
             }
             let t_ref = Type::Ref(Rc::new(Ref {
                 id: node_id,
-                location: location(node),
+                location: location(node, source),
                 name: ref_name,
                 generic_parameters,
             }));
@@ -2089,7 +2089,7 @@ fn build_type(
         "Boolean" => {
             let b = Type::Boolean(Rc::new(TypeBool {
                 id: node_id(),
-                location: location(node),
+                location: location(node, source),
             }));
             codebase.add_node(NodeType::Type(b.clone()), parent_id);
             Ok(b)
@@ -2097,7 +2097,7 @@ fn build_type(
         "Field" => {
             let f = Type::Field(Rc::new(TypeField {
                 id: node_id(),
-                location: location(node),
+                location: location(node, source),
             }));
             codebase.add_node(NodeType::Type(f.clone()), parent_id);
             Ok(f)
@@ -2122,7 +2122,7 @@ fn build_type(
             };
             let t_uint = Type::Uint(Rc::new(Uint {
                 id: node_id,
-                location: location(node),
+                location: location(node, source),
                 start,
                 end,
             }));
@@ -2140,7 +2140,7 @@ fn build_type(
             let nat = build_nat(codebase, &size_node, source, parent_id)?;
             let t_bytes = Type::Bytes(Rc::new(Bytes {
                 id: node_id,
-                location: location(node),
+                location: location(node, source),
                 size: nat,
             }));
             codebase.add_node(NodeType::Type(t_bytes.clone()), parent_id);
@@ -2157,7 +2157,7 @@ fn build_type(
             let str = build_str(codebase, &size_node, source, node_id)?;
             let t_opaque = Type::Opaque(Rc::new(Opaque {
                 id: node_id,
-                location: location(node),
+                location: location(node, source),
                 value: str,
             }));
             codebase.add_node(NodeType::Type(t_opaque.clone()), parent_id);
@@ -2185,7 +2185,7 @@ fn build_type(
             let element_type = build_type(codebase, &element_node, source, node_id)?;
             let t_vector = Type::Vector(Rc::new(Vector {
                 id: node_id,
-                location: location(node),
+                location: location(node, source),
                 size,
                 ty: element_type,
             }));
@@ -2202,7 +2202,7 @@ fn build_type(
             let sizes = type_nodes?;
             let l_sum = Type::Sum(Rc::new(Sum {
                 id: node_id,
-                location: location(node),
+                location: location(node, source),
                 types: sizes,
             }));
             codebase.add_node(NodeType::Type(l_sum.clone()), parent_id);
@@ -2259,7 +2259,7 @@ fn build_argument(
     let ty = build_type(codebase, &type_node, source, node_id)?;
     let argument = Rc::new(Argument {
         id: node_id,
-        location: location(node),
+        location: location(node, source),
         name,
         ty,
     });
@@ -2293,7 +2293,7 @@ fn build_pargument(
     let ty = build_type(codebase, &type_node, source, node_id)?;
     let pattern = Rc::new(PatternArgument {
         id: node_id,
-        location: location(node),
+        location: location(node, source),
         pattern,
         ty,
     });
@@ -2335,7 +2335,7 @@ fn build_pattern(
             let patterns = patterns?;
             let tuple_pattern = Rc::new(TuplePattern {
                 id: node_id,
-                location: location(node),
+                location: location(node, source),
                 patterns,
             });
             codebase.add_node(
@@ -2370,7 +2370,7 @@ fn build_pattern(
                     build_pattern(codebase, &pattern_node, source, struct_pattern_node_id)?;
                 let field = Rc::new(StructPatternField {
                     id: struct_pattern_node_id,
-                    location: location(&field_node),
+                    location: location(&field_node, source),
                     name,
                     pattern,
                 });
@@ -2382,7 +2382,7 @@ fn build_pattern(
             }
             let struct_pattern = Rc::new(StructPattern {
                 id: struct_pattern_node_id,
-                location: location(node),
+                location: location(node, source),
                 fields,
             });
             codebase.add_node(
@@ -2418,7 +2418,7 @@ fn build_identifier(
     let text = node.utf8_text(source.as_bytes())?.to_string();
     let id = Rc::new(Identifier {
         id: node_id(),
-        location: location(node),
+        location: location(node, source),
         name: text,
     });
     codebase.add_node(
@@ -2440,7 +2440,7 @@ fn build_nat(
         .map_err(|_| anyhow!("Invalid Nat value: {}", text))?;
     let nat = Rc::new(Nat {
         id: node_id(),
-        location: location(node),
+        location: location(node, source),
         value,
     });
     codebase.add_node(NodeType::Literal(Literal::Nat(nat.clone())), parent_id);
@@ -2456,17 +2456,33 @@ fn build_str(
     let text = node.utf8_text(source.as_bytes())?.to_string();
     let str = Rc::new(Str {
         id: node_id(),
-        location: location(node),
+        location: location(node, source),
         value: text,
     });
     codebase.add_node(NodeType::Literal(Literal::Str(str.clone())), parent_id);
     Ok(str)
 }
 
-fn location(node: &Node) -> Location {
-    let start = node.start_byte();
-    let end = node.end_byte();
-    Location { start, end }
+fn location(node: &Node, source: &str) -> Location {
+    let offset_start = node.start_byte();
+    let offset_end = node.end_byte();
+    let start_position = node.start_position();
+    let end_position = node.end_position();
+    let start_line = start_position.row + 1;
+    let start_column = start_position.column + 1;
+    let end_line = end_position.row + 1;
+    let end_column = end_position.column + 1;
+    let source = source[offset_start..offset_end].to_string();
+
+    Location {
+        offset_start,
+        offset_end,
+        start_line,
+        start_column,
+        end_line,
+        end_column,
+        source,
+    }
 }
 
 fn node_id() -> u128 {

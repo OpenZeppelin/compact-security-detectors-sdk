@@ -55,10 +55,10 @@ mod tests {
             let content = std::fs::read_to_string(path).unwrap();
             files.insert(file_name, content);
         }
-        let _codebase = build_codebase(files).unwrap().into_inner();
+        let codebase = build_codebase(files).unwrap().into_inner();
         // FIXME fix [de]serialization
-        // let serialized = serde_json::to_string_pretty(&codebase).unwrap();
-        // let output_path = directory.join("output.json");
-        // std::fs::write(output_path, serialized).unwrap();
+        let serialized = serde_json::to_string_pretty(&codebase).unwrap();
+        let output_path = directory.join("output.json");
+        std::fs::write(output_path, serialized).unwrap();
     }
 }

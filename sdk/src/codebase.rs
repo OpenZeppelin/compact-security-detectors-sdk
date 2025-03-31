@@ -2,6 +2,7 @@
 use crate::{
     ast::{
         builder::build_ast,
+        definition::Definition,
         node::NodeKind,
         node_type::NodeType,
         program::Program,
@@ -34,9 +35,11 @@ pub struct SourceCodeFile {
 
 #[derive(Serialize, Deserialize, Default)]
 pub struct Codebase<S> {
+    // #[serde(skip)]
     pub(crate) storage: NodesStorage,
-    #[serde(skip)]
+    // #[serde(skip)]
     pub(crate) fname_ast_map: HashMap<String, SourceCodeFile>,
+    // #[serde(skip)]
     pub(crate) symbol_tables: HashMap<String, Rc<SymbolTable>>,
     pub(crate) _state: PhantomData<S>,
 }
@@ -130,5 +133,19 @@ impl Codebase<SealedState> {
             }
         }
         res.into_iter()
+    }
+
+    #[must_use]
+    pub fn get_parent_container(&self, id: u128) -> Option<NodeType> {
+        let mut current_id = id;
+        while let Some(route) = self.storage.find_parent_node(current_id) {
+            current_id = route;
+            if let Some(node) = self.storage.find_node(current_id) {
+                if let NodeType::Definition(Definition::Circuit(_) | Definition::Module(_)) = node {
+                    return self.storage.find_node(node.id());
+                }
+            }
+        }
+        None
     }
 }
