@@ -1,23 +1,23 @@
-# Midnight Security Rules Developer Guide
+# Midnight Security detectors Developer Guide
 
-This document serves as a guide for developers to create and maintain security rules for the Midnight platform.
+This document serves as a guide for developers to create and maintain security detectors for the Midnight platform.
 
-- [Midnight Security Rules Developer Guide](#midnight-security-rules-developer-guide)
+- [Midnight Security detectors Developer Guide](#midnight-security-detectors-developer-guide)
   - [Crates breakdown](#crates-breakdown)
-  - [Writing a new rule example](#writing-a-new-rule-example)
+  - [Writing a new detector example](#writing-a-new-detector-example)
     - [Compact code](#compact-code)
-    - [Formulate the rule](#formulate-the-rule)
+    - [Formulate the detector](#formulate-the-detector)
     - [Implementation](#implementation)
     - [Execution](#execution)
-    - [Base and custom rules](#base-and-custom-rules)
+    - [Base and custom detectors](#base-and-custom-detectors)
 
 ## Crates breakdown
 
-**sdk**: The [SDK](../sdk/) crate contains the core logic to build a Compact language model and exposes an API for developers to write secuirty rules.
-**rules-runner**: The [rules-runner](../rules-runner/) crate is responsible for executing the security rules.
-**rules**: The [rules](../rules/) crate contains the security rules that are executed by the rules-runner. It is a workspace that contains all the rules and their dependencies.
+**sdk**: The [SDK](../sdk/) crate contains the core logic to build a Compact language model and exposes an API for developers to write secuirty detectors.
+**detectors-runner**: The [detectors-runner](../detectors-runner/) crate is responsible for executing the security detectors.
+**detectors**: The [detectors](../detectors/) crate contains the security detectors that are executed by the detectors-runner. It is a workspace that contains all the detectors and their dependencies.
 
-## Writing a new rule example
+## Writing a new detector example
 
 ### Compact code
 
@@ -30,7 +30,7 @@ export circuit set_admin(new_admin: Bytes<32>): [] {
 }
 ```
 
-### Formulate the rule
+### Formulate the detector
 
 If assert message is not provided or too short, we notify a user about a non informative assert message.
 
@@ -39,32 +39,32 @@ If assert message is not provided or too short, we notify a user about a non inf
 ```rust
 use std::{cell::RefCell, collections::HashMap};
 
-use midnight_security_rules_sdk::{
+use midnight_security_detectors_sdk::{
     ast::{definition::Definition, node_type::NodeType},
     codebase::{Codebase, SealedState},
-    Rule,
+    detector,
 };
 
-// The rule itself is defined as a struct, which implements the Rule trait.
+// The detector itself is defined as a struct, which implements the detector trait.
 pub struct AssertionErrorMessageConsistency;
 
-// The rule is implemented as a trait, which defines the rule's name, description, and check method.
-impl Rule for AssertionErrorMessageConsistency {
+// The detector is implemented as a trait, which defines the detector's name, description, and check method.
+impl detector for AssertionErrorMessageConsistency {
 
-    // The rule's name exists for a better user nofification about which rule was violated.
+    // The detector's name exists for a better user nofification about which detector was violated.
     fn name(&self) -> String {
         "Assertion Error Message Consistency".to_string()
     }
 
-    // The rule's description is used for the reporting purposes.
+    // The detector's description is used for the reporting purposes.
     fn description(&self) -> String {
         "Without a clear error message, debugging failures in this critical admin-setting function becomes difficult.".to_string()
     }
 
-    // The logic of what and how the rule checks is implemented in the check method.
+    // The logic of what and how the detector checks is implemented in the check method.
     fn check(
         &self,
-        codebase: &RefCell<Codebase<SealedState>>, // The `codebase` is an instance of the Codebase struct, which is used to access the rules SDK nodes.
+        codebase: &RefCell<Codebase<SealedState>>, // The `codebase` is an instance of the Codebase struct, which is used to access the detectors SDK nodes.
     ) -> Option<HashMap<String, Vec<(usize, usize)>>> {
         let codebase = codebase.borrow();
         let mut errors = HashMap::new();
@@ -98,30 +98,30 @@ impl Rule for AssertionErrorMessageConsistency {
 }
 ```
 
-The code is copied from the [lib.rs](../rules/src/lib.rs) file.
+The code is copied from the [lib.rs](../detectors/src/lib.rs) file.
 
 
 ### Execution
 
-For rules execution use `rules-runner`.
+For detectors execution use `detectors-runner`.
 
 ```rust
-use midnight_security_rules::all_rules;
-use midnight_security_rules_sdk::{build_codebase, Rule};
+use midnight_security_detectors::all_detectors;
+use midnight_security_detectors_sdk::{build_codebase, detector};
 
 ...
 
 let codebase = build_codebase(data).unwrap(); // The `data` is a HashMap of <source_file_path, source_file_content>.
-let mut rules = all_rules();
+let mut detectors = all_detectors();
 ...
-for rule in rules {
-        let rule_result = rule.check(&codebase);
-        if let Some(errors) = rule_result {
+for detector in detectors {
+        let detector_result = detector.check(&codebase);
+        if let Some(errors) = detector_result {
             for (container_name, locations) in errors.iter() {
                 for (line, col) in locations.iter() {
                     println!(
                         "[{}]: in {container_name} detected an error at [{line}:{col}]",
-                        rule.name()
+                        detector.name()
                     );
                 }
             }
@@ -129,7 +129,7 @@ for rule in rules {
     }
 ```
 
-As an execution result for the rule above, we will get the following output:
+As an execution result for the detector above, we will get the following output:
 
 ```
 [Assertion Error Message Consistency]: in set_admin detected an error at [3:13]
@@ -137,28 +137,28 @@ As an execution result for the rule above, we will get the following output:
 
 P.S. there the stdout is used for the demonstration purposes.
 
-### Base and custom rules
+### Base and custom detectors
 
-There is an assumption that there will be a set of base rule so users can experiment and develop their own rules.
-It is possible since the `Rule` itself is a trait. To "plug" a new rule a `rules-runner` has a function:
+There is an assumption that there will be a set of base detector so users can experiment and develop their own detectors.
+It is possible since the `detector` itself is a trait. To "plug" a new detector a `detectors-runner` has a function:
 
 ```rust
 #[allow(clippy::let_and_return, unused_mut)]
-fn custom_rules() -> Vec<Box<dyn Rule>> {
-    let mut rules: Vec<Box<dyn Rule>> = Vec::new();
-    //Import and add your rules here
-    rules
+fn custom_detectors() -> Vec<Box<dyn detector>> {
+    let mut detectors: Vec<Box<dyn detector>> = Vec::new();
+    //Import and add your detectors here
+    detectors
 }
 ```
 
-so before running the rules execution, it does:
+so before running the detectors execution, it does:
 
 ```rust
-let mut rules = all_rules();
-rules.extend(custom_rules());
-for rule in rulse {
+let mut detectors = all_detectors();
+detectors.extend(custom_detectors());
+for detector in detectors {
     ...
 }
 ```
 
-A user can implement a `Rule` trait, compile it and add the compiled library to the `rules-runner` dependencies. Then, the rule should be added to the `custom_rules` function.
+A user can implement a `detector` trait, compile it and add the compiled library to the `detectors-runner` dependencies. Then, the detector should be added to the `custom_detectors` function.

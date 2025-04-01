@@ -1,2 +1,2 @@
-# midnight-security-rules-sdk
+# midnight-security-detectors-sdk
 🕛
