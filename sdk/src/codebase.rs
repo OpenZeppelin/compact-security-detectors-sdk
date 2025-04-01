@@ -35,11 +35,8 @@ pub struct SourceCodeFile {
 
 #[derive(Serialize, Deserialize, Default)]
 pub struct Codebase<S> {
-    // #[serde(skip)]
     pub(crate) storage: NodesStorage,
-    // #[serde(skip)]
     pub(crate) fname_ast_map: HashMap<String, SourceCodeFile>,
-    // #[serde(skip)]
     pub(crate) symbol_tables: HashMap<String, Rc<SymbolTable>>,
     pub(crate) _state: PhantomData<S>,
 }

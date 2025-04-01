@@ -6,7 +6,6 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Default, Serialize, Deserialize)]
 pub struct NodesStorage {
     node_routes: Vec<NodeRoute>,
-    #[serde(skip)]
     pub nodes: Vec<NodeType>,
 }
 
