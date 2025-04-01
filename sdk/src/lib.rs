@@ -9,7 +9,7 @@ pub mod codebase;
 mod passes;
 mod storage;
 
-pub trait Rule {
+pub trait Detector {
     fn check(
         &self,
         codebase: &RefCell<Codebase<SealedState>>,

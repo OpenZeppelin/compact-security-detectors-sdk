@@ -1,14 +1,14 @@
 use std::{cell::RefCell, collections::HashMap};
 
-use midnight_security_rules_sdk::{
+use midnight_security_detectors_sdk::{
     ast::{definition::Definition, node_type::NodeType},
     codebase::{Codebase, SealedState},
-    Rule,
+    Detector,
 };
 
 pub struct AssertionErrorMessageConsistency;
 
-impl Rule for AssertionErrorMessageConsistency {
+impl Detector for AssertionErrorMessageConsistency {
     fn name(&self) -> String {
         "Assertion Error Message Consistency".to_string()
     }
@@ -52,29 +52,29 @@ impl Rule for AssertionErrorMessageConsistency {
     }
 }
 
-pub fn all_rules() -> Vec<Box<dyn Rule>> {
+pub fn all_detectors() -> Vec<Box<dyn Detector>> {
     vec![Box::new(AssertionErrorMessageConsistency)]
 }
 
 #[cfg(test)]
 mod tests {
-    use midnight_security_rules_sdk::build_codebase;
+    use midnight_security_detectors_sdk::build_codebase;
 
     use super::*;
 
     #[test]
-    fn test_all_rules() {
-        let rule = AssertionErrorMessageConsistency;
+    fn test_all_detectors() {
+        let detector = AssertionErrorMessageConsistency;
         let src = "export circuit set_admin(new_admin: Bytes<32>): [] {
             const current_proof = generate_key_proof(sigCounter as Field as Bytes<32>);
-            assert admin == pad(32, \"\") || admin == current_proof;
+            assert admin == pad(32, \"\") \"\";
             admin = new_admin;
             return [];
         }";
         let mut data = HashMap::new();
         data.insert("test.compact".to_string(), src.to_string());
         let codebase = build_codebase(data).unwrap();
-        let result = rule.check(&codebase);
+        let result = detector.check(&codebase);
         assert!(result.is_some());
         assert!(result.unwrap().contains_key("set_admin"));
     }

@@ -1,5 +1,5 @@
 [package]
-name = "midnight-security-rules-runner"
+name = "midnight-security-detectors-runner"
 version = { workspace = true }
 edition = { workspace = true }
 license = { workspace = true }
@@ -7,5 +7,5 @@ homepage = { workspace = true }
 repository = { workspace = true }
 
 [dependencies]
-midnight-security-rules.workspace = true
-midnight-security-rules-sdk.workspace = true
+midnight-security-detectors.workspace = true
+midnight-security-detectors-sdk.workspace = true

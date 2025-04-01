@@ -1,7 +1,7 @@
 use std::str::FromStr;
 use std::rc::Rc;
-use midnight_security_rules_sdk::ast::node::{ Location };
-use midnight_security_rules_sdk::ast::ty::{ 
+use midnight_security_detectors_sdk::ast::node::{ Location };
+use midnight_security_detectors_sdk::ast::ty::{ 
     Type,
     TypeBool,
     TypeField,
@@ -13,9 +13,9 @@ use midnight_security_rules_sdk::ast::ty::{
     Ref,
     Sum
 };
-use midnight_security_rules_sdk::ast::literal::{ Literal, Nat, Bool, Version, Str };
-use midnight_security_rules_sdk::ast::directive::{ Directive, Pragma, PragmaOperator };
-use midnight_security_rules_sdk::ast::definition::{
+use midnight_security_detectors_sdk::ast::literal::{ Literal, Nat, Bool, Version, Str };
+use midnight_security_detectors_sdk::ast::directive::{ Directive, Pragma, PragmaOperator };
+use midnight_security_detectors_sdk::ast::definition::{
     Definition,
     Module,
     Circuit,
@@ -23,8 +23,8 @@ use midnight_security_rules_sdk::ast::definition::{
     Field,
     Enum
 };
-use midnight_security_rules_sdk::ast::statement::{ Statement, Assign, Assert, AssignOperator, Const, Block, If, For, Return };
-use midnight_security_rules_sdk::ast::declaration::{
+use midnight_security_detectors_sdk::ast::statement::{ Statement, Assign, Assert, AssignOperator, Const, Block, If, For, Return };
+use midnight_security_detectors_sdk::ast::declaration::{
     Argument,
     Constructor,
     Contract,
@@ -36,7 +36,7 @@ use midnight_security_rules_sdk::ast::declaration::{
     Pattern,
     Witness
 };
-use midnight_security_rules_sdk::ast::expression::{
+use midnight_security_detectors_sdk::ast::expression::{
     Binary,
     Unary,
     Expression,
@@ -49,7 +49,7 @@ use midnight_security_rules_sdk::ast::expression::{
     IndexAccess,
     MemberAccess,
 };
-use midnight_security_rules_sdk::ast::program::CompactNode;
+use midnight_security_detectors_sdk::ast::program::CompactNode;
 
 grammar;
 

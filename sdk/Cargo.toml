@@ -1,5 +1,5 @@
 [package]
-name = "midnight-security-rules-sdk"
+name = "midnight-security-detectors-sdk"
 version = { workspace = true }
 edition = { workspace = true }
 license = { workspace = true }

@@ -17,7 +17,7 @@ mod tests {
     #[test]
     fn test_parse_nat() {
         let l = compact::LiteralParser::new().parse("1").unwrap();
-        if let midnight_security_rules_sdk::ast::literal::Literal::Nat(n) = l
+        if let midnight_security_detectors_sdk::ast::literal::Literal::Nat(n) = l
         {
             assert_eq!(n.value, 1);
             assert_eq!(n.location.start, 0);
@@ -27,7 +27,7 @@ mod tests {
         }
 
         let l = compact::LiteralParser::new().parse("0").unwrap();
-        if let midnight_security_rules_sdk::ast::literal::Literal::Nat(n) = l
+        if let midnight_security_detectors_sdk::ast::literal::Literal::Nat(n) = l
         {
             assert_eq!(n.value, 0);
             assert_eq!(n.location.start, 0);
@@ -37,7 +37,7 @@ mod tests {
         }
 
         let l = compact::LiteralParser::new().parse("123").unwrap();
-        if let midnight_security_rules_sdk::ast::literal::Literal::Nat(n) = l
+        if let midnight_security_detectors_sdk::ast::literal::Literal::Nat(n) = l
         {
             assert_eq!(n.value, 123);
             assert_eq!(n.location.start, 0);
@@ -47,7 +47,7 @@ mod tests {
         }
 
         let l = compact::LiteralParser::new().parse("12345").unwrap();
-        if let midnight_security_rules_sdk::ast::literal::Literal::Nat(n) = l
+        if let midnight_security_detectors_sdk::ast::literal::Literal::Nat(n) = l
         {
             assert_eq!(n.value, 12345);
             assert_eq!(n.location.start, 0);
