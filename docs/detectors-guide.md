@@ -13,9 +13,11 @@ This document serves as a guide for developers to create and maintain security d
 
 ## Crates breakdown
 
-**sdk**: The [SDK](../sdk/) crate contains the core logic to build a Compact language model and exposes an API for developers to write secuirty detectors.
-**detectors-runner**: The [detectors-runner](../detectors-runner/) crate is responsible for executing the security detectors.
-**detectors**: The [detectors](../detectors/) crate contains the security detectors that are executed by the detectors-runner. It is a workspace that contains all the detectors and their dependencies.
+* **sdk**: The [SDK](../sdk/) crate contains the core logic to build a Compact language model and exposes an API for developers to write secuirty detectors.
+
+* **detectors-runner**: The [detectors-runner](../detectors-runner/) crate is responsible for executing the security detectors.
+
+* **detectors**: The [detectors](../detectors/) crate contains the security detectors that are executed by the detectors-runner. It is a workspace that contains all the detectors and their dependencies.
 
 ## Writing a new detector example
 
@@ -32,7 +34,7 @@ export circuit set_admin(new_admin: Bytes<32>): [] {
 
 ### Formulate the detector
 
-If assert message is not provided or too short, we notify a user about a non informative assert message.
+If assert message is not provided or too short, we notify a user about an uninformative assert message.
 
 ### Implementation
 
