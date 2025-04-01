@@ -67,7 +67,7 @@ mod tests {
         let rule = AssertionErrorMessageConsistency;
         let src = "export circuit set_admin(new_admin: Bytes<32>): [] {
             const current_proof = generate_key_proof(sigCounter as Field as Bytes<32>);
-            assert admin == pad(32, \"\") || admin == current_proof;
+            assert admin == pad(32, \"\") \"\";
             admin = new_admin;
             return [];
         }";
