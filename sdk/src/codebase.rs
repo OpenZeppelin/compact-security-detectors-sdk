@@ -3,10 +3,10 @@ use crate::{
     ast::{
         builder::build_ast,
         definition::Definition,
-        node::NodeKind,
+        node::{Node, NodeKind},
         node_type::NodeType,
         program::Program,
-        statement::{Assert, Statement},
+        statement::{Assert, For, Statement},
         ty::Type,
     },
     passes::{build_symbol_table, SymbolTable},
@@ -134,6 +134,18 @@ impl Codebase<SealedState> {
         res.into_iter()
     }
 
+    pub fn list_for_statement_nodes(&self) -> impl Iterator<Item = Rc<For>> {
+        let mut res = Vec::new();
+        for item in &self.storage.nodes {
+            if let NodeType::Statement(Statement::For(stmt)) = item {
+                res.push(stmt.clone());
+            } else {
+                println!("{:?}", item);
+            }
+        }
+        res.into_iter()
+    }
+
     #[must_use]
     pub fn get_parent_container(&self, id: u32) -> Option<NodeType> {
         let mut current_id = id;
@@ -146,5 +158,26 @@ impl Codebase<SealedState> {
             }
         }
         None
+    }
+
+    pub fn get_children_cmp<F>(&self, id: u32, comparator: F) -> Vec<NodeType>
+    where
+        F: Fn(&NodeType) -> bool,
+    {
+        let mut result = Vec::new();
+        let mut stack: Vec<NodeType> = Vec::new();
+
+        if let Some(root_node) = self.storage.find_node(id) {
+            stack.push(root_node.clone());
+        }
+
+        while let Some(current_node) = stack.pop() {
+            if comparator(&current_node) {
+                result.push(current_node.clone());
+            }
+            stack.extend(current_node.children());
+        }
+
+        result
     }
 }

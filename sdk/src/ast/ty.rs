@@ -186,3 +186,13 @@ impl Ref {
         self.name.name.clone()
     }
 }
+
+impl Vector {
+    #[must_use]
+    pub fn size_nat(&self) -> Option<u64> {
+        match &self.size {
+            VectorSize::Nat(nat) => Some(nat.value),
+            VectorSize::Ref(_) => None,
+        }
+    }
+}

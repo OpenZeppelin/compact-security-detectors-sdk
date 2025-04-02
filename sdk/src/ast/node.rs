@@ -89,7 +89,7 @@ impl dyn NodeSymbolNode {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum SameScopeNode {
     Symbol(Rc<dyn NodeSymbolNode>),
     Composite(Rc<dyn Node>),
@@ -181,6 +181,17 @@ macro_rules! ast_enum {
                     )*
                 }
             }
+
+            #[must_use]
+            pub fn children(&self) -> Vec<Rc<$crate::ast::node::NodeKind>> {
+                match self {
+                    $(
+                        $name::$arm(_a) => {
+                            _a.children()
+                        }
+                    )*
+                }
+            }
         }
 
         impl From<&$name> for $crate::ast::node::NodeKind {
@@ -190,6 +201,16 @@ macro_rules! ast_enum {
                         $name::$arm(a) => {
                             ast_enum!(@convert a, $( $conv )?)
                         }
+                    )*
+                }
+            }
+        }
+
+        impl From<$name> for $crate::ast::node_type::NodeType {
+            fn from(n: $name) -> Self {
+                match n {
+                    $(
+                        $name::$arm(inner) => $crate::ast::node_type::NodeType::$name($name::$arm(inner)),
                     )*
                 }
             }
@@ -287,6 +308,12 @@ macro_rules! ast_node {
                 $field_vis $field_name : $field_ty,
             )*
         }
+
+        // impl Into<$crate::ast::node_type::NodeType> for $name {
+        //     fn into(self) -> $crate::ast::node_type::NodeType {
+        //         $crate::ast::node_type::NodeType::$name(self)
+        //     }
+        // }
     };
 }
 

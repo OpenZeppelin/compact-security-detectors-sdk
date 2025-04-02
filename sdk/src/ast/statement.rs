@@ -181,3 +181,16 @@ impl Assert {
         self.msg.as_ref().map(|msg| msg.value.clone())
     }
 }
+
+impl For {
+    #[must_use]
+    pub fn upper_bound_nat(&self) -> Option<u64> {
+        self.limit.as_ref().and_then(|limit| {
+            if let Expression::Literal(Literal::Nat(nat)) = limit {
+                Some(nat.value)
+            } else {
+                None
+            }
+        })
+    }
+}
