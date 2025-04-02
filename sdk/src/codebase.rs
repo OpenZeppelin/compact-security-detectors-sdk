@@ -35,10 +35,10 @@ pub struct SourceCodeFile {
 
 #[derive(Serialize, Deserialize, Default)]
 pub struct Codebase<S> {
+    // #[serde(skip)]
     pub(crate) storage: NodesStorage,
-    #[serde(skip)]
     pub(crate) fname_ast_map: HashMap<String, SourceCodeFile>,
-    #[serde(skip)]
+    // #[serde(skip)]
     pub(crate) symbol_tables: HashMap<String, Rc<SymbolTable>>,
     pub(crate) _state: PhantomData<S>,
 }
@@ -80,7 +80,7 @@ impl Codebase<OpenState> {
             .insert(source_code_file.fname.clone(), source_code_file);
     }
 
-    pub(crate) fn add_node(&mut self, node: NodeType, parent: u128) {
+    pub(crate) fn add_node(&mut self, node: NodeType, parent: u32) {
         self.storage.add_node(node, parent);
     }
 
@@ -118,7 +118,7 @@ impl Codebase<SealedState> {
     }
 
     #[must_use = "Use this function to get a type for a symbol (Identifier)"]
-    pub fn get_symbol_type_by_id(&self, file_path: &str, id: u128) -> Option<Type> {
+    pub fn get_symbol_type_by_id(&self, file_path: &str, id: u32) -> Option<Type> {
         self.symbol_tables
             .get(file_path)
             .and_then(|table| table.lookdown_by_id(id))
@@ -135,7 +135,7 @@ impl Codebase<SealedState> {
     }
 
     #[must_use]
-    pub fn get_parent_container(&self, id: u128) -> Option<NodeType> {
+    pub fn get_parent_container(&self, id: u32) -> Option<NodeType> {
         let mut current_id = id;
         while let Some(route) = self.storage.find_parent_node(current_id) {
             current_id = route;

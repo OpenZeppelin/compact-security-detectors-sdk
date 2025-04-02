@@ -20,7 +20,7 @@ impl Detector for AssertionErrorMessageConsistency {
     fn check(
         &self,
         codebase: &RefCell<Codebase<SealedState>>,
-    ) -> Option<HashMap<String, Vec<(usize, usize)>>> {
+    ) -> Option<HashMap<String, Vec<(u32, u32)>>> {
         let codebase = codebase.borrow();
         let mut errors = HashMap::new();
         for assert_node in codebase.list_assert_nodes() {

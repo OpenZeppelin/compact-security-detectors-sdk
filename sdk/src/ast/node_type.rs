@@ -33,7 +33,7 @@ pub enum NodeType {
 
 impl NodeType {
     #[must_use]
-    pub fn id(&self) -> u128 {
+    pub fn id(&self) -> u32 {
         match self {
             NodeType::Program(node) => node.id,
             NodeType::Statement(node) => node.id(),

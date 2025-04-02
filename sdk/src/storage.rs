@@ -10,7 +10,7 @@ pub struct NodesStorage {
 }
 
 impl NodesStorage {
-    pub fn find_node(&self, id: u128) -> Option<NodeType> {
+    pub fn find_node(&self, id: u32) -> Option<NodeType> {
         self.nodes.iter().find(|n| n.id() == id).cloned()
     }
 
@@ -38,7 +38,7 @@ impl NodesStorage {
     // }
 
     #[must_use = "Use this method to find a Node's parent Node"]
-    pub fn find_parent_node(&self, id: u128) -> Option<u128> {
+    pub fn find_parent_node(&self, id: u32) -> Option<u32> {
         self.node_routes
             .iter()
             .find(|n| n.id == id)
@@ -46,7 +46,7 @@ impl NodesStorage {
             .and_then(|node| node.parent)
     }
 
-    pub fn add_node(&mut self, item: NodeType, parent: u128) {
+    pub fn add_node(&mut self, item: NodeType, parent: u32) {
         let id = item.id();
         self.nodes.push(item);
         self.add_storage_node(
@@ -59,7 +59,7 @@ impl NodesStorage {
         );
     }
 
-    fn add_storage_node(&mut self, node: NodeRoute, parent: u128) {
+    fn add_storage_node(&mut self, node: NodeRoute, parent: u32) {
         if let Some(parent_node) = self.node_routes.iter_mut().find(|n| n.id == parent) {
             parent_node.children.push(node.id);
         }
@@ -81,7 +81,7 @@ impl NodesStorage {
 
 #[derive(Clone, Default, Serialize, Deserialize)]
 pub struct NodeRoute {
-    pub id: u128,
-    parent: Option<u128>,
-    children: Vec<u128>,
+    pub id: u32,
+    parent: Option<u32>,
+    children: Vec<u32>,
 }

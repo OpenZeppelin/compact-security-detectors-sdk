@@ -76,7 +76,7 @@ fn build_compact_node(
     codebase: &mut Codebase<OpenState>,
     node: &Node,
     source: &str,
-    parent_id: u128,
+    parent_id: u32,
 ) -> Result<CompactNode> {
     match node.kind() {
         "pragma" => {
@@ -163,7 +163,7 @@ fn build_module(
     codebase: &mut Codebase<OpenState>,
     node: &Node,
     source: &str,
-    parent_id: u128,
+    parent_id: u32,
 ) -> Result<Module> {
     let is_exported = node.child_by_field_name("export").is_some();
     let name_node = node.child_by_field_name("name").ok_or_else(|| {
@@ -204,7 +204,7 @@ fn build_enum(
     codebase: &mut Codebase<OpenState>,
     node: &Node,
     source: &str,
-    parent_id: u128,
+    parent_id: u32,
 ) -> Result<Enum> {
     let is_exported = node.child_by_field_name("export").is_some();
     let name_node = node.child_by_field_name("name").ok_or_else(|| {
@@ -241,7 +241,7 @@ fn build_pragma(
     codebase: &mut Codebase<OpenState>,
     node: &Node,
     source: &str,
-    parent_id: u128,
+    parent_id: u32,
 ) -> Result<Pragma> {
     // Retrieve the 'id' field and build the pragma identifier.
     let id_node = node
@@ -405,7 +405,7 @@ fn build_version(
     version_node: &Node,
     version_operator: VersionOperator,
     source: &str,
-    parent_id: u128,
+    parent_id: u32,
 ) -> Result<Rc<Version>> {
     let version_text = version_node.utf8_text(source.as_bytes())?;
     let parts: Vec<&str> = version_text.split('.').collect();
@@ -469,7 +469,7 @@ fn build_include(
     codebase: &mut Codebase<OpenState>,
     node: &Node,
     source: &str,
-    parent_id: u128,
+    parent_id: u32,
 ) -> Result<Include> {
     let include_id = node_id();
     let path_node = node.child_by_field_name("file").ok_or_else(|| {
@@ -495,7 +495,7 @@ fn build_import(
     codebase: &mut Codebase<OpenState>,
     node: &Node,
     source: &str,
-    parent_id: u128,
+    parent_id: u32,
 ) -> Result<Import> {
     let import_id = node_id();
     let import_name_node = node.child_by_field_name("id").ok_or_else(|| {
@@ -546,7 +546,7 @@ fn build_export(
     codebase: &mut Codebase<OpenState>,
     node: &Node,
     source: &str,
-    parent_id: u128,
+    parent_id: u32,
 ) -> Result<Export> {
     let export_id = node_id();
     let mut cursor = node.walk();
@@ -571,7 +571,7 @@ fn build_ledger(
     codebase: &mut Codebase<OpenState>,
     node: &Node,
     source: &str,
-    parent_id: u128,
+    parent_id: u32,
 ) -> Result<Ledger> {
     let ledger_id = node_id();
     let ledger_name_node = node.child_by_field_name("name").ok_or_else(|| {
@@ -609,7 +609,7 @@ fn build_witness(
     codebase: &mut Codebase<OpenState>,
     node: &Node,
     source: &str,
-    parent_id: u128,
+    parent_id: u32,
 ) -> Result<Witness> {
     let witness_id = node_id();
     let witness_name_node = node.child_by_field_name("id").ok_or_else(|| {
@@ -661,7 +661,7 @@ fn build_circuit(
     codebase: &mut Codebase<OpenState>,
     node: &Node,
     source: &str,
-    parent_id: u128,
+    parent_id: u32,
 ) -> Result<Circuit> {
     let circuit_id = node_id();
     let circuit_name_node = node.child_by_field_name("id").ok_or_else(|| {
@@ -724,7 +724,7 @@ fn build_external_circuit(
     codebase: &mut Codebase<OpenState>,
     node: &Node,
     source: &str,
-    parent_id: u128,
+    parent_id: u32,
 ) -> Result<Circuit> {
     let is_exported = node.child_by_field_name("export").is_some();
     let name_node = node.child_by_field_name("id").ok_or_else(|| {
@@ -787,7 +787,7 @@ fn build_constructor(
     codebase: &mut Codebase<OpenState>,
     node: &Node,
     source: &str,
-    parent_id: u128,
+    parent_id: u32,
 ) -> Result<Constructor> {
     let constructor_id = node_id();
     let arguments = node
@@ -823,7 +823,7 @@ fn build_external_contract(
     codebase: &mut Codebase<OpenState>,
     node: &Node,
     source: &str,
-    parent_id: u128,
+    parent_id: u32,
 ) -> Result<Contract> {
     let is_exported = node.child_by_field_name("export").is_some();
     let name_node = node.child_by_field_name("name").ok_or_else(|| {
@@ -919,7 +919,7 @@ fn build_structure(
     codebase: &mut Codebase<OpenState>,
     node: &Node,
     source: &str,
-    parent_id: u128,
+    parent_id: u32,
 ) -> Result<Structure> {
     let structure_name_node = node.child_by_field_name("name").ok_or_else(|| {
         anyhow!(
@@ -961,7 +961,7 @@ fn build_statement(
     codebase: &mut Codebase<OpenState>,
     node: &Node,
     source: &str,
-    parent_id: u128,
+    parent_id: u32,
 ) -> Result<Statement> {
     let node = if node.kind() == "stmt" {
         &node.child(0).unwrap()
@@ -1000,7 +1000,7 @@ fn build_assign_statement(
     codebase: &mut Codebase<OpenState>,
     node: &Node,
     source: &str,
-    parent_id: u128,
+    parent_id: u32,
 ) -> Result<Rc<Assign>> {
     let assign_id = node_id();
     let target_node = node.child_by_field_name("target").ok_or_else(|| {
@@ -1050,7 +1050,7 @@ fn build_const_statement(
     codebase: &mut Codebase<OpenState>,
     node: &Node,
     source: &str,
-    parent_id: u128,
+    parent_id: u32,
 ) -> Result<Rc<Const>> {
     let const_id = node_id();
     let pattern_node = node.child_by_field_name("pattern").ok_or_else(|| {
@@ -1091,7 +1091,7 @@ fn build_if_statement(
     codebase: &mut Codebase<OpenState>,
     node: &Node,
     source: &str,
-    parent_id: u128,
+    parent_id: u32,
 ) -> Result<Rc<If>> {
     let if_id = node_id();
     let condition_node = node.child_by_field_name("condition").ok_or_else(|| {
@@ -1130,7 +1130,7 @@ fn build_for_statement(
     codebase: &mut Codebase<OpenState>,
     node: &Node,
     source: &str,
-    parent_id: u128,
+    parent_id: u32,
 ) -> Result<Rc<For>> {
     let for_id = node_id();
     let counter_node = node.child_by_field_name("counter").ok_or_else(|| {
@@ -1184,7 +1184,7 @@ fn build_return_statement(
     codebase: &mut Codebase<OpenState>,
     node: &Node,
     source: &str,
-    parent_id: u128,
+    parent_id: u32,
 ) -> Result<Rc<Return>> {
     let return_id = node_id();
     let value_node = node.child_by_field_name("value");
@@ -1209,7 +1209,7 @@ fn build_assert_statement(
     codebase: &mut Codebase<OpenState>,
     node: &Node,
     source: &str,
-    parent_id: u128,
+    parent_id: u32,
 ) -> Result<Rc<Assert>> {
     let assert_id = node_id();
     let condition_node = node
@@ -1239,7 +1239,7 @@ fn build_block(
     codebase: &mut Codebase<OpenState>,
     node: &Node,
     source: &str,
-    parent_id: u128,
+    parent_id: u32,
 ) -> Result<Rc<Block>> {
     let block_id = node_id();
     let mut cursor = node.walk();
@@ -1264,7 +1264,7 @@ fn build_expression(
     codebase: &mut Codebase<OpenState>,
     node: &Node,
     source: &str,
-    parent_id: u128,
+    parent_id: u32,
 ) -> Result<Expression> {
     let expression = match node.kind() {
         "conditional_expr" => {
@@ -1591,7 +1591,7 @@ fn build_term(
     codebase: &mut Codebase<OpenState>,
     node: &Node,
     source: &str,
-    parent_id: u128,
+    parent_id: u32,
 ) -> Result<Expression> {
     let term_node = if node.kind() == "term" {
         &node.child(0).ok_or_else(|| anyhow!("Empty term node"))?
@@ -1779,7 +1779,7 @@ fn build_function(
     codebase: &mut Codebase<OpenState>,
     node: &Node,
     source: &str,
-    parent_id: u128,
+    parent_id: u32,
 ) -> Result<Function> {
     let name_node = node.child_by_field_name("id");
     let node_id = node_id();
@@ -1877,7 +1877,7 @@ fn build_literal(
     codebase: &mut Codebase<OpenState>,
     node: &Node,
     source: &str,
-    parent_id: u128,
+    parent_id: u32,
 ) -> Result<Expression> {
     let kind = node.kind();
     let literal = match kind {
@@ -1941,7 +1941,7 @@ fn build_struct_expression(
     codebase: &mut Codebase<OpenState>,
     node: &Node,
     source: &str,
-    parent_id: u128,
+    parent_id: u32,
 ) -> Result<Rc<StructExpr>> {
     let struct_expr_id = node_id();
     let tref_node = node
@@ -2022,7 +2022,7 @@ fn build_expression_sequence(
     codebase: &mut Codebase<OpenState>,
     node: &Node,
     source: &str,
-    parent_id: u128,
+    parent_id: u32,
 ) -> Result<Rc<Sequence>> {
     let node_id = node_id();
     let mut cursor = node.walk();
@@ -2047,7 +2047,7 @@ fn build_type(
     codebase: &mut Codebase<OpenState>,
     node: &Node,
     source: &str,
-    parent_id: u128,
+    parent_id: u32,
 ) -> Result<Type> {
     let node = if node.kind() == "type" {
         &node.child(0).unwrap()
@@ -2216,7 +2216,7 @@ fn build_gargument(
     codebase: &mut Codebase<OpenState>,
     node: &Node,
     source: &str,
-    parent_id: u128,
+    parent_id: u32,
 ) -> Result<GArgument> {
     match node.kind() {
         "nat" => {
@@ -2240,7 +2240,7 @@ fn build_argument(
     codebase: &mut Codebase<OpenState>,
     node: &Node,
     source: &str,
-    parent_id: u128,
+    parent_id: u32,
 ) -> Result<Rc<Argument>> {
     let node_id = node_id();
     let name_node = node.child_by_field_name("id").ok_or_else(|| {
@@ -2274,7 +2274,7 @@ fn build_pargument(
     codebase: &mut Codebase<OpenState>,
     node: &Node,
     source: &str,
-    parent_id: u128,
+    parent_id: u32,
 ) -> Result<Rc<PatternArgument>> {
     let node_id = node_id();
     let pattern_node = node.child_by_field_name("pattern").ok_or_else(|| {
@@ -2308,7 +2308,7 @@ fn build_pattern(
     codebase: &mut Codebase<OpenState>,
     node: &Node,
     source: &str,
-    parent_id: u128,
+    parent_id: u32,
 ) -> Result<Pattern> {
     let node = if node.kind() == "pattern" {
         &node.child(0).unwrap()
@@ -2399,7 +2399,7 @@ fn build_generic_parameters(
     codebase: &mut Codebase<OpenState>,
     node: &Node,
     source: &str,
-    parent_id: u128,
+    parent_id: u32,
 ) -> Vec<Rc<Identifier>> {
     let mut cursor = node.walk();
     let generic_nodes: Result<Vec<_>> = node
@@ -2413,7 +2413,7 @@ fn build_identifier(
     codebase: &mut Codebase<OpenState>,
     node: &Node,
     source: &str,
-    parent_id: u128,
+    parent_id: u32,
 ) -> Result<Rc<Identifier>> {
     let text = node.utf8_text(source.as_bytes())?.to_string();
     let id = Rc::new(Identifier {
@@ -2432,7 +2432,7 @@ fn build_nat(
     codebase: &mut Codebase<OpenState>,
     node: &Node,
     source: &str,
-    parent_id: u128,
+    parent_id: u32,
 ) -> Result<Rc<Nat>> {
     let text = node.utf8_text(source.as_bytes())?.to_string();
     let value = text
@@ -2451,7 +2451,7 @@ fn build_str(
     codebase: &mut Codebase<OpenState>,
     node: &Node,
     source: &str,
-    parent_id: u128,
+    parent_id: u32,
 ) -> Result<Rc<Str>> {
     let text = node.utf8_text(source.as_bytes())?.to_string();
     let str = Rc::new(Str {
@@ -2463,16 +2463,17 @@ fn build_str(
     Ok(str)
 }
 
+#[allow(clippy::cast_possible_truncation)]
 fn location(node: &Node, source: &str) -> Location {
-    let offset_start = node.start_byte();
-    let offset_end = node.end_byte();
+    let offset_start = node.start_byte() as u32;
+    let offset_end = node.end_byte() as u32;
     let start_position = node.start_position();
     let end_position = node.end_position();
-    let start_line = start_position.row + 1;
-    let start_column = start_position.column + 1;
-    let end_line = end_position.row + 1;
-    let end_column = end_position.column + 1;
-    let source = source[offset_start..offset_end].to_string();
+    let start_line = start_position.row as u32 + 1;
+    let start_column = start_position.column as u32 + 1;
+    let end_line = end_position.row as u32 + 1;
+    let end_column = end_position.column as u32 + 1;
+    let source = source[node.start_byte()..node.end_byte()].to_string();
 
     Location {
         offset_start,
@@ -2485,8 +2486,8 @@ fn location(node: &Node, source: &str) -> Location {
     }
 }
 
-fn node_id() -> u128 {
-    static mut CURR_ID: u128 = 0;
+fn node_id() -> u32 {
+    static mut CURR_ID: u32 = 0;
     unsafe {
         CURR_ID += 1;
         CURR_ID

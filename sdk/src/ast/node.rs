@@ -5,24 +5,24 @@ use std::{any::Any, cmp::Reverse, rc::Rc};
 use super::expression::Expression;
 #[derive(Clone, PartialEq, Eq, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct Location {
-    pub offset_start: usize,
-    pub offset_end: usize,
-    pub start_line: usize,
-    pub start_column: usize,
-    pub end_line: usize,
-    pub end_column: usize,
+    pub offset_start: u32,
+    pub offset_end: u32,
+    pub start_line: u32,
+    pub start_column: u32,
+    pub end_line: u32,
+    pub end_column: u32,
     pub source: String,
 }
 
 impl Location {
     #[must_use]
     pub fn new(
-        offset_start: usize,
-        offset_end: usize,
-        start_line: usize,
-        start_column: usize,
-        end_line: usize,
-        end_column: usize,
+        offset_start: u32,
+        offset_end: u32,
+        start_line: u32,
+        start_column: u32,
+        end_line: u32,
+        end_column: u32,
         source: String,
     ) -> Self {
         Self {
@@ -45,7 +45,7 @@ pub enum NodeKind {
 
 impl NodeKind {
     #[must_use]
-    pub fn id(&self) -> u128 {
+    pub fn id(&self) -> u32 {
         match self {
             NodeKind::SameScopeNode(node) => node.id(),
             NodeKind::NewScope(node) => node.id(),
@@ -64,7 +64,7 @@ impl<'a> From<&'a Rc<dyn NodeSymbolNode>> for &'a dyn Node {
 }
 
 impl Node for Rc<dyn NodeSymbolNode> {
-    fn id(&self) -> u128 {
+    fn id(&self) -> u32 {
         match self.as_any().downcast_ref::<SameScopeNode>() {
             Some(SameScopeNode::Composite(comp_node)) => comp_node.id(),
             _ => match self.as_any().downcast_ref::<NodeKind>() {
@@ -96,7 +96,7 @@ pub enum SameScopeNode {
 }
 
 impl SameScopeNode {
-    fn id(&self) -> u128 {
+    fn id(&self) -> u32 {
         match self {
             SameScopeNode::Symbol(sym_node) => sym_node.id(),
             SameScopeNode::Composite(comp_node) => comp_node.id(),
@@ -111,7 +111,7 @@ impl From<Rc<dyn Node>> for NodeKind {
 }
 
 pub trait Node: Any + std::fmt::Debug {
-    fn id(&self) -> u128;
+    fn id(&self) -> u32;
     fn node_type_name(&self) -> String {
         std::any::type_name::<Self>()
             .split("::")
@@ -161,7 +161,7 @@ macro_rules! ast_enum {
         impl $name {
 
             #[must_use]
-            pub fn id(&self) -> u128 {
+            pub fn id(&self) -> u32 {
                 match self {
                     $(
                         $name::$arm(_a) => {
@@ -280,7 +280,7 @@ macro_rules! ast_node {
         $(#[$outer])*
         #[derive(Clone, PartialEq, Eq, Debug, serde::Serialize, serde::Deserialize)]
         $struct_vis struct $name {
-            pub id: u128,
+            pub id: u32,
             pub location: $crate::ast::node::Location,
             $(
                 $(#[$field_attr])*
@@ -320,7 +320,7 @@ macro_rules! ast_node_impl {
     ) => {
         $(#[$outer])*
         impl Node for $name {
-            fn id(&self) -> u128 {
+            fn id(&self) -> u32 {
                 self.id
             }
 

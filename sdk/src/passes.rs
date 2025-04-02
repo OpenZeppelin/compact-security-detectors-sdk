@@ -18,9 +18,9 @@ use crate::ast::{
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct SymbolTable {
     pub symbols: RefCell<HashMap<String, Option<Type>>>,
-    pub id_type_map: RefCell<HashMap<u128, Option<Type>>>,
-    pub parent: Option<Rc<SymbolTable>>,
+    pub id_type_map: RefCell<HashMap<u32, Option<Type>>>,
     #[serde(skip_serializing)]
+    pub parent: Option<Rc<SymbolTable>>,
     pub children: RefCell<Vec<Rc<SymbolTable>>>,
 }
 
@@ -34,7 +34,7 @@ impl SymbolTable {
         }
     }
 
-    fn upsert(&self, id: u128, symbol: String, ty: Option<Type>) {
+    fn upsert(&self, id: u32, symbol: String, ty: Option<Type>) {
         self.symbols.borrow_mut().insert(symbol, ty.clone());
         self.id_type_map.borrow_mut().insert(id, ty);
     }
@@ -50,7 +50,7 @@ impl SymbolTable {
         }
     }
 
-    pub fn insert_by_id(&self, id: u128, ty: Option<Type>) -> Result<()> {
+    pub fn insert_by_id(&self, id: u32, ty: Option<Type>) -> Result<()> {
         let mut id_type_map = self.id_type_map.borrow_mut();
         if let std::collections::hash_map::Entry::Vacant(e) = id_type_map.entry(id) {
             e.insert(ty);
@@ -71,7 +71,7 @@ impl SymbolTable {
         }
     }
 
-    pub fn lookup_by_id(&self, id: u128) -> Option<Type> {
+    pub fn lookup_by_id(&self, id: u32) -> Option<Type> {
         let id_type_map = self.id_type_map.borrow();
         if let Some(sym) = id_type_map.get(&id) {
             sym.clone()
@@ -96,7 +96,7 @@ impl SymbolTable {
         }
     }
 
-    pub fn lookdown_by_id(&self, id: u128) -> Option<Type> {
+    pub fn lookdown_by_id(&self, id: u32) -> Option<Type> {
         let id_type_map = self.id_type_map.borrow();
         if let Some(sym) = id_type_map.get(&id) {
             sym.clone()
@@ -324,7 +324,7 @@ mod test {
         }
     }
 
-    fn mock_identifier(id: u128, name: &str) -> Rc<Identifier> {
+    fn mock_identifier(id: u32, name: &str) -> Rc<Identifier> {
         Rc::new(Identifier {
             id,
             location: default_location(),
