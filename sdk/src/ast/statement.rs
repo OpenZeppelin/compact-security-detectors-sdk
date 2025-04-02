@@ -15,7 +15,7 @@ ast_enum! {
         Assign(Rc<Assign>),
         Assert(Rc<Assert>),
         @scope Block(Rc<Block>),
-        Const(Rc<Const>),
+        @symbol Const(Rc<Const>),
         ExpressionSequence(Rc<Sequence>),
         @raw Expression(Expression),
         If(Rc<If>),
@@ -159,6 +159,19 @@ impl SymbolNode for Var {
     }
     fn type_expr(&self) -> Option<Expression> {
         self.ty_.clone().or_else(|| Some(self.value.clone()))
+    }
+}
+
+impl SymbolNode for Const {
+    fn name(&self) -> String {
+        self.pattern.location().source.clone()
+    }
+
+    fn type_expr(&self) -> Option<Expression> {
+        match &self.ty {
+            Some(ty) => Some(Expression::TypeExpression(ty.clone())),
+            None => Some(self.value.clone()),
+        }
     }
 }
 

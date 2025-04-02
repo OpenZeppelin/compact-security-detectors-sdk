@@ -18,8 +18,8 @@ ast_enum! {
         Import(Rc<Import>),
         Include(Rc<Include>),
         Export(Rc<Export>),
-        Witness(Rc<Witness>),
-        Ledger(Rc<Ledger>),
+        @symbol Witness(Rc<Witness>),
+        @symbol Ledger(Rc<Ledger>),
         @scope Constructor(Rc<Constructor>),
         @scope Contract(Rc<Contract>),
         @raw Definition(Definition),
@@ -251,6 +251,16 @@ impl Ledger {
     }
 }
 
+impl SymbolNode for Ledger {
+    fn name(&self) -> String {
+        self.name.name.clone()
+    }
+
+    fn type_expr(&self) -> Option<Expression> {
+        Some(Expression::TypeExpression(self.ty.clone()))
+    }
+}
+
 impl SymbolNode for PatternArgument {
     fn name(&self) -> String {
         match self.pattern {
@@ -285,5 +295,15 @@ impl Witness {
     #[must_use]
     pub fn name(&self) -> String {
         self.name.name.clone()
+    }
+}
+
+impl SymbolNode for Witness {
+    fn name(&self) -> String {
+        self.name.name.clone()
+    }
+
+    fn type_expr(&self) -> Option<Expression> {
+        Some(Expression::TypeExpression(self.ty.clone()))
     }
 }

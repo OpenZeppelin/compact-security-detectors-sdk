@@ -40,6 +40,8 @@ pub fn build_codebase<H: std::hash::BuildHasher>(
 
 #[cfg(test)]
 mod tests {
+    use crate::codebase::OpenState;
+
     use super::*;
 
     #[test]
@@ -58,6 +60,8 @@ mod tests {
         let codebase = build_codebase(files).unwrap().into_inner();
         let serialized = serde_json::to_string_pretty(&codebase).unwrap();
         let output_path = directory.join("output.json");
-        std::fs::write(output_path, serialized).unwrap();
+        std::fs::write(output_path, serialized.clone()).unwrap();
+        let deserialized: Codebase<OpenState> =
+            serde_json::from_str(&serialized).expect("Failed to deserialize");
     }
 }
