@@ -6,7 +6,7 @@ use crate::{
         node::NodeKind,
         node_type::NodeType,
         program::Program,
-        statement::{Assert, Statement},
+        statement::{Assert, For, Statement},
         ty::Type,
     },
     passes::{build_symbol_table, SymbolTable},
@@ -35,10 +35,8 @@ pub struct SourceCodeFile {
 
 #[derive(Serialize, Deserialize, Default)]
 pub struct Codebase<S> {
-    // #[serde(skip)]
     pub(crate) storage: NodesStorage,
     pub(crate) fname_ast_map: HashMap<String, SourceCodeFile>,
-    // #[serde(skip)]
     pub(crate) symbol_tables: HashMap<String, Rc<SymbolTable>>,
     pub(crate) _state: PhantomData<S>,
 }
@@ -124,14 +122,24 @@ impl Codebase<SealedState> {
             .and_then(|table| table.lookdown_by_id(id))
     }
 
-    pub fn list_assert_nodes(&self) -> impl Iterator<Item = Rc<Assert>> {
-        let mut res = Vec::new();
-        for item in &self.storage.nodes {
-            if let NodeType::Statement(Statement::Assert(assert_stmt)) = item {
-                res.push(assert_stmt.clone());
+    pub fn list_assert_nodes(&self) -> impl Iterator<Item = Rc<Assert>> + '_ {
+        self.list_nodes_cmp(|node| {
+            if let NodeType::Statement(Statement::Assert(stmt)) = node {
+                Some(stmt.clone())
+            } else {
+                None
             }
-        }
-        res.into_iter()
+        })
+    }
+
+    pub fn list_for_statement_nodes(&self) -> impl Iterator<Item = Rc<For>> + '_ {
+        self.list_nodes_cmp(|node| {
+            if let NodeType::Statement(Statement::For(stmt)) = node {
+                Some(stmt.clone())
+            } else {
+                None
+            }
+        })
     }
 
     #[must_use]
@@ -146,5 +154,34 @@ impl Codebase<SealedState> {
             }
         }
         None
+    }
+
+    pub fn get_children_cmp<F>(&self, id: u32, comparator: F) -> Vec<NodeType>
+    where
+        F: Fn(&NodeType) -> bool,
+    {
+        let mut result = Vec::new();
+        let mut stack: Vec<NodeType> = Vec::new();
+
+        if let Some(root_node) = self.storage.find_node(id) {
+            stack.push(root_node.clone());
+        }
+
+        while let Some(current_node) = stack.pop() {
+            if comparator(&current_node) {
+                result.push(current_node.clone());
+            }
+            stack.extend(current_node.children());
+        }
+
+        result
+    }
+
+    fn list_nodes_cmp<'a, T, F>(&'a self, cast: F) -> impl Iterator<Item = T> + 'a
+    where
+        F: Fn(&NodeType) -> Option<T> + 'a,
+        T: Clone + 'static,
+    {
+        self.storage.nodes.iter().filter_map(cast)
     }
 }
