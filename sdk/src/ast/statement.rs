@@ -184,13 +184,15 @@ impl Assert {
 
 impl For {
     #[must_use]
+    #[allow(clippy::missing_panics_doc)]
     pub fn upper_bound_nat(&self) -> Option<u64> {
-        self.limit.as_ref().and_then(|limit| {
-            if let Expression::Literal(Literal::Nat(nat)) = limit {
-                Some(nat.value)
-            } else {
-                None
+        if self.limit.is_some() {
+            if let Some(Expression::Literal(Literal::Nat(nat))) = self.limit.as_ref() {
+                return Some(nat.value);
             }
-        })
+            return None;
+        }
+        let (_, end) = self.range.as_ref().unwrap();
+        Some(end.value)
     }
 }

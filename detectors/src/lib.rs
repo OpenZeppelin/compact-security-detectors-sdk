@@ -73,7 +73,6 @@ impl Detector for ArrayLoopBoundCheck {
             let index_access_expressions = codebase.get_children_cmp(for_stmt.id, |n| {
                 matches!(n, NodeType::Expression(Expression::IndexAccess(_)))
             });
-
             let upper_bound = for_stmt.upper_bound_nat();
             if upper_bound.is_none() {
                 continue;
@@ -85,7 +84,7 @@ impl Detector for ArrayLoopBoundCheck {
                     let arr_type =
                         codebase.get_symbol_type_by_id("test.compact", index_access.base.id());
                     if let Some(Type::Vector(t_vec)) = arr_type {
-                        if t_vec.size_nat().unwrap_or(0) < upper_bound {
+                        if t_vec.size_nat().unwrap_or(0) >= upper_bound {
                             let parent = codebase.get_parent_container(index_access.id);
                             let parent_name = match parent {
                                 Some(NodeType::Definition(Definition::Circuit(c))) => c.name(),
@@ -142,9 +141,9 @@ mod tests {
     #[test]
     fn test_array_loop_bound_check() {
         let detector = ArrayLoopBoundCheck;
-        let src = "export circuit contains(arr: Array<Address, 10>, addr: Address): Bool {
+        let src = "export circuit contains(arr: Vector<10, Address>, addr: Address): Bool {
             for (const i of 0 .. 10) {
-                if (arr[i] == addr) {
+                if (arr[11] == addr) {
                     return true;
                 }
             }

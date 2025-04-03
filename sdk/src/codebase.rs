@@ -3,7 +3,7 @@ use crate::{
     ast::{
         builder::build_ast,
         definition::Definition,
-        node::{Node, NodeKind},
+        node::NodeKind,
         node_type::NodeType,
         program::Program,
         statement::{Assert, For, Statement},
@@ -35,10 +35,8 @@ pub struct SourceCodeFile {
 
 #[derive(Serialize, Deserialize, Default)]
 pub struct Codebase<S> {
-    // #[serde(skip)]
     pub(crate) storage: NodesStorage,
     pub(crate) fname_ast_map: HashMap<String, SourceCodeFile>,
-    // #[serde(skip)]
     pub(crate) symbol_tables: HashMap<String, Rc<SymbolTable>>,
     pub(crate) _state: PhantomData<S>,
 }
@@ -139,8 +137,6 @@ impl Codebase<SealedState> {
         for item in &self.storage.nodes {
             if let NodeType::Statement(Statement::For(stmt)) = item {
                 res.push(stmt.clone());
-            } else {
-                println!("{:?}", item);
             }
         }
         res.into_iter()

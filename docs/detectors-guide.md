@@ -5,10 +5,15 @@ This document serves as a guide for developers to create and maintain security d
 - [Midnight Security detectors Developer Guide](#midnight-security-detectors-developer-guide)
   - [Crates breakdown](#crates-breakdown)
   - [Writing a new detector example](#writing-a-new-detector-example)
-    - [Compact code](#compact-code)
-    - [Formulate the detector](#formulate-the-detector)
-    - [Implementation](#implementation)
-    - [Execution](#execution)
+    - [AssertionErrorMessageConsistency](#assertionerrormessageconsistency)
+      - [Compact code](#compact-code)
+      - [Formulate the detector](#formulate-the-detector)
+      - [Implementation](#implementation)
+      - [Execution](#execution)
+    - [ArrayLoopBoundCheck](#arrayloopboundcheck)
+      - [Compact code](#compact-code-1)
+      - [Formulate the detector](#formulate-the-detector-1)
+      - [Implementation](#implementation-1)
     - [Base and custom detectors](#base-and-custom-detectors)
 
 ## Crates breakdown
@@ -21,7 +26,9 @@ This document serves as a guide for developers to create and maintain security d
 
 ## Writing a new detector example
 
-### Compact code
+### AssertionErrorMessageConsistency 
+
+#### Compact code
 
 ```compact
 export circuit set_admin(new_admin: Bytes<32>): [] {
@@ -32,11 +39,11 @@ export circuit set_admin(new_admin: Bytes<32>): [] {
 }
 ```
 
-### Formulate the detector
+#### Formulate the detector
 
 If assert message is not provided or too short, we notify a user about an uninformative assert message.
 
-### Implementation
+#### Implementation
 
 ```rust
 use std::{cell::RefCell, collections::HashMap};
@@ -103,7 +110,7 @@ impl detector for AssertionErrorMessageConsistency {
 The code is copied from the [lib.rs](../detectors/src/lib.rs) file.
 
 
-### Execution
+#### Execution
 
 For detectors execution use `detectors-runner`.
 
@@ -138,6 +145,88 @@ As an execution result for the detector above, we will get the following output:
 ```
 
 P.S. there the stdout is used for the demonstration purposes.
+
+### ArrayLoopBoundCheck
+
+#### Compact code
+
+```compact
+export circuit contains(arr: Vector<10, Address>, addr: Address): Bool {
+    for (const i of 0 .. 10) {
+        if (arr[11] == addr) {
+            return true;
+        }
+    }
+    return false;
+}
+```
+
+#### Formulate the detector
+
+The detector checks if the loop is out of bounds. If the loop is out of bounds, we notify a user about it.
+
+#### Implementation
+
+```rust
+pub struct ArrayLoopBoundCheck;
+
+impl Detector for ArrayLoopBoundCheck {
+    fn name(&self) -> String {
+        "Array Loop Bound Check".to_string()
+    }
+
+    fn description(&self) -> String {
+        "This detector checks for potential out-of-bounds access in array loops.".to_string()
+    }
+
+    fn check(
+        &self,
+        codebase: &RefCell<Codebase<SealedState>>,
+    ) -> Option<HashMap<String, Vec<(u32, u32)>>> {
+        let codebase = codebase.borrow();
+        let mut errors = HashMap::new();
+        for for_stmt in codebase.list_for_statement_nodes() {
+            let index_access_expressions = codebase.get_children_cmp(for_stmt.id, |n| {
+                matches!(n, NodeType::Expression(Expression::IndexAccess(_)))
+            });
+            let upper_bound = for_stmt.upper_bound_nat();
+            if upper_bound.is_none() {
+                continue;
+            }
+            let upper_bound = upper_bound.unwrap();
+
+            for index_access in index_access_expressions {
+                if let NodeType::Expression(Expression::IndexAccess(index_access)) = index_access {
+                    let arr_type =
+                        codebase.get_symbol_type_by_id("test.compact", index_access.base.id());
+                    if let Some(Type::Vector(t_vec)) = arr_type {
+                        if t_vec.size_nat().unwrap_or(0) >= upper_bound {
+                            let parent = codebase.get_parent_container(index_access.id);
+                            let parent_name = match parent {
+                                Some(NodeType::Definition(Definition::Circuit(c))) => c.name(),
+                                Some(NodeType::Definition(Definition::Module(m))) => m.name(),
+                                _ => String::new(),
+                            };
+                            errors.insert(
+                                parent_name,
+                                vec![(
+                                    index_access.location.start_line,
+                                    index_access.location.start_column,
+                                )],
+                            );
+                        }
+                    }
+                }
+            }
+        }
+        if errors.is_empty() {
+            None
+        } else {
+            Some(errors)
+        }
+    }
+}
+```
 
 ### Base and custom detectors
 

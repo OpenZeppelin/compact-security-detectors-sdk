@@ -1,7 +1,10 @@
+#![warn(clippy::pedantic)]
+use serde::{Deserialize, Serialize};
 use std::rc::Rc;
 
-use serde::{Deserialize, Serialize};
+use crate::ast::literal::{Bool, Nat};
 
+#[allow(clippy::wildcard_imports)]
 use super::{
     declaration::*,
     definition::Definition,
@@ -103,7 +106,7 @@ impl NodeType {
     }
 }
 
-#[allow(clippy::too_many_lines)]
+#[allow(clippy::too_many_lines, clippy::needless_pass_by_value)]
 fn convert_nodekind_to_nodetype(node_kind: Rc<NodeKind>) -> NodeType {
     match &*node_kind {
         NodeKind::NewScope(node_rc) => {
@@ -121,25 +124,22 @@ fn convert_nodekind_to_nodetype(node_kind: Rc<NodeKind>) -> NodeType {
         }
         NodeKind::SameScopeNode(SameScopeNode::Symbol(node_rc)) => {
             let node_rc = node_rc.clone();
-            if let Ok(var_node) = Rc::downcast::<Var>(Rc::new(node_rc.clone())) {
+            if let Ok(var_node) = Rc::downcast::<Var>(node_rc.clone()) {
                 return NodeType::Statement(Statement::Var(var_node));
             }
-            if let Ok(const_node) = Rc::downcast::<Const>(Rc::new(node_rc.clone())) {
+            if let Ok(const_node) = Rc::downcast::<Const>(node_rc.clone()) {
                 return NodeType::Statement(Statement::Const(const_node));
             }
-            if let Ok(ident_node) = Rc::downcast::<Identifier>(Rc::new(node_rc.clone())) {
+            if let Ok(ident_node) = Rc::downcast::<Identifier>(node_rc.clone()) {
                 return NodeType::Expression(Expression::Identifier(ident_node));
             }
-            if let Ok(func_arg_node) = Rc::downcast::<FunctionArgument>(Rc::new(node_rc.clone())) {
+            if let Ok(func_arg_node) = Rc::downcast::<FunctionArgument>(node_rc.clone()) {
                 return NodeType::FunctionArgument((*func_arg_node).clone());
             }
             if let Ok(struct_arg_node) =
                 Rc::downcast::<StructArgument>(Rc::new(node_rc.clone()) as Rc<dyn std::any::Any>)
             {
                 return NodeType::StructArgument((*struct_arg_node).clone());
-            }
-            if let Ok(identifier_node) = Rc::downcast::<Identifier>(Rc::new(node_rc.clone())) {
-                return NodeType::Expression(Expression::Identifier(identifier_node));
             }
             panic!("Cannot convert SameScopeNode to NodeType: {node_rc:?}",);
         }
@@ -210,6 +210,12 @@ fn convert_nodekind_to_nodetype(node_kind: Rc<NodeKind>) -> NodeType {
             }
             if let Ok(literal_node) = Rc::downcast::<Literal>(node_rc.clone()) {
                 return NodeType::Literal((*literal_node).clone());
+            }
+            if let Ok(nat_node) = Rc::downcast::<Nat>(node_rc.clone()) {
+                return NodeType::Literal(Literal::Nat(nat_node));
+            }
+            if let Ok(bool_node) = Rc::downcast::<Bool>(node_rc.clone()) {
+                return NodeType::Literal(Literal::Bool(bool_node));
             }
             if let Ok(pattern_node) = Rc::downcast::<Pattern>(node_rc.clone()) {
                 return NodeType::Pattern((*pattern_node).clone());
