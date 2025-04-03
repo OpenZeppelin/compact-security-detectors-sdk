@@ -122,24 +122,24 @@ impl Codebase<SealedState> {
             .and_then(|table| table.lookdown_by_id(id))
     }
 
-    pub fn list_assert_nodes(&self) -> impl Iterator<Item = Rc<Assert>> {
-        let mut res = Vec::new();
-        for item in &self.storage.nodes {
-            if let NodeType::Statement(Statement::Assert(assert_stmt)) = item {
-                res.push(assert_stmt.clone());
+    pub fn list_assert_nodes(&self) -> impl Iterator<Item = Rc<Assert>> + '_ {
+        self.list_nodes_cmp(|node| {
+            if let NodeType::Statement(Statement::Assert(stmt)) = node {
+                Some(stmt.clone())
+            } else {
+                None
             }
-        }
-        res.into_iter()
+        })
     }
 
-    pub fn list_for_statement_nodes(&self) -> impl Iterator<Item = Rc<For>> {
-        let mut res = Vec::new();
-        for item in &self.storage.nodes {
-            if let NodeType::Statement(Statement::For(stmt)) = item {
-                res.push(stmt.clone());
+    pub fn list_for_statement_nodes(&self) -> impl Iterator<Item = Rc<For>> + '_ {
+        self.list_nodes_cmp(|node| {
+            if let NodeType::Statement(Statement::For(stmt)) = node {
+                Some(stmt.clone())
+            } else {
+                None
             }
-        }
-        res.into_iter()
+        })
     }
 
     #[must_use]
@@ -175,5 +175,13 @@ impl Codebase<SealedState> {
         }
 
         result
+    }
+
+    fn list_nodes_cmp<'a, T, F>(&'a self, cast: F) -> impl Iterator<Item = T> + 'a
+    where
+        F: Fn(&NodeType) -> Option<T> + 'a,
+        T: Clone + 'static,
+    {
+        self.storage.nodes.iter().filter_map(cast)
     }
 }
