@@ -78,10 +78,10 @@ impl detector for AssertionErrorMessageConsistency {
         let codebase = codebase.borrow();
         let mut errors = HashMap::new();
         for assert_node in codebase.list_assert_nodes() { // Since we are interested in assert nodes, we list them first.
-            if assert_node.message().is_none() // Check if the assert node has a message or the message is long enough to be considered informative.
-                || assert_node.message().unwrap().is_empty()
-                || assert_node.message().unwrap().trim().is_empty()
-                || assert_node.message().unwrap().len() < 3
+            if assert_node
+                .message()
+                .map(|msg| msg.trim().is_empty() || msg.len() < 3) // Check if the assert node has a message or the message is long enough to be considered informative.
+                .unwrap_or(true)
             {
                 let parent = codebase.get_parent_container(assert_node.id); // Find a parent to locate the problem accurately.
                 let parent_name = match parent {
@@ -198,7 +198,7 @@ impl Detector for ArrayLoopBoundCheck {
             for index_access in index_access_expressions {
                 if let NodeType::Expression(Expression::IndexAccess(index_access)) = index_access {
                     let arr_type =
-                        codebase.get_symbol_type_by_id("test.compact", index_access.base.id());
+                        codebase.get_symbol_type_by_id(index_access.base.id());
                     if let Some(Type::Vector(t_vec)) = arr_type {
                         if t_vec.size_nat().unwrap_or(0) >= upper_bound {
                             let parent = codebase.get_parent_container(index_access.id);

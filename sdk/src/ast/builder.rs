@@ -2487,7 +2487,7 @@ fn location(node: &Node, source: &str) -> Location {
 }
 
 fn node_id() -> u32 {
-    static mut CURR_ID: u32 = 0;
+    static mut CURR_ID: u32 = 100;
     unsafe {
         CURR_ID += 1;
         CURR_ID

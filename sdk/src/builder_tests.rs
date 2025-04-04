@@ -62,7 +62,7 @@ mod circuit_parsing_tests {
         match &arg.pattern {
             Pattern::Identifier(ident) => {
                 assert_eq!(ident.name, "x");
-                match codebase.get_symbol_type_by_id("dummy", ident.id) {
+                match codebase.get_symbol_type_by_id(ident.id) {
                     Some(Type::Uint(uint_t)) => {
                         assert_eq!(uint_t.start.value, 8);
                         assert!(uint_t.end.is_none());
@@ -78,7 +78,7 @@ mod circuit_parsing_tests {
         match &arg.pattern {
             Pattern::Identifier(ident) => {
                 assert_eq!(ident.name, "y");
-                match codebase.get_symbol_type_by_id("dummy", ident.id) {
+                match codebase.get_symbol_type_by_id(ident.id) {
                     Some(Type::Uint(uint_t)) => {
                         assert_eq!(uint_t.start.value, 8);
                         assert!(uint_t.end.is_none());
@@ -105,7 +105,7 @@ mod circuit_parsing_tests {
                                 match &op.left {
                                     Expression::Identifier(ident) => {
                                         assert_eq!(ident.name, "x");
-                                        match codebase.get_symbol_type_by_id("dummy", ident.id) {
+                                        match codebase.get_symbol_type_by_id(ident.id) {
                                             Some(Type::Uint(uint_t)) => {
                                                 assert_eq!(uint_t.start.value, 8);
                                                 assert!(uint_t.end.is_none());
@@ -118,7 +118,7 @@ mod circuit_parsing_tests {
                                 match &op.right {
                                     Expression::Identifier(ident) => {
                                         assert_eq!(ident.name, "y");
-                                        match codebase.get_symbol_type_by_id("dummy", ident.id) {
+                                        match codebase.get_symbol_type_by_id(ident.id) {
                                             Some(Type::Uint(uint_t)) => {
                                                 assert_eq!(uint_t.start.value, 8);
                                                 assert!(uint_t.end.is_none());
@@ -163,7 +163,7 @@ mod circuit_parsing_tests {
         match &arg.pattern {
             Pattern::Identifier(ident) => {
                 assert_eq!(ident.name, "x");
-                match codebase.get_symbol_type_by_id("dummy", ident.id) {
+                match codebase.get_symbol_type_by_id(ident.id) {
                     Some(Type::Uint(uint_t)) => {
                         assert_eq!(uint_t.start.value, 8);
                         assert!(uint_t.end.is_none());
@@ -179,7 +179,7 @@ mod circuit_parsing_tests {
         match &arg.pattern {
             Pattern::Identifier(ident) => {
                 assert_eq!(ident.name, "y");
-                match codebase.get_symbol_type_by_id("dummy", ident.id) {
+                match codebase.get_symbol_type_by_id(ident.id) {
                     Some(Type::Uint(uint_t)) => {
                         assert_eq!(uint_t.start.value, 8);
                         assert!(uint_t.end.is_none());
@@ -206,7 +206,7 @@ mod circuit_parsing_tests {
                                 match &op.left {
                                     Expression::Identifier(ident) => {
                                         assert_eq!(ident.name, "x");
-                                        match codebase.get_symbol_type_by_id("dummy", ident.id) {
+                                        match codebase.get_symbol_type_by_id(ident.id) {
                                             Some(Type::Uint(uint_t)) => {
                                                 assert_eq!(uint_t.start.value, 8);
                                                 assert!(uint_t.end.is_none());
@@ -219,7 +219,7 @@ mod circuit_parsing_tests {
                                 match &op.right {
                                     Expression::Identifier(ident) => {
                                         assert_eq!(ident.name, "y");
-                                        match codebase.get_symbol_type_by_id("dummy", ident.id) {
+                                        match codebase.get_symbol_type_by_id(ident.id) {
                                             Some(Type::Uint(uint_t)) => {
                                                 assert_eq!(uint_t.start.value, 8);
                                                 assert!(uint_t.end.is_none());
@@ -262,7 +262,7 @@ mod circuit_parsing_tests {
         match &arg.pattern {
             Pattern::Identifier(ident) => {
                 assert_eq!(ident.name, "data");
-                match codebase.get_symbol_type_by_id("dummy", ident.id) {
+                match codebase.get_symbol_type_by_id(ident.id) {
                     Some(Type::Field(_)) => {}
                     _ => panic!("Expected Field type for identifier with id {}", ident.id),
                 }
@@ -294,7 +294,7 @@ mod circuit_parsing_tests {
                         match seq.expressions.first().unwrap() {
                             Expression::Identifier(ident) => {
                                 assert_eq!(ident.name, "data");
-                                match codebase.get_symbol_type_by_id("dummy", ident.id) {
+                                match codebase.get_symbol_type_by_id(ident.id) {
                                     Some(Type::Field(_)) => {}
                                     _ => panic!("Expected Field type of identifier"),
                                 }
@@ -378,7 +378,7 @@ mod constructor_parsing_tests {
         match &arg.pattern {
             Pattern::Identifier(ident) => {
                 assert_eq!(ident.name, "y");
-                match codebase.get_symbol_type_by_id("dummy", ident.id) {
+                match codebase.get_symbol_type_by_id(ident.id) {
                     Some(Type::Uint(uint_t)) => {
                         assert_eq!(uint_t.start.value, 32);
                         assert!(uint_t.end.is_none());
@@ -397,7 +397,7 @@ mod constructor_parsing_tests {
                 match &assign_stmt.target {
                     Expression::Identifier(ident) => {
                         assert_eq!(ident.name, "x");
-                        match codebase.get_symbol_type_by_id("dummy", ident.id) {
+                        match codebase.get_symbol_type_by_id(ident.id) {
                             Some(Type::Field(_)) => {}
                             _ => panic!("Expected Field type for identifier with id {}", ident.id),
                         }
@@ -438,7 +438,7 @@ mod constructor_parsing_tests {
         match &arg.pattern {
             Pattern::Identifier(ident) => {
                 assert_eq!(ident.name, "y");
-                match codebase.get_symbol_type_by_id("dummy", ident.id) {
+                match codebase.get_symbol_type_by_id(ident.id) {
                     Some(Type::Uint(uint_t)) => {
                         assert_eq!(uint_t.start.value, 32);
                         assert!(uint_t.end.is_none());
@@ -468,7 +468,7 @@ mod constructor_parsing_tests {
                         match &op.left {
                             Expression::Identifier(ident) => {
                                 assert_eq!(ident.name, "x");
-                                match codebase.get_symbol_type_by_id("dummy", ident.id) {
+                                match codebase.get_symbol_type_by_id(ident.id) {
                                     Some(Type::Field(_)) => {}
                                     _ => panic!(
                                         "Expected Field type for identifier with id {}",
@@ -503,7 +503,7 @@ mod constructor_parsing_tests {
                             match &assign_stmt.target {
                                 Expression::Identifier(ident) => {
                                     assert_eq!(ident.name, "y");
-                                    match codebase.get_symbol_type_by_id("dummy", ident.id) {
+                                    match codebase.get_symbol_type_by_id(ident.id) {
                                         Some(Type::Uint(uint_t)) => {
                                             assert_eq!(uint_t.start.value, 32);
                                             assert!(uint_t.end.is_none());

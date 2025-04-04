@@ -116,10 +116,14 @@ impl Codebase<SealedState> {
     }
 
     #[must_use = "Use this function to get a type for a symbol (Identifier)"]
-    pub fn get_symbol_type_by_id(&self, file_path: &str, id: u32) -> Option<Type> {
-        self.symbol_tables
-            .get(file_path)
-            .and_then(|table| table.lookdown_by_id(id))
+    pub fn get_symbol_type_by_id(&self, id: u32) -> Option<Type> {
+        if let Some(file) = self.find_node_file(id) {
+            self.symbol_tables
+                .get(&file.fname)
+                .and_then(|table| table.lookdown_by_id(id))
+        } else {
+            None
+        }
     }
 
     pub fn list_assert_nodes(&self) -> impl Iterator<Item = Rc<Assert>> + '_ {
@@ -183,5 +187,40 @@ impl Codebase<SealedState> {
         T: Clone + 'static,
     {
         self.storage.nodes.iter().filter_map(cast)
+    }
+
+    fn find_node_file(&self, id: u32) -> Option<SourceCodeFile> {
+        if let Some((_, file)) = self
+            .fname_ast_map
+            .iter()
+            .find(|(_, file)| file.ast.id == id)
+        {
+            Some(file.clone())
+        } else {
+            let mut node_id = id;
+            while let Some(parent) = self.storage.find_parent_node(node_id) {
+                if parent == 0 {
+                    if let Some(file) = self.storage.find_node(node_id) {
+                        match file {
+                            NodeType::Program(f) => {
+                                if let Some((fname, _)) = self
+                                    .fname_ast_map
+                                    .iter()
+                                    .find(|(_, file)| Rc::ptr_eq(&file.ast, &f))
+                                {
+                                    return Some(SourceCodeFile {
+                                        fname: fname.clone(),
+                                        ast: f.clone(),
+                                    });
+                                }
+                            }
+                            _ => return None,
+                        }
+                    }
+                }
+                node_id = parent;
+            }
+            None
+        }
     }
 }

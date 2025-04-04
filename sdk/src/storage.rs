@@ -14,29 +14,6 @@ impl NodesStorage {
         self.nodes.iter().find(|n| n.id() == id).cloned()
     }
 
-    // pub fn find_node_file(&self, id: u128) -> Option<Rc<Program>> {
-    //     if self.file_content_map.contains_key(&id) {
-    //         let file = self.find_node(id).unwrap();
-    //         match file {
-    //             NodeType::Program(f) => Some(f),
-    //             _ => None,
-    //         }
-    //     } else {
-    //         let mut node_id = id;
-    //         while let Some(parent) = self.find_parent_node(node_id) {
-    //             if parent.parent.unwrap() == 0 {
-    //                 let file = self.find_node(parent.id).unwrap();
-    //                 match file {
-    //                     NodeType::Program(f) => return Some(f),
-    //                     _ => return None,
-    //                 }
-    //             }
-    //             node_id = parent.id;
-    //         }
-    //         None
-    //     }
-    // }
-
     #[must_use = "Use this method to find a Node's parent Node"]
     pub fn find_parent_node(&self, id: u32) -> Option<u32> {
         self.node_routes
