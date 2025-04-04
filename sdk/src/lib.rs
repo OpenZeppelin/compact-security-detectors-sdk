@@ -18,6 +18,8 @@ pub trait Detector {
 
     fn name(&self) -> String;
     fn description(&self) -> String;
+    fn severity(&self) -> String;
+    fn tags(&self) -> Vec<String>;
 }
 
 /// Builds a codebase from the provided source files.
