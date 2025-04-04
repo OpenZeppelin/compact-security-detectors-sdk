@@ -3,120 +3,96 @@ use std::{cell::RefCell, collections::HashMap};
 use midnight_security_detectors_sdk::{
     ast::{definition::Definition, expression::Expression, node_type::NodeType, ty::Type},
     codebase::{Codebase, SealedState},
-    Detector,
 };
 
-pub struct AssertionErrorMessageConsistency;
+mod utils;
 
-impl Detector for AssertionErrorMessageConsistency {
-    fn name(&self) -> String {
-        "Assertion Error Message Consistency".to_string()
-    }
+detectors! {
+    AssertionErrorMessageConsistency, "Checks if assert failes with a meaningful message", "Low", "audit" => assertion_error_message_consistency,
+    ArrayLoopBoundCheck, "Checks if there is a potential out of boundary array index access", "Low", "audit, report" => array_loop_bound_check
+}
 
-    fn description(&self) -> String {
-        "Without a clear error message, debugging failures in this critical admin-setting function becomes difficult.".to_string()
-    }
-
-    fn check(
-        &self,
-        codebase: &RefCell<Codebase<SealedState>>,
-    ) -> Option<HashMap<String, Vec<(u32, u32)>>> {
-        let codebase = codebase.borrow();
-        let mut errors = HashMap::new();
-        for assert_node in codebase.list_assert_nodes() {
-            if assert_node
-                .message()
-                .map(|msg| msg.trim().is_empty() || msg.len() < 3)
-                .unwrap_or(true)
-            {
-                let parent = codebase.get_parent_container(assert_node.id);
-                let parent_name = match parent {
-                    Some(NodeType::Definition(Definition::Circuit(c))) => c.name(),
-                    Some(NodeType::Definition(Definition::Module(m))) => m.name(),
-                    _ => String::new(),
-                };
-                errors.insert(
-                    parent_name,
-                    vec![(
-                        assert_node.location.start_line,
-                        assert_node.location.start_column,
-                    )],
-                );
-            }
+fn assertion_error_message_consistency(
+    codebase: &RefCell<Codebase<SealedState>>,
+) -> Option<HashMap<String, Vec<(u32, u32)>>> {
+    let codebase = codebase.borrow();
+    let mut errors = HashMap::new();
+    for assert_node in codebase.list_assert_nodes() {
+        if assert_node
+            .message()
+            .map(|msg| msg.trim().is_empty() || msg.len() < 3)
+            .unwrap_or(true)
+        {
+            let parent = codebase.get_parent_container(assert_node.id);
+            let parent_name = match parent {
+                Some(NodeType::Definition(Definition::Circuit(c))) => c.name(),
+                Some(NodeType::Definition(Definition::Module(m))) => m.name(),
+                _ => String::new(),
+            };
+            errors.insert(
+                parent_name,
+                vec![(
+                    assert_node.location.start_line,
+                    assert_node.location.start_column,
+                )],
+            );
         }
-        if errors.is_empty() {
-            None
-        } else {
-            Some(errors)
-        }
+    }
+    if errors.is_empty() {
+        None
+    } else {
+        Some(errors)
     }
 }
 
-pub struct ArrayLoopBoundCheck;
+fn array_loop_bound_check(
+    codebase: &RefCell<Codebase<SealedState>>,
+) -> Option<HashMap<String, Vec<(u32, u32)>>> {
+    let codebase = codebase.borrow();
+    let mut errors = HashMap::new();
+    for for_stmt in codebase.list_for_statement_nodes() {
+        let index_access_expressions = codebase.get_children_cmp(for_stmt.id, |n| {
+            matches!(n, NodeType::Expression(Expression::IndexAccess(_)))
+        });
+        let upper_bound = for_stmt.upper_bound_nat();
+        if upper_bound.is_none() {
+            continue;
+        }
+        let upper_bound = upper_bound.unwrap();
 
-impl Detector for ArrayLoopBoundCheck {
-    fn name(&self) -> String {
-        "Array Loop Bound Check".to_string()
-    }
-
-    fn description(&self) -> String {
-        "This detector checks for potential out-of-bounds access in array loops.".to_string()
-    }
-
-    fn check(
-        &self,
-        codebase: &RefCell<Codebase<SealedState>>,
-    ) -> Option<HashMap<String, Vec<(u32, u32)>>> {
-        let codebase = codebase.borrow();
-        let mut errors = HashMap::new();
-        for for_stmt in codebase.list_for_statement_nodes() {
-            let index_access_expressions = codebase.get_children_cmp(for_stmt.id, |n| {
-                matches!(n, NodeType::Expression(Expression::IndexAccess(_)))
-            });
-            let upper_bound = for_stmt.upper_bound_nat();
-            if upper_bound.is_none() {
-                continue;
-            }
-            let upper_bound = upper_bound.unwrap();
-
-            for index_access in index_access_expressions {
-                if let NodeType::Expression(Expression::IndexAccess(index_access)) = index_access {
-                    let arr_type = codebase.get_symbol_type_by_id(index_access.base.id());
-                    if let Some(Type::Vector(t_vec)) = arr_type {
-                        if t_vec.size_nat().unwrap_or(0) >= upper_bound {
-                            let parent = codebase.get_parent_container(index_access.id);
-                            let parent_name = match parent {
-                                Some(NodeType::Definition(Definition::Circuit(c))) => c.name(),
-                                Some(NodeType::Definition(Definition::Module(m))) => m.name(),
-                                _ => String::new(),
-                            };
-                            errors.insert(
-                                parent_name,
-                                vec![(
-                                    index_access.location.start_line,
-                                    index_access.location.start_column,
-                                )],
-                            );
-                        }
+        for index_access in index_access_expressions {
+            if let NodeType::Expression(Expression::IndexAccess(index_access)) = index_access {
+                let arr_type = codebase.get_symbol_type_by_id(index_access.base.id());
+                if let Some(Type::Vector(t_vec)) = arr_type {
+                    if t_vec.size_nat().unwrap_or(0) >= upper_bound {
+                        let parent = codebase.get_parent_container(index_access.id);
+                        let parent_name = match parent {
+                            Some(NodeType::Definition(Definition::Circuit(c))) => c.name(),
+                            Some(NodeType::Definition(Definition::Module(m))) => m.name(),
+                            _ => String::new(),
+                        };
+                        errors.insert(
+                            parent_name,
+                            vec![(
+                                index_access.location.start_line,
+                                index_access.location.start_column,
+                            )],
+                        );
                     }
                 }
             }
         }
-        if errors.is_empty() {
-            None
-        } else {
-            Some(errors)
-        }
     }
-}
-
-pub fn all_detectors() -> Vec<Box<dyn Detector>> {
-    vec![Box::new(AssertionErrorMessageConsistency)]
+    if errors.is_empty() {
+        None
+    } else {
+        Some(errors)
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use midnight_security_detectors_sdk::build_codebase;
+    use midnight_security_detectors_sdk::{build_codebase, Detector};
 
     use super::*;
 
@@ -156,7 +132,3 @@ mod tests {
         assert_eq!(result.unwrap().len(), 1);
     }
 }
-
-// const sk: Uint8Array = yesIKnowTheSecurityImplicationsOfThis_encryptionSecretKey().yesIKnowTheSecurityImplicationsOfThis_serialize(0);
-// const h: Value = persistentHash(0, val);
-// return disclose(proof);
