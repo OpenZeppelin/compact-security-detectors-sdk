@@ -57,7 +57,6 @@ fn custom_detectors() -> Vec<MidnightDetector> {
 
 fn get_scanner_metadata() -> String {
     let version = env!("CARGO_PKG_VERSION");
-    let scanner_type = "rust";
     let org = "OpenZeppelin";
     let mut detectors = Vec::new();
     for detector in available_detectors() {
@@ -75,7 +74,6 @@ fn get_scanner_metadata() -> String {
     let scanner_json = json!({
         "compact_scanner": {
             "version": version,
-            "type": scanner_type,
             "org": org,
             "detectors": {
                 "detectors": detectors,
