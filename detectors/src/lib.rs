@@ -5,6 +5,7 @@ use midnight_security_detectors_sdk::{
     codebase::{Codebase, SealedState},
 };
 
+include!(concat!(env!("OUT_DIR"), "/generated_templates.rs"));
 mod utils;
 
 detectors! {

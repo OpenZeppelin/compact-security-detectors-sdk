@@ -10,6 +10,12 @@ pub mod codebase;
 mod passes;
 mod storage;
 
+pub trait CombinedDetector: Detector + DetectorReportTemplate {}
+
+impl<T: Detector + DetectorReportTemplate> CombinedDetector for T {}
+
+pub type MidnightDetector = Box<dyn CombinedDetector>;
+
 pub trait Detector {
     fn check(
         &self,
@@ -20,6 +26,18 @@ pub trait Detector {
     fn description(&self) -> String;
     fn severity(&self) -> String;
     fn tags(&self) -> Vec<String>;
+}
+
+pub trait DetectorReportTemplate {
+    fn title_single_instance(&self) -> String;
+    fn title_multiple_instance(&self) -> String;
+    fn opening(&self) -> String;
+    fn body_single_file_single_instance(&self) -> String;
+    fn body_single_file_multiple_instance(&self) -> String;
+    fn body_multiple_file_multiple_instance(&self) -> String;
+    fn body_list_item_single_file(&self) -> String;
+    fn body_list_item_multiple_file(&self) -> String;
+    fn closing(&self) -> String;
 }
 
 /// Builds a codebase from the provided source files.
