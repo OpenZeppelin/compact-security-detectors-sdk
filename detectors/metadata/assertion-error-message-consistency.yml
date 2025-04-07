@@ -1,24 +1,23 @@
 metadata:
   id: assertion-error-message-consistency
   uid: AAFS
-  confidence: 1 # zero only if disabled or in development
-  description: Checks if assert failes with a meaningful message
+  description: Checks if there is a potential out of boundary array index access
   report:
-    severity: low
+    severity: medium
     tags:
       - audit
       - reportable
       - compact
     template:
       modification-date: '2025-04-07' # YYYY-MM-DD
-      title: 'Assertion Error Message Consistency'
+      title: 'Potewntial Out of Boundary Array Index Access'
       body-list-item-intro: |
-        The following potential assertion error messages were found in the code:
+        The following potential out boundary array index access were found in the code:
       body-list-item: |
         ============
         
         'Within [`$file_name` on line $instance_line]($instance_line_link)
         
-        $ASSERTION_MESSAGE'
+        $ARRAY_INDEX_ACCESS'
 
       closing: ''

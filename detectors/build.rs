@@ -5,7 +5,7 @@ use std::{env, fs};
 fn main() {
     let metadata_dir = Path::new("metadata");
     let out_dir = env::var("OUT_DIR").expect("OUT_DIR not set");
-    let dest_path = Path::new(&out_dir).join("generated_templates.rs");
+    let dest_path = Path::new(&out_dir).join("detector-report-templates.rs");
 
     let mut generated = String::new();
 
@@ -28,6 +28,19 @@ fn main() {
                     .expect("metadata.id is missing or not a string");
                 let type_name = to_type_name(id);
 
+                let description = metadata["description"]
+                    .as_str()
+                    .unwrap_or("No description provided");
+                let report = &metadata["report"];
+                let severity = report["severity"].as_str().unwrap_or("note");
+                let tags = report["tags"]
+                    .as_sequence()
+                    .unwrap_or(&Vec::new())
+                    .iter()
+                    .filter_map(|tag| tag.as_str().map(|s| format!("\"{}\".to_string()", s)))
+                    .collect::<Vec<_>>()
+                    .join(",");
+
                 let template = &metadata["report"]["template"];
                 let title = template["title"].as_str().unwrap_or_default();
                 let opening = template["body-list-item-intro"]
@@ -38,6 +51,18 @@ fn main() {
                 let type_def = format!(
                     r#"
 impl DetectorReportTemplate for {type_name} {{
+    fn name(&self) -> String {{
+        "{id}".to_string()
+    }}
+    fn description(&self) -> String {{
+        "{description}".to_string()
+    }}
+    fn severity(&self) -> String {{
+        "{severity}".to_string()
+    }}
+    fn tags(&self) -> Vec<String> {{
+        vec![{tags}]
+    }}
     fn title_single_instance(&self) -> String {{
         "{title}".to_string()
     }}
