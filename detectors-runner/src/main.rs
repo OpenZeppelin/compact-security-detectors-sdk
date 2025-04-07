@@ -4,16 +4,14 @@ use clap::Parser;
 use midnight_security_detectors::all_detectors;
 use midnight_security_detectors_sdk::{build_codebase, MidnightDetector};
 use parser::Cli;
+use serde_json::json;
 
 mod parser;
 
 fn main() {
     let args = Cli::parse();
     if args.detectors {
-        println!("Available detectors:");
-        for detector in available_detectors() {
-            println!("- {}", detector.name());
-        }
+        println!("{}", get_scanner_metadata());
         return;
     }
     let contract_content = r#"export circuit set_admin(new_admin: Bytes<32>): [] {
@@ -55,4 +53,34 @@ fn custom_detectors() -> Vec<MidnightDetector> {
         .into_iter()
         .map(|detector| detector as MidnightDetector)
         .collect()
+}
+
+fn get_scanner_metadata() -> String {
+    let version = env!("CARGO_PKG_VERSION");
+    let scanner_type = "rust";
+    let org = "OpenZeppelin";
+    let mut detectors = Vec::new();
+    for detector in available_detectors() {
+        let json_detector = json!({
+            detector.name() : {
+                "description": detector.description(),
+                "report": {
+                    "severity": detector.severity(),
+                    "tags": detector.tags(),
+                }
+            }
+        });
+        detectors.push(json_detector);
+    }
+    let scanner_json = json!({
+        "compact_scanner": {
+            "version": version,
+            "type": scanner_type,
+            "org": org,
+            "detectors": {
+                "detectors": detectors,
+            }
+        }
+    });
+    serde_json::to_string_pretty(&scanner_json).unwrap()
 }
