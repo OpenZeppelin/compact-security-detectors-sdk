@@ -1,34 +1,21 @@
 #[macro_export]
 macro_rules! detector {
-    ($name:ident, $param1:expr, $param2:expr, $param3:expr => $check_fn:ident) => {
-        pub struct $name;
+    (
+        #[type_name = $tname:ident]
+        $(#[$attr:meta])*
+        $vis:vis fn $name:ident $(< $($gen:tt)* >)? ( $($params:tt)* )
+        $(-> $ret:ty)?
+        $(where $($where:tt)*)?
+        $body:block
+    ) => {
+        pub struct $tname;
 
-        impl midnight_security_detectors_sdk::Detector for $name {
-            fn name(&self) -> String {
-                stringify!($name).to_string()
-            }
-
-            fn description(&self) -> String {
-                $param1.to_string()
-            }
-
-            fn severity(&self) -> String {
-                $param2.to_string()
-            }
-
-            fn tags(&self) -> Vec<String> {
-                vec!["security".to_string(), $param3.to_string()]
-            }
-
+        impl midnight_security_detectors_sdk::Detector for $tname {
             fn check(
                 &self,
-                codebase: &std::cell::RefCell<
-                    midnight_security_detectors_sdk::codebase::Codebase<
-                        midnight_security_detectors_sdk::codebase::SealedState,
-                    >,
-                >,
+                $($params)*
             ) -> Option<std::collections::HashMap<String, Vec<(u32, u32)>>> {
-                $check_fn(codebase)
+                $body
             }
         }
     };
@@ -38,21 +25,33 @@ macro_rules! detector {
 #[macro_export]
 macro_rules! detectors {
     (
-        $($name:ident, $param1:expr, $param2:expr, $param3:expr => $check_fn:ident),* $(,)*
+        $(
+            #[type_name = $tname:ident]
+            $(#[$attr:meta])*
+            $vis:vis fn $name:ident $(< $($gen:tt)* >)? ( $($params:tt)* )
+            $(-> $ret:ty)?
+            $(where $($where:tt)*)?
+            $body:block
+        )*
     ) => {
         $(
-            detector!($name, $param1, $param2, $param3 => $check_fn);
+            detector! {
+                #[type_name = $tname]
+                $(#[$attr])*
+                $vis fn $name $(< $($gen)* >)? ( $($params)* )
+                $(-> $ret)?
+                $(where $($where)*)?
+                $body
+            }
         )*
 
-        pub fn all_detectors() -> Vec<Box<dyn midnight_security_detectors_sdk::Detector>> {
+        pub fn all_detectors() -> Vec<midnight_security_detectors_sdk::MidnightDetector> {
             vec![
                 $(
-                    Box::new($name),
+                    Box::new($tname),
                 )*
             ]
         }
     };
-    ($($name:ident, $param1:expr, $param2:expr, $param3:expr => $check_fn:ident),* $(,)*) => {
-
-    };
+    () => {};
 }

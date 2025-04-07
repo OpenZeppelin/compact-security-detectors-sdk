@@ -3,23 +3,46 @@
 
 use anyhow::Result;
 use codebase::{Codebase, SealedState};
-use std::{cell::RefCell, collections::HashMap};
+use std::{cell::RefCell, collections::HashMap, fmt::Display};
 pub mod ast;
 mod builder_tests;
 pub mod codebase;
 mod passes;
 mod storage;
 
+pub trait CombinedDetector: Detector + DetectorReportTemplate {}
+
+impl<T: Detector + DetectorReportTemplate> CombinedDetector for T {}
+
+pub type MidnightDetector = Box<dyn CombinedDetector>;
+
 pub trait Detector {
     fn check(
         &self,
         codebase: &RefCell<Codebase<SealedState>>,
     ) -> Option<HashMap<String, Vec<(u32, u32)>>>;
+}
 
+pub trait DetectorReportTemplate {
     fn name(&self) -> String;
     fn description(&self) -> String;
     fn severity(&self) -> String;
     fn tags(&self) -> Vec<String>;
+    fn title_single_instance(&self) -> String;
+    fn title_multiple_instance(&self) -> String;
+    fn opening(&self) -> String;
+    fn body_single_file_single_instance(&self) -> String;
+    fn body_single_file_multiple_instance(&self) -> String;
+    fn body_multiple_file_multiple_instance(&self) -> String;
+    fn body_list_item_single_file(&self) -> String;
+    fn body_list_item_multiple_file(&self) -> String;
+    fn closing(&self) -> String;
+}
+
+impl Display for dyn CombinedDetector {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.name())
+    }
 }
 
 /// Builds a codebase from the provided source files.

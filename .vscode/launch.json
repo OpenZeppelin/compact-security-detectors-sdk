@@ -20,6 +20,7 @@
                 }
             },
             "args": [
+                "--metadata"
             ],
             "cwd": "${workspaceFolder}"
         },

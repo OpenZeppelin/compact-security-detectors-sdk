@@ -1,0 +1,23 @@
+metadata:
+  id: array-loop-bound-check
+  uid: AFAIK
+  description: 
+  report:
+    severity: low
+    tags:
+      - audit
+      - reportable
+      - compact
+    template:
+      modification-date: '2025-04-07' # YYYY-MM-DD
+      title: 'Assertion Error Message Consistency'
+      body-list-item-intro: |
+        The following potential assertion error messages were found in the code:
+      body-list-item: |
+        ============
+        
+        'Within [`$file_name` on line $instance_line]($instance_line_link)
+        
+        $ASSERTION_MESSAGE'
+
+      closing: ''

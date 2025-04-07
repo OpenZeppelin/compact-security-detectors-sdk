@@ -2,18 +2,16 @@ use std::collections::HashMap;
 
 use clap::Parser;
 use midnight_security_detectors::all_detectors;
-use midnight_security_detectors_sdk::{build_codebase, Detector};
+use midnight_security_detectors_sdk::{build_codebase, MidnightDetector};
 use parser::Cli;
+use serde_json::json;
 
 mod parser;
 
 fn main() {
     let args = Cli::parse();
     if args.detectors {
-        println!("Available detectors:");
-        for detector in available_detectors() {
-            println!("- {}", detector.name());
-        }
+        println!("{}", get_scanner_metadata());
         return;
     }
     let contract_content = r#"export circuit set_admin(new_admin: Bytes<32>): [] {
@@ -41,7 +39,7 @@ fn main() {
     }
 }
 
-fn available_detectors() -> Vec<Box<dyn Detector>> {
+fn available_detectors() -> Vec<MidnightDetector> {
     all_detectors()
         .into_iter()
         .chain(custom_detectors())
@@ -49,8 +47,38 @@ fn available_detectors() -> Vec<Box<dyn Detector>> {
 }
 
 #[allow(clippy::let_and_return, unused_mut)]
-fn custom_detectors() -> Vec<Box<dyn Detector>> {
-    let mut detectors: Vec<Box<dyn Detector>> = Vec::new();
-    //Import and add your detectors here
+fn custom_detectors() -> Vec<MidnightDetector> {
+    let mut detectors: Vec<MidnightDetector> = Vec::new();
     detectors
+        .into_iter()
+        .map(|detector| detector as MidnightDetector)
+        .collect()
+}
+
+fn get_scanner_metadata() -> String {
+    let version = env!("CARGO_PKG_VERSION");
+    let org = "OpenZeppelin";
+    let mut detectors = Vec::new();
+    for detector in available_detectors() {
+        let json_detector = json!({
+            detector.name() : {
+                "description": detector.description(),
+                "report": {
+                    "severity": detector.severity(),
+                    "tags": detector.tags(),
+                }
+            }
+        });
+        detectors.push(json_detector);
+    }
+    let scanner_json = json!({
+        "compact_scanner": {
+            "version": version,
+            "org": org,
+            "detectors": {
+                "detectors": detectors,
+            }
+        }
+    });
+    serde_json::to_string_pretty(&scanner_json).unwrap()
 }
