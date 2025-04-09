@@ -992,7 +992,6 @@ fn build_statement(
         _ => bail!("Unhandled statement kind: {} {:?}", kind, node),
     };
     let statement_rc = statement;
-    codebase.add_node(NodeType::Statement(statement_rc.clone()), parent_id);
     Ok(statement_rc)
 }
 

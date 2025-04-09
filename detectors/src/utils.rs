@@ -14,7 +14,7 @@ macro_rules! detector {
             fn check(
                 &self,
                 $($params)*
-            ) -> Option<std::collections::HashMap<String, Vec<(u32, u32)>>> {
+            ) -> Option<Vec<midnight_security_detectors_sdk::DetectorResult>> {
                 $body
             }
         }

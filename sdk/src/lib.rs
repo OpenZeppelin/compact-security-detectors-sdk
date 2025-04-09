@@ -16,11 +16,16 @@ impl<T: Detector + DetectorReportTemplate> CombinedDetector for T {}
 
 pub type MidnightDetector = Box<dyn CombinedDetector>;
 
+#[derive(Debug, Clone)]
+pub struct DetectorResult {
+    pub file_path: String,
+    pub offset_start: u32,
+    pub offset_end: u32,
+    pub extras: Option<HashMap<String, String>>,
+}
+
 pub trait Detector {
-    fn check(
-        &self,
-        codebase: &RefCell<Codebase<SealedState>>,
-    ) -> Option<HashMap<String, Vec<(u32, u32)>>>;
+    fn check(&self, codebase: &RefCell<Codebase<SealedState>>) -> Option<Vec<DetectorResult>>;
 }
 
 pub trait DetectorReportTemplate {
@@ -55,11 +60,11 @@ impl Display for dyn CombinedDetector {
 ///
 /// This function will panic if there is an error loading the Inference grammar.
 pub fn build_codebase<H: std::hash::BuildHasher>(
-    files: HashMap<String, String, H>,
+    files: &HashMap<String, String, H>,
 ) -> Result<RefCell<Codebase<SealedState>>> {
     let mut codebase = Codebase::new();
     for (fname, source_code) in files {
-        codebase.add_file(&fname, &source_code);
+        codebase.add_file(fname, source_code);
     }
     Ok(RefCell::new(codebase.seal()?))
 }
@@ -81,6 +86,6 @@ mod tests {
             let content = std::fs::read_to_string(path).unwrap();
             files.insert(file_name, content);
         }
-        let _ = build_codebase(files).unwrap();
+        let _ = build_codebase(&files).unwrap();
     }
 }

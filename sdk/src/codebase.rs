@@ -29,7 +29,7 @@ impl CodebaseSealed for SealedState {}
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct SourceCodeFile {
-    pub(crate) fname: String,
+    pub fname: String,
     pub(crate) ast: Rc<Program>,
 }
 
@@ -189,7 +189,8 @@ impl Codebase<SealedState> {
         self.storage.nodes.iter().filter_map(cast)
     }
 
-    fn find_node_file(&self, id: u32) -> Option<SourceCodeFile> {
+    #[must_use = "Use this function to get a Node's source file"]
+    pub fn find_node_file(&self, id: u32) -> Option<SourceCodeFile> {
         if let Some((_, file)) = self
             .fname_ast_map
             .iter()

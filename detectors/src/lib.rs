@@ -3,6 +3,7 @@ use std::{cell::RefCell, collections::HashMap};
 use midnight_security_detectors_sdk::{
     ast::{definition::Definition, expression::Expression, node_type::NodeType, ty::Type},
     codebase::{Codebase, SealedState},
+    DetectorResult,
 };
 
 include!(concat!(env!("OUT_DIR"), "/detector-report-templates.rs"));
@@ -12,9 +13,9 @@ detectors! {
     #[type_name = AssertionErrorMessageConsistency]
     fn assertion_error_message_consistency(
         codebase: &RefCell<Codebase<SealedState>>,
-    ) -> Option<HashMap<String, Vec<(u32, u32)>>> {
+    ) -> Option<Vec<DetectorResult>> {
         let codebase = codebase.borrow();
-        let mut errors = HashMap::new();
+        let mut errors = Vec::new();
         for assert_node in codebase.list_assert_nodes() {
             if assert_node
                 .message()
@@ -27,13 +28,16 @@ detectors! {
                     Some(NodeType::Definition(Definition::Module(m))) => m.name(),
                     _ => String::new(),
                 };
-                errors.insert(
-                    parent_name,
-                    vec![(
-                        assert_node.location.start_line,
-                        assert_node.location.start_column,
-                    )],
-                );
+                errors.push(DetectorResult {
+                    file_path: codebase.find_node_file(assert_node.id).unwrap().fname,
+                    offset_start: assert_node.location.offset_start,
+                    offset_end: assert_node.location.offset_end,
+                    extras: {
+                        let mut map = HashMap::new();
+                        map.insert("#PARENT_NAME".to_string(), parent_name);
+                        Some(map)
+                    },
+                });
             }
         }
         if errors.is_empty() {
@@ -46,9 +50,9 @@ detectors! {
     #[type_name = ArrayLoopBoundCheck]
     fn array_loop_bound_check(
         codebase: &RefCell<Codebase<SealedState>>,
-    ) -> Option<HashMap<String, Vec<(u32, u32)>>> {
+    ) -> Option<Vec<DetectorResult>> {
         let codebase = codebase.borrow();
-        let mut errors = HashMap::new();
+        let mut errors = Vec::new();
         for for_stmt in codebase.list_for_statement_nodes() {
             let index_access_expressions = codebase.get_children_cmp(for_stmt.id, |n| {
                 matches!(n, NodeType::Expression(Expression::IndexAccess(_)))
@@ -70,12 +74,17 @@ detectors! {
                                 Some(NodeType::Definition(Definition::Module(m))) => m.name(),
                                 _ => String::new(),
                             };
-                            errors.insert(
-                                parent_name,
-                                vec![(
-                                    index_access.location.start_line,
-                                    index_access.location.start_column,
-                                )],
+                            errors.push(
+                                DetectorResult {
+                                    file_path: codebase.find_node_file(index_access.id).unwrap().fname,
+                                    offset_start: index_access.location.offset_start,
+                                    offset_end: index_access.location.offset_end,
+                                    extras: {
+                                        let mut map = HashMap::new();
+                                        map.insert("#PARENT_NAME".to_string(), parent_name);
+                                        Some(map)
+                                    },
+                                },
                             );
                         }
                     }
@@ -107,10 +116,19 @@ mod tests {
         }";
         let mut data = HashMap::new();
         data.insert("test.compact".to_string(), src.to_string());
-        let codebase = build_codebase(data).unwrap();
+        let codebase = build_codebase(&data).unwrap();
         let result = detector.check(&codebase);
         assert!(result.is_some());
-        assert!(result.unwrap().contains_key("set_admin"));
+        assert_eq!(result.as_ref().unwrap().len(), 1, "{result:?}");
+        let detector_result = result.as_ref().unwrap().first().unwrap();
+        assert_eq!(detector_result.file_path, "test.compact");
+        assert_eq!(detector_result.offset_start, 153);
+        assert_eq!(detector_result.offset_end, 184);
+        assert_eq!(detector_result.extras, {
+            let mut map = HashMap::new();
+            map.insert("#PARENT_NAME".to_string(), "set_admin".to_string());
+            Some(map)
+        });
     }
 
     #[test]
@@ -126,9 +144,18 @@ mod tests {
         }";
         let mut data = HashMap::new();
         data.insert("test.compact".to_string(), src.to_string());
-        let codebase = build_codebase(data).unwrap();
+        let codebase = build_codebase(&data).unwrap();
         let result = detector.check(&codebase);
         assert!(result.is_some());
-        assert_eq!(result.unwrap().len(), 1);
+        assert_eq!(result.as_ref().unwrap().len(), 1, "{result:?}");
+        let detector_result = result.as_ref().unwrap().first().unwrap();
+        assert_eq!(detector_result.file_path, "test.compact");
+        assert_eq!(detector_result.offset_start, 132);
+        assert_eq!(detector_result.offset_end, 139);
+        assert_eq!(detector_result.extras, {
+            let mut map = HashMap::new();
+            map.insert("#PARENT_NAME".to_string(), "contains".to_string());
+            Some(map)
+        });
     }
 }

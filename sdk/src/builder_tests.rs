@@ -10,7 +10,7 @@ use crate::{
 fn build_codebase_wrapper(src: &str) -> RefCell<Codebase<SealedState>> {
     let mut files = HashMap::new();
     files.insert("dummy".to_string(), src.to_string());
-    build_codebase(files).unwrap()
+    build_codebase(&files).unwrap()
 }
 
 #[allow(dead_code)]

@@ -5,7 +5,7 @@ resolver = "2"
 members = [
     "sdk",
     "detectors",
-    "detectors-runner",
+    "compact-scanner",
     "tree-sitter-compact"
 ]
 
@@ -19,7 +19,7 @@ repository = "https://github.com/OpenZeppelin/midnight-security-detectors-sdk"
 [workspace.dependencies]
 midnight-security-detectors-sdk = { path = "./sdk", version = "0.0.1" }
 midnight-security-detectors = { path = "./detectors", version = "0.0.1" }
-midnight-security-detectors-runner = { path = "./detectors-runner", version = "0.0.1" }
+compact-scanner = { path = "./compact-scanner", version = "0.0.1" }
 tree-sitter-compact = { path = "./tree-sitter-compact" }
 anyhow = "1.0.97"
 tree-sitter = "0.25.1"

@@ -1,0 +1,25 @@
+name: Artifacts
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        toolchain:
+          - nightly
+    defaults:
+      run:
+        working-directory: .
+
+    steps:
+      - name: Build Release
+        run: cargo build --release --target x86_64-unknown-linux-gnu
+      - name: Upload Release Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: release-build
+          path: target/x86_64-unknown-linux-gnu/release/
