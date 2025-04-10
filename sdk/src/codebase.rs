@@ -2,6 +2,7 @@
 use crate::{
     ast::{
         builder::build_ast,
+        declaration::Declaration,
         definition::Definition,
         node::NodeKind,
         node_type::NodeType,
@@ -97,16 +98,27 @@ impl Codebase<OpenState> {
             let symbol_table =
                 build_symbol_table(Rc::new(NodeKind::from(&source_code_file.ast)), None)?;
             symbol_tables.insert(file_path.clone(), symbol_table);
-
             // println!("{}", &symbol_tables.get(file_path).unwrap());
         }
         self.storage.seal();
+        self.link_imports();
         Ok(Codebase {
             storage: self.storage,
             fname_ast_map: self.fname_ast_map,
             symbol_tables,
             _state: PhantomData,
         })
+    }
+
+    fn link_imports(&mut self) {
+        for node in &mut self.storage.nodes {
+            if let NodeType::Declaration(Declaration::Import(ref mut import)) = node {
+                let import_mut = Rc::make_mut(import);
+                if let Some(file) = self.fname_ast_map.get(import_mut.name().as_str()) {
+                    import_mut.reference = Some(file.ast.id);
+                }
+            }
+        }
     }
 }
 
@@ -223,5 +235,35 @@ impl Codebase<SealedState> {
             }
             None
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_import_reference_set_correctly() -> anyhow::Result<()> {
+        let mut codebase = Codebase::<OpenState>::new();
+        codebase.add_file("./a.compact", r#"import "./b.compact";"#);
+        codebase.add_file("./b.compact", r#"import "./a.compact";"#);
+        let codebase = codebase.seal()?;
+        let imports: Vec<_> = codebase
+            .list_nodes_cmp(|node| {
+                if let NodeType::Declaration(Declaration::Import(import)) = node {
+                    Some(import.clone())
+                } else {
+                    None
+                }
+            })
+            .collect();
+        assert_eq!(imports.len(), 2);
+        for import in imports {
+            assert!(
+                import.reference.is_some(),
+                "Import reference should be set for all import nodes"
+            );
+        }
+        Ok(())
     }
 }

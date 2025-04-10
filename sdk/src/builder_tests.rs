@@ -927,7 +927,7 @@ mod import_parsing_tests {
         assert_eq!(ast.declarations.len(), 1);
         match &ast.declarations[0] {
             Declaration::Import(import) => {
-                assert_eq!(import.name(), "\"test/corpus/import.txt\"");
+                assert_eq!(import.name(), "test/corpus/import.txt");
                 assert!(import.prefix.is_none());
                 assert!(import.generic_parameters.is_none());
             }
@@ -1062,7 +1062,7 @@ mod import_parsing_tests {
         assert_eq!(ast.declarations.len(), 1);
         match &ast.declarations[0] {
             Declaration::Import(import) => {
-                assert_eq!(import.name(), "\"module/file\"");
+                assert_eq!(import.name(), "module/file");
                 assert!(import.prefix.is_some());
                 assert_eq!(import.prefix.as_ref().unwrap().name, "myHelper");
                 assert!(import.generic_parameters.is_none());

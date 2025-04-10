@@ -55,6 +55,7 @@ ast_nodes! {
         pub value: Rc<Identifier>,
         pub generic_parameters: Option<Vec<GArgument>>,
         pub prefix: Option<Rc<Identifier>>,
+        pub reference: Option<u32>,
     }
 
     pub struct Include {
@@ -238,9 +239,14 @@ impl Contract {
 }
 
 impl Import {
-    #[must_use]
+    #[must_use = "Use this function to get the name of the import with trailing quotes and terminator removed."]
     pub fn name(&self) -> String {
-        self.value.name.clone()
+        let name = self.value.name.clone();
+        if name.starts_with('"') {
+            name[1..name.len() - 1].to_string()
+        } else {
+            name
+        }
     }
 }
 

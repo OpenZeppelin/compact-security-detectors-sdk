@@ -116,9 +116,10 @@ fn detector_result_to_json(
 
 fn relative_file_path(file_path: &str, project_root: &Option<std::path::PathBuf>) -> String {
     if let Some(root) = project_root {
-        match std::path::Path::new(file_path).strip_prefix(root) {
-            Ok(relative_path) => relative_path.to_string_lossy().to_string(),
-            Err(_) => file_path.to_string(),
+        if let Ok(relative_path) = std::path::Path::new(file_path).strip_prefix(root) {
+            relative_path.to_string_lossy().to_string()
+        } else {
+            file_path.to_string()
         }
     } else {
         file_path.to_string()
@@ -167,8 +168,5 @@ fn get_scanner_metadata() -> String {
 }
 
 fn yml_string_to_json(yml_string: String) -> Option<serde_json::Value> {
-    match serde_yaml::from_str::<serde_json::Value>(&yml_string) {
-        Ok(json_value) => Some(json_value),
-        Err(_) => None,
-    }
+    serde_yaml::from_str::<serde_json::Value>(&yml_string).ok()
 }

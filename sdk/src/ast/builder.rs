@@ -534,6 +534,7 @@ fn build_import(
         value: identifier,
         prefix,
         generic_parameters,
+        reference: None,
     };
     codebase.add_node(
         NodeType::Declaration(Declaration::Import(Rc::new(import.clone()))),
@@ -2618,7 +2619,7 @@ mod tests {
             _ => panic!("Expected an import declaration"),
         }
     }
-    
+
     #[test]
     fn test_export() {
         let source = "export { CompactStandardLibrary };";
@@ -2902,7 +2903,7 @@ mod tests {
                 let statement = body.statements.first().unwrap();
                 assert!(matches!(statement, Statement::Assert(_)));
                 let Statement::Assert(assert_statement) = &statement else {
-                  panic!("Expected an assert statement");  
+                  panic!("Expected an assert statement");
                 };
                 assert!(matches!(assert_statement.condition, Expression::Binary(_)));
                 let Expression::Binary(binary_expr) = &assert_statement.condition else {
@@ -2929,7 +2930,7 @@ mod tests {
             }
             _ => panic!("Expected a circuit declaration"),
         }
-        
+
     }
 
     #[test]
@@ -2954,7 +2955,7 @@ mod tests {
                 let statement = body.statements.first().unwrap();
                 assert!(matches!(statement, Statement::Assert(_)));
                 let Statement::Assert(assert_statement) = &statement else {
-                    panic!("Expected an assert statement");  
+                    panic!("Expected an assert statement");
                 };
                 assert!(matches!(assert_statement.condition, Expression::Unary(_)));
                 let Expression::Unary(unary_expr) = &assert_statement.condition else {
@@ -3004,7 +3005,7 @@ mod tests {
                 let statement = body.statements.first().unwrap();
                 assert!(matches!(statement, Statement::Const(_)));
                 let Statement::Const(const_statement) = &statement else {
-                    panic!("Expected a const statement");  
+                    panic!("Expected a const statement");
                 };
                 assert!(matches!(const_statement.pattern, Pattern::Identifier(_)));
                 let Pattern::Identifier(identifier) = &const_statement.pattern else {
@@ -3169,7 +3170,7 @@ mod tests {
                 let statement = body.statements.first().unwrap();
                 assert!(matches!(statement, Statement::Assign(_)));
                 let Statement::Assign(assignment) = &statement else {
-                    panic!("Expected an assignment statement");  
+                    panic!("Expected an assignment statement");
                 };
                 assert!(matches!(assignment.target, Expression::Identifier(_)));
                 let Expression::Identifier(identifier) = &assignment.target else {
