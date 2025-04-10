@@ -4,9 +4,9 @@ use clap::Parser;
 pub(crate) struct Cli {
     #[clap(short = 'm', long = "metadata", action = clap::ArgAction::SetTrue)]
     pub(crate) metadata: bool,
-    #[clap(long = "scan", required = false, value_parser)]
-    pub(crate) paths: Option<Vec<std::path::PathBuf>>,
-    #[clap(long = "detectors", required = false, value_parser)]
+    #[clap(long = "code", required = false, value_parser, num_args = 1..)]
+    pub(crate) code: Option<Vec<std::path::PathBuf>>,
+    #[clap(long = "detectors", required = false, value_parser, num_args = 1..)]
     pub(crate) detectors: Option<Vec<String>>,
     #[clap(long = "project-root", required = false, value_parser)]
     pub(crate) project_root: Option<std::path::PathBuf>,
