@@ -147,24 +147,28 @@ fn get_scanner_metadata() -> String {
     let mut detectors = Vec::new();
     for detector in available_detectors() {
         let json_detector = json!({
-            detector.name() : {
-                "description": detector.description(),
-                "report": {
-                    "severity": detector.severity(),
-                    "tags": detector.tags(),
-                }
-            }
+            "name": detector.name(),
+            "description": detector.description(),
+            "report": {
+                "severity": detector.severity(),
+                "tags": detector.tags(),
+            },
+            "template": yml_string_to_json(detector.template())
         });
         detectors.push(json_detector);
     }
     let scanner_json = json!({
-        "compact_scanner": {
-            "version": version,
-            "org": org,
-            "detectors": {
-                "detectors": detectors,
-            }
-        }
+        "name": "compact_scanner",
+        "version": version,
+        "org": org,
+        "detectors": detectors
     });
     serde_json::to_string_pretty(&scanner_json).unwrap()
+}
+
+fn yml_string_to_json(yml_string: String) -> Option<serde_json::Value> {
+    match serde_yaml::from_str::<serde_json::Value>(&yml_string) {
+        Ok(json_value) => Some(json_value),
+        Err(_) => None,
+    }
 }

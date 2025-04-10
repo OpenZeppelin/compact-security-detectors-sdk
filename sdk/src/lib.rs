@@ -42,6 +42,7 @@ pub trait DetectorReportTemplate {
     fn body_list_item_single_file(&self) -> String;
     fn body_list_item_multiple_file(&self) -> String;
     fn closing(&self) -> String;
+    fn template(&self) -> String;
 }
 
 impl Display for dyn CombinedDetector {

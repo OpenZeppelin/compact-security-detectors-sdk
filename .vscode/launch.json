@@ -7,24 +7,24 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug runner",
+            "name": "Debug scanner",
             "cargo": {
                 "args": [
                     "build",
-                    "--bin=midnight-security-detectors-runner",
-                    "--package=midnight-security-detectors-runner"
+                    "--bin=compact-scanner",
+                    "--package=compact-scanner"
                 ],
                 "filter": {
-                    "name": "midnight-security-detectors-runner",
+                    "name": "compact-scanner",
                     "kind": "bin"
                 }
             },
             "args": [
-                // "--metadata"
-                "--scan",
-                "${workspaceFolder}/corpus/subdir",
-                "--project-root",
-                "${workspaceFolder}/corpus",
+                "--metadata"
+                // "--scan",
+                // "${workspaceFolder}/corpus/subdir",
+                // "--project-root",
+                // "${workspaceFolder}/corpus",
                 // "--detectors",
                 // "assertion-error-message-consistency"
             ],

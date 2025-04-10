@@ -42,6 +42,8 @@ fn main() {
                     .join(",");
 
                 let template = &metadata["report"]["template"];
+                let template_yaml =
+                    serde_yaml::to_string(&template).unwrap_or_else(|_| String::from("{}"));
                 let title = template["title"].as_str().unwrap_or_default();
                 let opening = template["body-list-item-intro"]
                     .as_str()
@@ -89,6 +91,9 @@ impl DetectorReportTemplate for {type_name} {{
     }}
     fn closing(&self) -> String {{
         "{closing}".to_string()
+    }}
+    fn template(&self) -> String {{
+        "{template_yaml}".to_string()
     }}
 }}
 
