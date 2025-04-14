@@ -4,12 +4,12 @@ use std::rc::Rc;
 use crate::{ast::statement::Statement, ast_enum, ast_nodes, ast_nodes_impl};
 
 use super::{
-    declaration::{Argument, Declaration, PatternArgument},
+    declaration::{Argument, Declaration, GArgument, PatternArgument},
     expression::{Expression, Identifier},
     node::{Node, NodeKind},
     program::CompactNode,
     statement::Block,
-    ty::Type,
+    ty::{Ref, Type},
 };
 
 ast_enum! {
@@ -147,12 +147,44 @@ impl Structure {
     pub fn name(&self) -> String {
         self.name.name.clone()
     }
+
+    #[must_use]
+    pub fn ty(&self) -> Type {
+        Type::Ref(Rc::new(Ref {
+            name: self.name.clone(),
+            generic_parameters: self.generic_parameters.as_ref().map(|params| {
+                params
+                    .iter()
+                    .map(|ident| {
+                        GArgument::Type(Type::Ref(Rc::new(Ref {
+                            name: ident.clone(),
+                            generic_parameters: None,
+                            id: u32::MAX,
+                            location: ident.location.clone(),
+                        })))
+                    })
+                    .collect()
+            }),
+            id: u32::MAX,
+            location: self.name.location.clone(),
+        }))
+    }
 }
 
 impl Enum {
     #[must_use = "This method returns the name of the enum"]
     pub fn name(&self) -> String {
         self.name.name.clone()
+    }
+
+    #[must_use = "This method returns the type of the enum"]
+    pub fn ty(&self) -> Type {
+        Type::Ref(Rc::new(Ref {
+            name: self.name.clone(),
+            generic_parameters: None,
+            id: u32::MAX,
+            location: self.name.location.clone(),
+        }))
     }
 }
 

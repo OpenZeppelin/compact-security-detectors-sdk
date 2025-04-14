@@ -34,7 +34,7 @@ impl SymbolTable {
         }
     }
 
-    fn upsert(&self, id: u32, symbol: String, ty: Option<Type>) {
+    pub(crate) fn upsert(&self, id: u32, symbol: String, ty: Option<Type>) {
         self.symbols.borrow_mut().insert(symbol, ty.clone());
         self.id_type_map.borrow_mut().insert(id, ty);
     }
@@ -97,17 +97,27 @@ impl SymbolTable {
     }
 
     pub fn lookdown_by_id(&self, id: u32) -> Option<Type> {
-        let id_type_map = self.id_type_map.borrow();
-        if let Some(sym) = id_type_map.get(&id) {
-            sym.clone()
-        } else {
-            for child in self.children.borrow().iter() {
-                if let Some(sym) = child.lookdown_by_id(id) {
-                    return Some(sym.clone());
+        let mut symbol_tables: Vec<Rc<SymbolTable>> = vec![Rc::new(self.clone())];
+        loop {
+            let mut next = Vec::new();
+            for symbol_table in &symbol_tables {
+                if let Some(ty) = symbol_table.lookup_by_id(id) {
+                    return Some(ty);
+                }
+                for child in symbol_table.children.borrow().iter() {
+                    next.push(child.clone());
                 }
             }
-            None
+            if next.is_empty() {
+                break;
+            }
+            symbol_tables = next;
         }
+        None
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.symbols.borrow().is_empty()
     }
 }
 
@@ -120,23 +130,36 @@ impl Display for SymbolTable {
         let mut res = String::new();
         let mut symbol_tables: Vec<Rc<SymbolTable>> = vec![Rc::new(root.clone())];
         res.push_str("Symbol Table\n");
+        let mut level = 0;
         loop {
             let mut next = Vec::new();
+            let pad = "  ".repeat(level);
             for symbol_table in &symbol_tables {
+                writeln!(res, "{pad}+----------------------+-----------------+")?;
+                writeln!(res, "{pad}| Name                 | Type            |")?;
+                writeln!(res, "{pad}+----------------------+-----------------+")?;
                 for (name, ty) in symbol_table.symbols.borrow().iter() {
-                    if ty.is_some() {
-                        writeln!(res, "{name}: {}", ty.as_ref().unwrap())?;
+                    let ty_str = if let Some(ty_val) = ty {
+                        format!("{ty_val}")
                     } else {
-                        writeln!(res, "{name}: Unknown")?;
-                    }
+                        "Unknown".to_string()
+                    };
+                    writeln!(res, "{pad}| {name:20} | {ty_str:15} |")?;
                 }
+                writeln!(res, "{pad}+----------------------+-----------------+")?;
+                writeln!(res, "{pad}")?;
+                writeln!(res, "{pad}+----------+-----------------+")?;
+                writeln!(res, "{pad}| ID       | Type            |")?;
+                writeln!(res, "{pad}+----------+-----------------+")?;
                 for (id, ty) in symbol_table.id_type_map.borrow().iter() {
-                    if ty.is_some() {
-                        writeln!(res, "{id}: {}", ty.as_ref().unwrap())?;
+                    let ty_str = if let Some(ty_val) = ty {
+                        format!("{ty_val}")
                     } else {
-                        writeln!(res, "{id}: Unknown")?;
-                    }
+                        "Unknown".to_string()
+                    };
+                    writeln!(res, "{pad}| {id:8} | {ty_str:15} |")?;
                 }
+                writeln!(res, "{pad}+----------+-----------------+")?;
                 let children: Vec<_> = symbol_table.children.borrow().iter().cloned().collect();
                 for child in children {
                     next.push(child);
@@ -146,6 +169,7 @@ impl Display for SymbolTable {
                 break;
             }
             symbol_tables = next;
+            level += 1;
         }
         write!(f, "{res}")
     }
@@ -156,7 +180,7 @@ pub fn build_symbol_table(
     node_kind: Rc<NodeKind>,
     parent: Option<Rc<SymbolTable>>,
 ) -> anyhow::Result<Rc<SymbolTable>> {
-    let symbol_table = Rc::new(SymbolTable::new(parent));
+    let symbol_table = Rc::new(SymbolTable::new(parent.clone()));
     let mut nodes: Vec<Rc<NodeKind>> = match node_kind.as_ref() {
         NodeKind::NewScope(node) => node.sorted_children(),
         NodeKind::SameScopeNode(_) => vec![node_kind],
@@ -168,7 +192,9 @@ pub fn build_symbol_table(
                     Rc::new(NodeKind::NewScope(node.clone())),
                     Some(symbol_table.clone()),
                 )?;
-                symbol_table.children.borrow_mut().push(child_scope);
+                if !child_scope.is_empty() {
+                    symbol_table.children.borrow_mut().push(child_scope);
+                }
             }
             NodeKind::SameScopeNode(same) => match same {
                 SameScopeNode::Composite(comp_node) => {
@@ -181,27 +207,19 @@ pub fn build_symbol_table(
                     let symbol_type = if let Some(type_expr) = symbol_node.type_expr() {
                         infer_expr(&type_expr, &symbol_table)
                     } else {
-                        None
+                        symbol_table.lookup(&symbol_name)
                     };
 
                     if symbol_table.symbols.borrow().contains_key(&symbol_name) {
-                        if symbol_type.is_some() {
-                            symbol_table.upsert(symbol_node.id(), symbol_name.clone(), symbol_type);
-                        } else {
-                            symbol_table.insert_by_id(
+                        if let Some(symbol_type) = symbol_type {
+                            symbol_table.upsert(
                                 symbol_node.id(),
-                                symbol_table.lookup(&symbol_name),
-                            )?;
+                                symbol_name.clone(),
+                                Some(symbol_type),
+                            );
                         }
-                        // panic!("Error: symbol {symbol_name} already exists");
-                    } else if symbol_type.is_some() {
-                        symbol_table.upsert(symbol_node.id(), symbol_name.clone(), symbol_type);
                     } else {
-                        symbol_table.upsert(
-                            symbol_node.id(),
-                            symbol_name.clone(),
-                            symbol_table.lookup(&symbol_name),
-                        );
+                        symbol_table.upsert(symbol_node.id(), symbol_name.clone(), symbol_type);
                     }
 
                     for child in symbol_node.sorted_children() {
@@ -210,6 +228,13 @@ pub fn build_symbol_table(
                 }
             },
         }
+    }
+    if parent.as_ref().is_some() && !symbol_table.is_empty() {
+        parent
+            .unwrap()
+            .children
+            .borrow_mut()
+            .push(symbol_table.clone());
     }
     Ok(symbol_table)
 }

@@ -93,15 +93,53 @@ impl Codebase<OpenState> {
     ///
     /// This function will panic if the symbol table for a file path is not found.
     pub fn seal(mut self) -> Result<Codebase<SealedState>> {
-        let mut symbol_tables = HashMap::new();
+        self.link_imports();
+        // First, build a mapping of each file to its local file-level symbol table.
+        let mut local_symbol_tables = HashMap::new();
         for (file_path, source_code_file) in &self.fname_ast_map {
-            let symbol_table =
-                build_symbol_table(Rc::new(NodeKind::from(&source_code_file.ast)), None)?;
+            let local_symtab =
+                Codebase::build_symbol_table_for_file_level_types(&source_code_file.ast.clone());
+            local_symbol_tables.insert(file_path.clone(), local_symtab);
+        }
+        let mut symbol_tables = HashMap::new();
+        // Now, build the full symbol table for each file.
+        for (file_path, source_code_file) in &self.fname_ast_map {
+            // Look for an import declaration belonging to this file that has been linked.
+            let mut parent_symtab = None;
+            for node in &self.storage.nodes {
+                if let NodeType::Declaration(Declaration::Import(import)) = node {
+                    if let Some(node_file) = self.find_node_file(node.id()) {
+                        if node_file.fname == *file_path {
+                            // Use the import reference (an id of the imported file) to look up the imported file's local symbol table.
+                            if let Some(imported_id) = import.reference {
+                                if let Some((imported_fname, _)) = self
+                                    .fname_ast_map
+                                    .iter()
+                                    .find(|(_, file)| file.ast.id == imported_id)
+                                {
+                                    if let Some(imported_symtab) =
+                                        local_symbol_tables.get(imported_fname)
+                                    {
+                                        parent_symtab = Some(imported_symtab.clone());
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            // If no parent was found through an import, use the file's own local symbol table.
+            let effective_parent =
+                parent_symtab.or_else(|| local_symbol_tables.get(file_path).cloned());
+            let symbol_table = build_symbol_table(
+                Rc::new(NodeKind::from(&source_code_file.ast)),
+                effective_parent,
+            )?;
+            // println!("{}\n{}", &file_path, &symbol_table);
             symbol_tables.insert(file_path.clone(), symbol_table);
-            // println!("{}", &symbol_tables.get(file_path).unwrap());
         }
         self.storage.seal();
-        self.link_imports();
         Ok(Codebase {
             storage: self.storage,
             fname_ast_map: self.fname_ast_map,
@@ -116,9 +154,47 @@ impl Codebase<OpenState> {
                 let import_mut = Rc::make_mut(import);
                 if let Some(file) = self.fname_ast_map.get(import_mut.name().as_str()) {
                     import_mut.reference = Some(file.ast.id);
+
+                    // Propagate types from the imported file's symbol table
+                    if let Some(imported_symtab) = self.symbol_tables.get(&file.fname) {
+                        let symbols_to_add: Vec<_> = imported_symtab
+                            .symbols
+                            .borrow()
+                            .iter()
+                            .filter_map(|(name, ty)| {
+                                ty.as_ref().map(|ty| (name.clone(), ty.clone()))
+                            })
+                            .collect();
+
+                        for (name, ty) in symbols_to_add {
+                            self.symbol_tables
+                                .entry(import_mut.name().to_string())
+                                .or_insert_with(|| Rc::new(SymbolTable::new(None)))
+                                .upsert(0, name, Some(ty));
+                        }
+                    }
                 }
             }
         }
+    }
+
+    fn build_symbol_table_for_file_level_types(program: &Rc<Program>) -> Rc<SymbolTable> {
+        let rc_symbol_table = Rc::new(SymbolTable::new(None));
+        for definition in &program.definitions {
+            match definition {
+                Definition::Module(_) => {}
+                Definition::Circuit(circuit) => {
+                    rc_symbol_table.upsert(circuit.id, circuit.name(), Some(circuit.ty.clone()));
+                }
+                Definition::Structure(structure) => {
+                    rc_symbol_table.upsert(structure.id, structure.name(), Some(structure.ty()));
+                }
+                Definition::Enum(e) => {
+                    rc_symbol_table.upsert(e.id, e.name(), Some(e.ty()));
+                }
+            }
+        }
+        rc_symbol_table
     }
 }
 
@@ -200,7 +276,9 @@ impl Codebase<SealedState> {
     {
         self.storage.nodes.iter().filter_map(cast)
     }
+}
 
+impl<T> Codebase<T> {
     #[must_use = "Use this function to get a Node's source file"]
     pub fn find_node_file(&self, id: u32) -> Option<SourceCodeFile> {
         if let Some((_, file)) = self
@@ -263,6 +341,56 @@ mod tests {
                 import.reference.is_some(),
                 "Import reference should be set for all import nodes"
             );
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_imported_function_types_resolved_correctly() -> anyhow::Result<()> {
+        // Create a new open codebase.
+        let mut codebase = Codebase::<OpenState>::new();
+        // File A defines a function.
+        let source_a = r"
+            export pure circuit unknown_ship_def(): ShipDef {
+              return ShipDef {
+                ship: SHIP.unknown,
+                ship_cell: Coord { 0, 0 },
+                ship_v: false
+              };
+            }
+        ";
+        // File B imports file A and calls the function.
+        let source_b = r#"
+            import "./a.compact";
+            pure circuit calculate_ship_def(shot_attempt: Coord, ship_state: ShipState, updated_ship_state: ShipState, ships: Ships, player: Bytes<32>): ShotResult {
+                return unknown_ship_def();
+            }
+        "#;
+        codebase.add_file("./a.compact", source_a);
+        codebase.add_file("./b.compact", source_b);
+        let sealed = codebase.seal()?;
+        let unknown_ship_def_node_id = sealed
+            .list_nodes_cmp(|node| {
+                if let NodeType::Definition(Definition::Circuit(circuit)) = node {
+                    if circuit.name() == "unknown_ship_def" {
+                        return Some(node.id());
+                    }
+                }
+                None
+            })
+            .next()
+            .expect("unknown_ship_def node not found");
+        println!("unknown_ship_def_node_id: {unknown_ship_def_node_id}");
+        let ship_def_type = sealed
+            .get_symbol_type_by_id(unknown_ship_def_node_id)
+            .unwrap_or_else(|| {
+                panic!("Type for unknown_ship_def not found [{unknown_ship_def_node_id}]")
+            });
+        match ship_def_type {
+            Type::Ref(ref ty) => {
+                assert_eq!(ty.name(), "ShipDef");
+            }
+            _ => panic!("Expected a reference type for unknown_ship_def"),
         }
         Ok(())
     }

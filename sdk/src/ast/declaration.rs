@@ -22,7 +22,7 @@ ast_enum! {
         @symbol Ledger(Rc<Ledger>),
         @scope Constructor(Rc<Constructor>),
         @scope Contract(Rc<Contract>),
-        @raw Definition(Definition),
+        @raw Definition(Definition), //TODO: why is it here?
         @symbol PatternArgument(Rc<PatternArgument>),
         StructPatternField(Rc<StructPatternField>),
     }
