@@ -4,7 +4,7 @@ use clap::Parser;
 use midnight_security_detectors::all_detectors;
 use midnight_security_detectors_sdk::{build_codebase, DetectorResult, MidnightDetector};
 use parser::Cli;
-use serde_json::json;
+use serde_json::{json, Map};
 
 mod parser;
 
@@ -15,9 +15,9 @@ fn main() {
         return;
     }
 
-    if args.paths.is_some() {
+    if args.code.is_some() {
         let mut corpus = HashMap::new();
-        for path in &args.paths.unwrap() {
+        for path in &args.code.unwrap() {
             if path.is_dir() {
                 let mut stack = vec![path.clone()];
                 while let Some(current_path) = stack.pop() {
@@ -42,18 +42,17 @@ fn main() {
         }
         if !corpus.is_empty() {
             let result = execute_rules(&corpus, args.detectors);
-            let mut delector_responses = Vec::new();
+            let mut detector_responses = Map::new();
             for (detector_name, errors) in result {
                 let instances = detector_result_to_json(errors, args.project_root.clone());
                 let detector_response = json!({
-                    detector_name : {
-                        "finding": {
-                            "instances": instances
-                        }
+                    "finding": {
+                        "instances": instances
                     },
-                    "errors": null
+                    "errors": [],
+                    "metadata": {}
                 });
-                delector_responses.push(detector_response);
+                detector_responses.insert(detector_name, detector_response);
             }
             let res = json!({
                 "errors": [],
@@ -61,7 +60,7 @@ fn main() {
                     .iter()
                     .map(|k| relative_file_path(k, &args.project_root))
                     .collect::<Vec<_>>(),
-                "detector_responses": delector_responses,
+                "detector_responses": detector_responses,
             });
             println!("{}", serde_json::to_string_pretty(&res).unwrap());
         }
@@ -145,21 +144,23 @@ fn custom_detectors() -> Vec<MidnightDetector> {
 fn get_scanner_metadata() -> String {
     let version = env!("CARGO_PKG_VERSION");
     let org = "OpenZeppelin";
+    let description = "Static analyzer for Midnight network Compact source code files";
     let mut detectors = Vec::new();
     for detector in available_detectors() {
         let json_detector = json!({
-            "name": detector.name(),
+            "id": detector.name(),
             "description": detector.description(),
             "report": {
                 "severity": detector.severity(),
                 "tags": detector.tags(),
-            },
-            "template": yml_string_to_json(detector.template())
+                "template": yml_string_to_json(detector.template())
+            }
         });
         detectors.push(json_detector);
     }
     let scanner_json = json!({
         "name": "compact_scanner",
+        "description": description,
         "version": version,
         "org": org,
         "detectors": detectors
