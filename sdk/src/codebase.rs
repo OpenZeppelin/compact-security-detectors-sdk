@@ -182,13 +182,13 @@ impl Codebase<OpenState> {
     }
 
     fn link_function_calls(&mut self) {
+        // Collect all function call nodes (their id and the target function name)
         let function_calls: Vec<(u32, String)> = self
             .storage
             .nodes
             .iter()
             .filter_map(|node| {
                 if let NodeType::Expression(Expression::FunctionCall(function_call)) = node {
-                    // Corrected spelling: "function_name" instead of "fucntion_name"
                     if let Expression::Function(Function::Named(function_name)) =
                         &function_call.function
                     {
@@ -203,21 +203,57 @@ impl Codebase<OpenState> {
             .collect();
 
         for (call_id, function_name) in function_calls {
+            // Get the source file for this function call node.
             if let Some(file) = self.find_node_file(call_id) {
-                if let Some(circuit) = file
+                // First, try to find a matching circuit in the current file.
+                let mut circuit_opt = file
                     .ast
                     .circuits()
                     .iter()
-                    .find(|circuit| circuit.name() == function_name)
-                {
-                    // Now it is safe to get a mutable borrow
+                    .find(|c| c.name() == function_name)
+                    .cloned();
+                // If not found locally, search among the imports for this file.
+                if circuit_opt.is_none() {
+                    // List all import nodes that originate from this file.
+                    let import_nodes: Vec<_> = self
+                        .storage
+                        .nodes
+                        .iter()
+                        .filter_map(|node| {
+                            if let NodeType::Declaration(Declaration::Import(import)) = node {
+                                // Only consider imports that belong to the same file.
+                                if let Some(import_file) = self.find_node_file(node.id()) {
+                                    if import_file.fname == file.fname {
+                                        return Some(import);
+                                    }
+                                }
+                            }
+                            None
+                        })
+                        .collect();
+                    // Look in each import's referenced program (if set) for the required circuit.
+                    for import in import_nodes {
+                        if let Some(imported_program) = &import.reference {
+                            if let Some(circuit) = imported_program
+                                .circuits()
+                                .iter()
+                                .find(|c| c.name() == function_name)
+                            {
+                                circuit_opt = Some(circuit.clone());
+                                break;
+                            }
+                        }
+                    }
+                }
+                // If a matching circuit was found, update the function call node.
+                if let Some(circuit) = circuit_opt {
                     if let Some(NodeType::Expression(Expression::FunctionCall(
                         ref mut function_call_node,
                     ))) = self.storage.find_node_mut(call_id)
                     {
-                        // Ensure we have a mutable instance from an Rc
+                        // Use Rc::make_mut to get a mutable reference from the Rc.
                         let function_call_mut = Rc::make_mut(function_call_node);
-                        function_call_mut.reference = Some(circuit.clone());
+                        function_call_mut.reference = Some(circuit);
                     }
                 }
             }
