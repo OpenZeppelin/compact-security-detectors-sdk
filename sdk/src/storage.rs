@@ -14,6 +14,10 @@ impl NodesStorage {
         self.nodes.iter().find(|n| n.id() == id).cloned()
     }
 
+    pub fn find_node_mut(&mut self, id: u32) -> Option<&mut NodeType> {
+        self.nodes.iter_mut().find(|n| n.id() == id)
+    }
+
     #[must_use = "Use this method to find a Node's parent Node"]
     pub fn find_parent_node(&self, id: u32) -> Option<u32> {
         self.node_routes

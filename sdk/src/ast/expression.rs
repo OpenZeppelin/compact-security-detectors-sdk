@@ -3,6 +3,7 @@ use std::rc::Rc;
 use crate::{ast_enum, ast_nodes, ast_nodes_impl};
 
 use super::{
+    definition::Circuit,
     function::Function,
     literal::{Literal, Nat},
     node::{Node, NodeKind, SymbolNode},
@@ -92,6 +93,7 @@ ast_nodes! {
     pub struct FunctionCall {
         pub function: Expression,
         pub arguments: Vec<Expression>,
+        pub reference: Option<Rc<Circuit>>,
     }
 
     pub struct Sequence {

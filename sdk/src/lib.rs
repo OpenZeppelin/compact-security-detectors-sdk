@@ -81,6 +81,9 @@ mod tests {
         let corpus_directory = directory.parent().unwrap().join("corpus");
         let mut files = HashMap::new();
         for entry in std::fs::read_dir(corpus_directory).unwrap() {
+            if entry.as_ref().unwrap().path().is_dir() {
+                continue;
+            }
             let entry = entry.unwrap();
             let path = entry.path();
             let file_name = path.file_name().unwrap().to_str().unwrap().to_string();

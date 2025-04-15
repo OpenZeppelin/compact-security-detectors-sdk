@@ -4,6 +4,8 @@ use crate::{
         builder::build_ast,
         declaration::Declaration,
         definition::Definition,
+        expression::Expression,
+        function::Function,
         node::NodeKind,
         node_type::NodeType,
         program::Program,
@@ -111,11 +113,11 @@ impl Codebase<OpenState> {
                     if let Some(node_file) = self.find_node_file(node.id()) {
                         if node_file.fname == *file_path {
                             // Use the import reference (an id of the imported file) to look up the imported file's local symbol table.
-                            if let Some(imported_id) = import.reference {
+                            if let Some(imported) = &import.reference {
                                 if let Some((imported_fname, _)) = self
                                     .fname_ast_map
                                     .iter()
-                                    .find(|(_, file)| file.ast.id == imported_id)
+                                    .find(|(_, file)| file.ast.id == imported.id)
                                 {
                                     if let Some(imported_symtab) =
                                         local_symbol_tables.get(imported_fname)
@@ -139,6 +141,7 @@ impl Codebase<OpenState> {
             // println!("{}\n{}", &file_path, &symbol_table);
             symbol_tables.insert(file_path.clone(), symbol_table);
         }
+        self.link_function_calls();
         self.storage.seal();
         Ok(Codebase {
             storage: self.storage,
@@ -153,7 +156,7 @@ impl Codebase<OpenState> {
             if let NodeType::Declaration(Declaration::Import(ref mut import)) = node {
                 let import_mut = Rc::make_mut(import);
                 if let Some(file) = self.fname_ast_map.get(import_mut.name().as_str()) {
-                    import_mut.reference = Some(file.ast.id);
+                    import_mut.reference = Some(file.ast.clone());
 
                     // Propagate types from the imported file's symbol table
                     if let Some(imported_symtab) = self.symbol_tables.get(&file.fname) {
@@ -172,6 +175,49 @@ impl Codebase<OpenState> {
                                 .or_insert_with(|| Rc::new(SymbolTable::new(None)))
                                 .upsert(0, name, Some(ty));
                         }
+                    }
+                }
+            }
+        }
+    }
+
+    fn link_function_calls(&mut self) {
+        let function_calls: Vec<(u32, String)> = self
+            .storage
+            .nodes
+            .iter()
+            .filter_map(|node| {
+                if let NodeType::Expression(Expression::FunctionCall(function_call)) = node {
+                    // Corrected spelling: "function_name" instead of "fucntion_name"
+                    if let Expression::Function(Function::Named(function_name)) =
+                        &function_call.function
+                    {
+                        Some((function_call.id, function_name.name().to_owned()))
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        for (call_id, function_name) in function_calls {
+            if let Some(file) = self.find_node_file(call_id) {
+                if let Some(circuit) = file
+                    .ast
+                    .circuits()
+                    .iter()
+                    .find(|circuit| circuit.name() == function_name)
+                {
+                    // Now it is safe to get a mutable borrow
+                    if let Some(NodeType::Expression(Expression::FunctionCall(
+                        ref mut function_call_node,
+                    ))) = self.storage.find_node_mut(call_id)
+                    {
+                        // Ensure we have a mutable instance from an Rc
+                        let function_call_mut = Rc::make_mut(function_call_node);
+                        function_call_mut.reference = Some(circuit.clone());
                     }
                 }
             }
@@ -347,9 +393,7 @@ mod tests {
 
     #[test]
     fn test_imported_function_types_resolved_correctly() -> anyhow::Result<()> {
-        // Create a new open codebase.
         let mut codebase = Codebase::<OpenState>::new();
-        // File A defines a function.
         let source_a = r"
             export pure circuit unknown_ship_def(): ShipDef {
               return ShipDef {
@@ -359,7 +403,6 @@ mod tests {
               };
             }
         ";
-        // File B imports file A and calls the function.
         let source_b = r#"
             import "./a.compact";
             pure circuit calculate_ship_def(shot_attempt: Coord, ship_state: ShipState, updated_ship_state: ShipState, ships: Ships, player: Bytes<32>): ShotResult {
@@ -380,7 +423,6 @@ mod tests {
             })
             .next()
             .expect("unknown_ship_def node not found");
-        println!("unknown_ship_def_node_id: {unknown_ship_def_node_id}");
         let ship_def_type = sealed
             .get_symbol_type_by_id(unknown_ship_def_node_id)
             .unwrap_or_else(|| {
@@ -392,6 +434,105 @@ mod tests {
             }
             _ => panic!("Expected a reference type for unknown_ship_def"),
         }
+        Ok(())
+    }
+
+    #[test]
+    fn test_function_call_single_file_reference_resolution() -> anyhow::Result<()> {
+        let mut codebase = Codebase::<OpenState>::new();
+        let source_a = r"
+             export pure circuit unknown_ship_def(): ShipDef {
+               return ShipDef {
+                 ship: SHIP.unknown,
+                 ship_cell: Coord { 0, 0 },
+                 ship_v: false
+               };
+             }
+
+            pure circuit calculate_ship_def(shot_attempt: Coord, ship_state: ShipState, updated_ship_state: ShipState, ships: Ships, player: Bytes<32>): ShotResult {
+               return unknown_ship_def();
+            }
+         ";
+        codebase.add_file("./a.compact", source_a);
+        let sealed = codebase.seal()?;
+
+        let unknown_ship_def_circuit_node = sealed
+            .list_nodes_cmp(|node| {
+                if let NodeType::Definition(Definition::Circuit(circuit)) = node {
+                    if circuit.name() == "unknown_ship_def" {
+                        return Some(circuit.clone());
+                    }
+                }
+                None
+            })
+            .next()
+            .expect("unknown_ship_def node not found");
+        let function_call_node = sealed
+            .list_nodes_cmp(|node| {
+                if let NodeType::Expression(Expression::FunctionCall(func_call)) = node {
+                    return Some(func_call.clone());
+                }
+                None
+            })
+            .next()
+            .expect("Function call node not found");
+        assert_eq!(
+            function_call_node.reference.as_ref().unwrap().id,
+            unknown_ship_def_circuit_node.id,
+            "Function call reference should be set to the correct circuit id, expected: {}, found: {}",
+            unknown_ship_def_circuit_node.id, function_call_node.reference.as_ref().unwrap().id
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_function_call_multi_file_reference_resolution() -> anyhow::Result<()> {
+        let mut codebase = Codebase::<OpenState>::new();
+        let source_a = r"
+            export pure circuit unknown_ship_def(): ShipDef {
+              return ShipDef {
+                ship: SHIP.unknown,
+                ship_cell: Coord { 0, 0 },
+                ship_v: false
+              };
+            }
+        ";
+        let source_b = r#"
+            import "./a.compact";
+            pure circuit calculate_ship_def(shot_attempt: Coord, ship_state: ShipState, updated_ship_state: ShipState, ships: Ships, player: Bytes<32>): ShotResult {
+                return unknown_ship_def();
+            }
+        "#;
+        codebase.add_file("./a.compact", source_a);
+        codebase.add_file("./b.compact", source_b);
+        let sealed = codebase.seal()?;
+
+        let unknown_ship_def_circuit_node = sealed
+            .list_nodes_cmp(|node| {
+                if let NodeType::Definition(Definition::Circuit(circuit)) = node {
+                    if circuit.name() == "unknown_ship_def" {
+                        return Some(circuit.clone());
+                    }
+                }
+                None
+            })
+            .next()
+            .expect("unknown_ship_def node not found");
+        let function_call_node = sealed
+            .list_nodes_cmp(|node| {
+                if let NodeType::Expression(Expression::FunctionCall(func_call)) = node {
+                    return Some(func_call.clone());
+                }
+                None
+            })
+            .next()
+            .expect("Function call node not found");
+        assert_eq!(
+            function_call_node.reference.as_ref().unwrap().id,
+            unknown_ship_def_circuit_node.id,
+            "Function call reference should be set to the correct circuit id, expected: {}, found: {}",
+            unknown_ship_def_circuit_node.id, function_call_node.reference.as_ref().unwrap().id
+        );
         Ok(())
     }
 }

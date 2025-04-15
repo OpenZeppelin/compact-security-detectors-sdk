@@ -1732,6 +1732,7 @@ fn build_term(
                 location: location(term_node, source),
                 function: Expression::Function(fun),
                 arguments,
+                reference: None,
             });
             codebase.add_node(
                 NodeType::Expression(Expression::FunctionCall(fun.clone())),

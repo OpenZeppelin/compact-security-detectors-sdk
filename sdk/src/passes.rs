@@ -662,6 +662,7 @@ mod test {
             location: default_location(),
             function: Expression::Identifier(mock_identifier(18, "f")),
             arguments: vec![],
+            reference: None,
         };
         let expr = Expression::FunctionCall(Rc::new(func_call));
         let ty = infer_expr(&expr, &env).unwrap();

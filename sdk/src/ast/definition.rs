@@ -1,5 +1,5 @@
 #![warn(clippy::pedantic)]
-use std::rc::Rc;
+use std::{rc::Rc, vec};
 
 use crate::{ast::statement::Statement, ast_enum, ast_nodes, ast_nodes_impl};
 
@@ -197,5 +197,29 @@ impl Circuit {
     #[must_use = "This method to check if the circuit is external"]
     pub fn is_external(&self) -> bool {
         self.body.is_none()
+    }
+
+    #[must_use]
+    pub fn inline_function_calls(&self) -> Vec<Statement> {
+        if let Some(body) = &self.body {
+            let mut inlined_statements = Vec::new();
+            for stmt in &body.statements {
+                match stmt {
+                    Statement::Expression(Expression::FunctionCall(func_call)) => {
+                        if let Some(circuit) = &func_call.reference {
+                            if circuit.body.is_some() {
+                                inlined_statements.extend(circuit.inline_function_calls());
+                            }
+                        }
+                    }
+                    _ => {
+                        inlined_statements.push(stmt.clone());
+                    }
+                }
+            }
+            inlined_statements
+        } else {
+            vec![]
+        }
     }
 }

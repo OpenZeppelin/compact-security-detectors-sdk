@@ -8,6 +8,7 @@ use super::{
     expression::Identifier,
     literal::Nat,
     node::{Node, NodeKind, SymbolNode},
+    program::Program,
     statement::{Block, Statement},
     ty::Type,
 };
@@ -55,7 +56,7 @@ ast_nodes! {
         pub value: Rc<Identifier>,
         pub generic_parameters: Option<Vec<GArgument>>,
         pub prefix: Option<Rc<Identifier>>,
-        pub reference: Option<u32>,
+        pub reference: Option<Rc<Program>>,
     }
 
     pub struct Include {
