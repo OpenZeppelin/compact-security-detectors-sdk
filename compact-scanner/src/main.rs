@@ -42,26 +42,36 @@ fn main() {
         }
         if !corpus.is_empty() {
             let result = execute_rules(&corpus, args.detectors);
+
+            let files_scanned: Vec<String> = corpus
+                .keys()
+                .map(|k| relative_file_path(k, &args.project_root))
+                .collect();
+
+            let project_root = &args.project_root;
+
             let mut detector_responses = Map::new();
             for (detector_name, errors) in result {
-                let instances = detector_result_to_json(errors, args.project_root.clone());
+                let instances = detector_result_to_json(errors, project_root);
+
                 let detector_response = json!({
-                    "finding": {
-                        "instances": instances
-                    },
+                    "findings": [
+                        {
+                            "instances": instances
+                        }
+                    ],
                     "errors": [],
                     "metadata": {}
                 });
                 detector_responses.insert(detector_name, detector_response);
             }
+
             let res = json!({
                 "errors": [],
-                "files_scanned": &corpus.keys().collect::<Vec<_>>()
-                    .iter()
-                    .map(|k| relative_file_path(k, &args.project_root))
-                    .collect::<Vec<_>>(),
+                "scanned": files_scanned,
                 "detector_responses": detector_responses,
             });
+
             println!("{}", serde_json::to_string_pretty(&res).unwrap());
         }
     }
@@ -76,7 +86,7 @@ fn execute_rules(
         .into_iter()
         .filter(|detector| {
             if let Some(ref rules) = rules {
-                rules.contains(&detector.name().to_string())
+                rules.contains(&detector.id().to_string())
             } else {
                 true
             }
@@ -87,7 +97,7 @@ fn execute_rules(
     for detector in selected_detectors {
         let detector_result = detector.check(&codebase);
         if let Some(errors) = detector_result {
-            results.insert(detector.name().to_string(), errors);
+            results.insert(detector.id().to_string(), errors);
         }
     }
     results
@@ -95,18 +105,18 @@ fn execute_rules(
 
 fn detector_result_to_json(
     errors: Vec<DetectorResult>,
-    project_root: Option<std::path::PathBuf>,
+    project_root: &Option<std::path::PathBuf>,
 ) -> serde_json::Value {
     let mut json_errors = Vec::new();
     for error in errors {
-        let file_path = relative_file_path(&error.file_path, &project_root);
+        let path = relative_file_path(&error.file_path, &project_root);
 
         let json_error = json!({
-            "file_path": file_path,
+            "path": path,
             "offset_start": error.offset_start,
             "offset_end": error.offset_end,
-            "suggested_fixes": [],
-            "extras": error.extras,
+            "fixes": [],
+            "extra": {"metavars": error.extra},
         });
         json_errors.push(json_error);
     }
@@ -148,7 +158,8 @@ fn get_scanner_metadata() -> String {
     let mut detectors = Vec::new();
     for detector in available_detectors() {
         let json_detector = json!({
-            "id": detector.name(),
+            "id": detector.id(),
+            "uid": detector.uid(),
             "description": detector.description(),
             "report": {
                 "severity": detector.severity(),
@@ -159,10 +170,11 @@ fn get_scanner_metadata() -> String {
         detectors.push(json_detector);
     }
     let scanner_json = json!({
-        "name": "compact_scanner",
+        "name": "compact-scanner",
         "description": description,
         "version": version,
         "org": org,
+        "extensions": [".compact"],
         "detectors": detectors
     });
     serde_json::to_string_pretty(&scanner_json).unwrap()

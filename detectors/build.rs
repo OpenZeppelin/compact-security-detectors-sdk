@@ -28,9 +28,13 @@ fn main() {
                     .expect("metadata.id is missing or not a string");
                 let type_name = to_type_name(id);
 
+                let uid = metadata["uid"]
+                    .as_str()
+                    .expect("metadata.uid is missing or not a string"); // or panic if UID is required
+
                 let description = metadata["description"]
                     .as_str()
-                    .unwrap_or("No description provided");
+                    .unwrap_or("");
                 let report = &metadata["report"];
                 let severity = report["severity"].as_str().unwrap_or("note");
                 let tags = report["tags"]
@@ -53,8 +57,11 @@ fn main() {
                 let type_def = format!(
                     r#"
 impl DetectorReportTemplate for {type_name} {{
-    fn name(&self) -> String {{
+    fn id(&self) -> String {{
         "{id}".to_string()
+    }}
+    fn uid(&self) -> String {{
+        "{uid}".to_string()
     }}
     fn description(&self) -> String {{
         "{description}".to_string()
@@ -96,13 +103,18 @@ impl DetectorReportTemplate for {type_name} {{
         "{template_yaml}".to_string()
     }}
 }}
-
 "#,
                     type_name = type_name,
+                    id = escape_rust_string(id),
+                    uid = escape_rust_string(uid),
+                    description = escape_rust_string(description),
+                    severity = escape_rust_string(severity),
+                    tags = tags,
                     title = escape_rust_string(title),
                     opening = escape_rust_string(opening),
                     body_list_item = escape_rust_string(body_list_item),
                     closing = escape_rust_string(closing),
+                    template_yaml = escape_rust_string(&template_yaml),
                 );
                 generated.push_str(&type_def);
             }

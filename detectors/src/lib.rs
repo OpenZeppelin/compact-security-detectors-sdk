@@ -32,7 +32,7 @@ detectors! {
                     file_path: codebase.find_node_file(assert_node.id).unwrap().fname,
                     offset_start: assert_node.location.offset_start,
                     offset_end: assert_node.location.offset_end,
-                    extras: {
+                    extra: {
                         let mut map = HashMap::new();
                         map.insert("#PARENT_NAME".to_string(), parent_name);
                         Some(map)
@@ -79,7 +79,7 @@ detectors! {
                                     file_path: codebase.find_node_file(index_access.id).unwrap().fname,
                                     offset_start: index_access.location.offset_start,
                                     offset_end: index_access.location.offset_end,
-                                    extras: {
+                                    extra: {
                                         let mut map = HashMap::new();
                                         map.insert("#PARENT_NAME".to_string(), parent_name);
                                         Some(map)
@@ -124,7 +124,7 @@ mod tests {
         assert_eq!(detector_result.file_path, "test.compact");
         assert_eq!(detector_result.offset_start, 153);
         assert_eq!(detector_result.offset_end, 184);
-        assert_eq!(detector_result.extras, {
+        assert_eq!(detector_result.extra, {
             let mut map = HashMap::new();
             map.insert("#PARENT_NAME".to_string(), "set_admin".to_string());
             Some(map)
@@ -152,7 +152,7 @@ mod tests {
         assert_eq!(detector_result.file_path, "test.compact");
         assert_eq!(detector_result.offset_start, 132);
         assert_eq!(detector_result.offset_end, 139);
-        assert_eq!(detector_result.extras, {
+        assert_eq!(detector_result.extra, {
             let mut map = HashMap::new();
             map.insert("#PARENT_NAME".to_string(), "contains".to_string());
             Some(map)

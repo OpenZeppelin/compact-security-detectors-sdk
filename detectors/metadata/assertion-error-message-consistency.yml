@@ -9,7 +9,6 @@ metadata:
       - reportable
       - compact
     template:
-      modification-date: '2025-04-07' # YYYY-MM-DD
       title: 'Potewntial Out of Boundary Array Index Access'
       body-list-item-intro: |
         The following potential out boundary array index access were found in the code:

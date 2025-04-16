@@ -21,7 +21,7 @@ pub struct DetectorResult {
     pub file_path: String,
     pub offset_start: u32,
     pub offset_end: u32,
-    pub extras: Option<HashMap<String, String>>,
+    pub extra: Option<HashMap<String, String>>,
 }
 
 pub trait Detector {
@@ -29,7 +29,8 @@ pub trait Detector {
 }
 
 pub trait DetectorReportTemplate {
-    fn name(&self) -> String;
+    fn id(&self) -> String;
+    fn uid(&self) -> String;
     fn description(&self) -> String;
     fn severity(&self) -> String;
     fn tags(&self) -> Vec<String>;
@@ -47,7 +48,7 @@ pub trait DetectorReportTemplate {
 
 impl Display for dyn CombinedDetector {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.name())
+        write!(f, "{}", self.id())
     }
 }
 
