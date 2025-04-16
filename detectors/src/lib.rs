@@ -34,7 +34,7 @@ detectors! {
                     offset_end: assert_node.location.offset_end,
                     extra: {
                         let mut map = HashMap::new();
-                        map.insert("#PARENT_NAME".to_string(), parent_name);
+                        map.insert("ASSERTION_MESSAGE".to_string(), parent_name);
                         Some(map)
                     },
                 });
@@ -81,7 +81,7 @@ detectors! {
                                     offset_end: index_access.location.offset_end,
                                     extra: {
                                         let mut map = HashMap::new();
-                                        map.insert("#PARENT_NAME".to_string(), parent_name);
+                                        map.insert("ARRAY_INDEX_ACCESS".to_string(), parent_name);
                                         Some(map)
                                     },
                                 },

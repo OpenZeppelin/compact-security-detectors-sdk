@@ -1,22 +1,16 @@
 metadata:
   id: array-loop-bound-check
-  uid: AFAIK
-  description: 
+  uid: 3fTuAe
+  description: Checks if there is a potential out of boundary array index access
   report:
-    severity: low
+    severity: medium
     tags:
       - audit
       - reportable
       - compact
     template:
-      title: 'Assertion Error Message Consistency'
-      body-list-item-intro: |
-        The following potential assertion error messages were found in the code:
-      body-list-item: |
-        ============
-        
+      title: Potential Out of Boundary Array Index Access
+      body-list-item-intro: 'The following potential out boundary array index access were found in the code:'
+      body-list-item-always: |
         'Within [`$file_name` on line $instance_line]($instance_line_link)
-        
-        $ASSERTION_MESSAGE'
-
-      closing: ''
+        `$ARRAY_INDEX_ACCESS`
