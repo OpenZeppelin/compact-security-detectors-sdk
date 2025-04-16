@@ -30,7 +30,7 @@ fn main() {
 
                 let uid = metadata["uid"]
                     .as_str()
-                    .expect("metadata.uid is missing or not a string"); // or panic if UID is required
+                    .expect("metadata.uid is missing or not a string");
 
                 let description = metadata["description"]
                     .as_str()
