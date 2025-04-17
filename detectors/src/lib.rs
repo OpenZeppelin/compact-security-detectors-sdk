@@ -126,7 +126,7 @@ mod tests {
         assert_eq!(detector_result.offset_end, 184);
         assert_eq!(detector_result.extra, {
             let mut map = HashMap::new();
-            map.insert("#PARENT_NAME".to_string(), "set_admin".to_string());
+            map.insert("ASSERTION_MESSAGE".to_string(), "set_admin".to_string());
             Some(map)
         });
     }
@@ -154,7 +154,7 @@ mod tests {
         assert_eq!(detector_result.offset_end, 139);
         assert_eq!(detector_result.extra, {
             let mut map = HashMap::new();
-            map.insert("#PARENT_NAME".to_string(), "contains".to_string());
+            map.insert("ARRAY_INDEX_ACCESS".to_string(), "contains".to_string());
             Some(map)
         });
     }

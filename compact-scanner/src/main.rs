@@ -109,7 +109,7 @@ fn detector_result_to_json(
 ) -> serde_json::Value {
     let mut json_errors = Vec::new();
     for error in errors {
-        let path = relative_file_path(&error.file_path, &project_root);
+        let path = relative_file_path(&error.file_path, project_root);
 
         let json_error = json!({
             "path": path,
