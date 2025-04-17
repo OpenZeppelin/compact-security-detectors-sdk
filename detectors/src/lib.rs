@@ -1,12 +1,9 @@
-// Re-export the detectors
-pub use array_loop_bound_check::ArrayLoopBoundCheck;
-pub use assertion_error_message_verbose::AssertionErrorMessageVerbose;
-
-include!(concat!(env!("OUT_DIR"), "/detector-report-templates.rs"));
-
-// Module declarations
-mod array_loop_bound_check;
-mod assertion_error_message_verbose;
+// 1. Modules and re-exports
+include!(concat!(env!("OUT_DIR"), "/mod_includes.rs"));
 mod utils;
 
-detectors! {}
+// 2. DetectorReportTemplate trait impls
+include!(concat!(env!("OUT_DIR"), "/detector-report-templates.rs"));
+
+// 3. Registration
+include!(concat!(env!("OUT_DIR"), "/register.rs"));

@@ -32,9 +32,7 @@ fn main() {
                     .as_str()
                     .expect("metadata.uid is missing or not a string");
 
-                let description = metadata["description"]
-                    .as_str()
-                    .unwrap_or("");
+                let description = metadata["description"].as_str().unwrap_or("");
                 let report = &metadata["report"];
                 let severity = report["severity"].as_str().unwrap_or("note");
                 let tags = report["tags"]
@@ -125,6 +123,45 @@ impl DetectorReportTemplate for {type_name} {{
 
     fs::write(&dest_path, generated)
         .unwrap_or_else(|_| panic!("Failed to write to {}", dest_path.display()));
+
+    // --- Generate mod_includes.rs to register mods ---
+    let src_dir = Path::new("src");
+    let out_dir = std::env::var("OUT_DIR").unwrap();
+    let mod_file_path = Path::new(&out_dir).join("mod_includes.rs");
+
+    let mut mods = String::new();
+    let mut detector_type_names = Vec::new();
+
+    for entry in fs::read_dir(src_dir).unwrap() {
+        let entry = entry.unwrap();
+        let path = entry.path();
+        if path.extension().and_then(|s| s.to_str()) == Some("rs") {
+            let file_name = path.file_name().unwrap().to_str().unwrap();
+            if file_name != "lib.rs" && file_name != "utils.rs" {
+                let mod_name = file_name.trim_end_matches(".rs");
+                let type_name = to_type_name(mod_name);
+                mods.push_str(&format!(
+                    "pub mod {} {{ include!(concat!(env!(\"CARGO_MANIFEST_DIR\"), \"/src/{}.rs\")); }}\n",
+                    mod_name, mod_name
+                ));
+                mods.push_str(&format!("pub use {}::{};\n", mod_name, type_name));
+                detector_type_names.push(type_name);
+            }
+        }
+    }
+
+    fs::write(&mod_file_path, mods).unwrap();
+
+    // --- Generate register.rs for all_detectors() ---
+    let register_path = Path::new(&out_dir).join("register.rs");
+    let mut register_code = String::from(
+        "pub fn all_detectors() -> Vec<midnight_security_detectors_sdk::MidnightDetector> {\n    vec![\n",
+    );
+    for type_name in &detector_type_names {
+        register_code.push_str(&format!("        Box::new({}),\n", type_name));
+    }
+    register_code.push_str("    ]\n}\n");
+    fs::write(&register_path, register_code).unwrap();
 }
 
 fn to_type_name(id: &str) -> String {
