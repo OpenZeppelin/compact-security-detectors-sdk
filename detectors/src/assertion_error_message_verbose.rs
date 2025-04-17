@@ -9,8 +9,8 @@ use midnight_security_detectors_sdk::{
 use crate::detector;
 
 detector! {
-    #[type_name = AssertionErrorMessageConsistency]
-    fn assertion_error_message_consistency(
+    #[type_name = AssertionErrorMessageVerbose]
+    fn assertion_error_message_verbose(
         codebase: &RefCell<Codebase<SealedState>>,
     ) -> Option<Vec<DetectorResult>> {
         let codebase = codebase.borrow();
@@ -49,5 +49,39 @@ detector! {
         } else {
             Some(errors)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use midnight_security_detectors_sdk::{build_codebase, Detector};
+
+    use super::*;
+
+    #[test]
+    fn test_all_detectors() {
+        let detector = AssertionErrorMessageVerbose;
+        let src = "export circuit set_admin(new_admin: Bytes<32>): [] {
+            const current_proof = generate_key_proof(sigCounter as Field as Bytes<32>);
+            assert admin == pad(32, \"\") \"\";
+            admin = new_admin;
+            return [];
+        }";
+        let mut data = HashMap::new();
+        data.insert("test.compact".to_string(), src.to_string());
+        let codebase = build_codebase(&data).unwrap();
+        let result = detector.check(&codebase);
+        assert!(result.is_some());
+        assert_eq!(result.as_ref().unwrap().len(), 1, "{result:?}");
+        let detector_result = result.as_ref().unwrap().first().unwrap();
+        assert_eq!(detector_result.file_path, "test.compact");
+        assert_eq!(detector_result.offset_start, 153);
+        assert_eq!(detector_result.offset_end, 184);
+        assert_eq!(detector_result.extra, {
+            let mut map = HashMap::new();
+            map.insert("PARENT_NAME".to_string(), "set_admin".to_string());
+            map.insert("PARENT_TYPE".to_string(), "circuit".to_string());
+            Some(map)
+        });
     }
 }
