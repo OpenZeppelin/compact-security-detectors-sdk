@@ -1,7 +1,7 @@
 metadata:
   id: assertion-error-message-verbose
   uid: 3HgyHb
-  description: Checks if a verbose error message is presented directly to a user
+  description: Detects assert statements that expose overly verbose or technical error messages directly to users, which can leak sensitive implementation details or confuse end users. Ensuring concise, user-friendly error messages helps maintain security and usability.
   report:
     severity: low
     tags:
@@ -9,7 +9,12 @@ metadata:
       - reportable
       - compact
     template:
-      title: Assertion Error Message Too Verbose
-      body-list-item-intro: 'The verbose error messages for assert statements were found in the code:'
-      body-list-item-always: The assert statement in the `$PARENT_NAME` $PARENT_TYPE on line $instance_line of [`$file_name`]($instance_line_link)
-      closing: Consider using more human readable error messages with assertions.
+      title: Verbose Assertion Error Message Exposed
+      opening: Assert statements should provide clear and user-friendly error messages. Verbose or technical error messages may inadvertently reveal internal logic or sensitive information, and can be confusing for end users.
+      body-single-file-single-instance: In `$file_name`, an assert statement in the `$PARENT_NAME` $PARENT_TYPE on line $instance_line exposes a verbose or technical error message directly to users.
+      body-single-file-multiple-instance: In `$file_name`, multiple assert statements expose verbose or technical error messages directly to users.
+      body-multiple-file-multiple-instance: Across $total_files files, multiple assert statements expose verbose or technical error messages directly to users.
+      body-list-item-intro: 'The following assert statements were found with verbose or technical error messages:'
+      body-list-item-single-file: '- In `$PARENT_NAME` $PARENT_TYPE on line $instance_line of [`$file_name`]($instance_line_link)'
+      body-list-item-multiple-file: '- In `$PARENT_NAME` $PARENT_TYPE on line $instance_line of [`$file_name`]($instance_line_link)'
+      closing: To improve security and user experience, use concise and human-readable error messages in assert statements. Avoid exposing internal details or technical jargon, as this may confuse users or leak sensitive information.
