@@ -11,5 +11,4 @@ metadata:
     template:
       title: Potential Out of Boundary Array Index Access
       body-list-item-intro: 'The following potential out of boundary array index access were found in the code:'
-      body-list-item-always: |
-        The `$ARRAY_INDEX_ACCESS` statement in the `$PARENT_NAME` $PARENT_TYPE on line $instance_line of [`$file_name`]($instance_line_link)
+      body-list-item-always: The `$ARRAY_INDEX_ACCESS` statement in the `$PARENT_NAME` $PARENT_TYPE on line $instance_line of [`$file_name`]($instance_line_link)

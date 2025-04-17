@@ -11,6 +11,5 @@ metadata:
     template:
       title: Assertion Error Message Too Verbose
       body-list-item-intro: 'The verbose error messages for assert statements were found in the code:'
-      body-list-item-always: |
-        The assert statement in the `$PARENT_NAME` $PARENT_TYPE on line $instance_line of [`$file_name`]($instance_line_link)
+      body-list-item-always: The assert statement in the `$PARENT_NAME` $PARENT_TYPE on line $instance_line of [`$file_name`]($instance_line_link)
       closing: Consider using more human readable error messages with assertions.
