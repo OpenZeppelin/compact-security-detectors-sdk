@@ -2,6 +2,8 @@ use serde_yaml::Value;
 use std::path::Path;
 use std::{env, fs};
 
+const EXPLICITLY_NOT_DETECTORS: &[&str] = &["lib.rs", "utils.rs"];
+
 fn main() {
     let metadata_dir = Path::new("metadata");
     let out_dir = env::var("OUT_DIR").expect("OUT_DIR not set");
@@ -137,7 +139,7 @@ impl DetectorReportTemplate for {type_name} {{
         let path = entry.path();
         if path.extension().and_then(|s| s.to_str()) == Some("rs") {
             let file_name = path.file_name().unwrap().to_str().unwrap();
-            if file_name != "lib.rs" && file_name != "utils.rs" {
+            if !EXPLICITLY_NOT_DETECTORS.contains(&file_name){
                 let mod_name = file_name.trim_end_matches(".rs");
                 let type_name = to_type_name(mod_name);
                 mods.push_str(&format!(
