@@ -10,7 +10,6 @@ metadata:
       - compact
     template:
       title: Potential Out of Boundary Array Index Access
-      body-list-item-intro: 'The following potential out boundary array index access were found in the code:'
+      body-list-item-intro: 'The following potential out of boundary array index access were found in the code:'
       body-list-item-always: |
-        'Within [`$file_name` on line $instance_line]($instance_line_link)
-        `$ARRAY_INDEX_ACCESS`
+        The `$ARRAY_INDEX_ACCESS` statement in the `$PARENT_NAME` $PARENT_TYPE on line $instance_line of [`$file_name`]($instance_line_link)

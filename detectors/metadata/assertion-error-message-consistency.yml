@@ -9,7 +9,7 @@ metadata:
       - compact
     template:
       title: Assertion Error Message Consistency
-      body-list-item-intro: 'The following potential assertion error messages were found in the code:'
+      body-list-item-intro: 'The verbose error messages for assert statements were found in the code:'
+      closing: Consider using more human readable error messages with assertions.
       body-list-item-always: |
-        Within [`$file_name` on line $instance_line]($instance_line_link)
-        `$ASSERTION_MESSAGE`
+        The assert statement in the `$PARENT_NAME` $PARENT_TYPE on line $instance_line of [`$file_name`]($instance_line_link)

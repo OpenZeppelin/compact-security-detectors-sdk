@@ -1,7 +1,10 @@
 use std::{cell::RefCell, collections::HashMap};
 
 use midnight_security_detectors_sdk::{
-    ast::{definition::Definition, expression::Expression, node_type::NodeType, ty::Type},
+    ast::{
+        declaration::Declaration, definition::Definition, expression::Expression,
+        node_type::NodeType, ty::Type,
+    },
     codebase::{Codebase, SealedState},
     DetectorResult,
 };
@@ -23,9 +26,13 @@ detectors! {
                 .unwrap_or(true)
             {
                 let parent = codebase.get_parent_container(assert_node.id);
+                let mut parent_type = "circuit";
                 let parent_name = match parent {
                     Some(NodeType::Definition(Definition::Circuit(c))) => c.name(),
-                    Some(NodeType::Definition(Definition::Module(m))) => m.name(),
+                    Some(NodeType::Declaration(Declaration::Constructor(_))) => {
+                        parent_type = "constructor";
+                        String::default()
+                    }
                     _ => String::new(),
                 };
                 errors.push(DetectorResult {
@@ -34,7 +41,8 @@ detectors! {
                     offset_end: assert_node.location.offset_end,
                     extra: {
                         let mut map = HashMap::new();
-                        map.insert("ASSERTION_MESSAGE".to_string(), parent_name);
+                        map.insert("PARENT_NAME".to_string(), parent_name);
+                        map.insert("PARENT_TYPE".to_string(), parent_type.to_string());
                         Some(map)
                     },
                 });
@@ -69,10 +77,14 @@ detectors! {
                     if let Some(Type::Vector(t_vec)) = arr_type {
                         if t_vec.size_nat().unwrap_or(0) >= upper_bound {
                             let parent = codebase.get_parent_container(index_access.id);
+                            let mut parent_type = "circuit";
                             let parent_name = match parent {
                                 Some(NodeType::Definition(Definition::Circuit(c))) => c.name(),
-                                Some(NodeType::Definition(Definition::Module(m))) => m.name(),
-                                _ => String::new(),
+                                Some(NodeType::Declaration(Declaration::Constructor(_))) => {
+                                    parent_type = "constructor";
+                                    String::default()
+                                }
+                                _ => String::from("Unknown"),
                             };
                             errors.push(
                                 DetectorResult {
@@ -81,7 +93,9 @@ detectors! {
                                     offset_end: index_access.location.offset_end,
                                     extra: {
                                         let mut map = HashMap::new();
-                                        map.insert("ARRAY_INDEX_ACCESS".to_string(), parent_name);
+                                        map.insert("ARRAY_INDEX_ACCESS".to_string(), index_access.location.source.clone());
+                                        map.insert("PARENT_NAME".to_string(), parent_name);
+                                        map.insert("PARENT_TYPE".to_string(), parent_type.to_string());
                                         Some(map)
                                     },
                                 },
@@ -126,7 +140,8 @@ mod tests {
         assert_eq!(detector_result.offset_end, 184);
         assert_eq!(detector_result.extra, {
             let mut map = HashMap::new();
-            map.insert("ASSERTION_MESSAGE".to_string(), "set_admin".to_string());
+            map.insert("PARENT_NAME".to_string(), "set_admin".to_string());
+            map.insert("PARENT_TYPE".to_string(), "circuit".to_string());
             Some(map)
         });
     }
@@ -154,7 +169,9 @@ mod tests {
         assert_eq!(detector_result.offset_end, 139);
         assert_eq!(detector_result.extra, {
             let mut map = HashMap::new();
-            map.insert("ARRAY_INDEX_ACCESS".to_string(), "contains".to_string());
+            map.insert("ARRAY_INDEX_ACCESS".to_string(), "arr[11]".to_string());
+            map.insert("PARENT_NAME".to_string(), "contains".to_string());
+            map.insert("PARENT_TYPE".to_string(), "circuit".to_string());
             Some(map)
         });
     }
