@@ -10,8 +10,7 @@ metadata:
       - compact
     template:
       title: Potential Out-of-Bounds Array Index Access Detected
-      opening: |
-        Accessing array elements outside their valid index range can lead to runtime errors, security vulnerabilities, or unpredictable program behavior. This issue typically occurs when a loop iterates beyond the array's defined bounds, resulting in unsafe memory access.
+      opening: Accessing array elements outside their valid index range can lead to runtime errors, security vulnerabilities, or unpredictable program behavior. This issue typically occurs when a loop iterates beyond the array's defined bounds, resulting in unsafe memory access.
       body-single-file-single-instance: |
         In `$file_name`, a potential out-of-bounds array index access was detected in the `$PARENT_NAME` $PARENT_TYPE on line $instance_line. The array access statement `$ARRAY_INDEX_ACCESS` may exceed the array's valid index range.
       body-single-file-multiple-instance: |
@@ -19,7 +18,6 @@ metadata:
       body-multiple-file-multiple-instance: |
         Across $total_files files, multiple potential out-of-bounds array index accesses were detected. Review each instance below to ensure array accesses remain within valid bounds.
       body-list-item-intro: 'The following potential out-of-bounds array index accesses were found in the code:'
-      body-list-item-always: |
-          - The `$ARRAY_INDEX_ACCESS` statement in the `$PARENT_NAME` $PARENT_TYPE on line $instance_line of [`$file_name`]($instance_line_link)
+      body-list-item-always: '- The `$ARRAY_INDEX_ACCESS` statement in the `$PARENT_NAME` $PARENT_TYPE on line $instance_line of [`$file_name`]($instance_line_link)'
       closing: |
         To resolve this issue, ensure that all array index accesses within loops are properly bounded and do not exceed the array's size. Failing to address this may result in runtime exceptions, data corruption, or exploitable vulnerabilities.
