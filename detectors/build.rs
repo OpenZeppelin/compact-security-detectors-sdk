@@ -4,7 +4,7 @@ use std::fs::{self, File};
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 
-const EXPLICITLY_NOT_DETECTORS: &[&str] = &["lib.rs", "utils.rs"];
+const EXPLICITLY_NOT_DETECTORS_FILE_NAMES: &[&str] = &["lib.rs", "utils.rs"];
 const DO_NOT_INCLUDE_MARKER: &str = "// do-not-include-in-build";
 
 fn detector_is_skipped(detector_rs_path: &Path) -> bool {
@@ -22,7 +22,7 @@ fn main() {
     let out_dir = env::var("OUT_DIR").expect("OUT_DIR not set");
     let mod_file_path = Path::new(&out_dir).join("mod_includes.rs");
     let register_path = Path::new(&out_dir).join("register.rs");
-    let template_path = Path::new(&out_dir).join("detector-report-templates.rs");
+    let template_path = Path::new(&out_dir).join("detector_report_templates.rs");
 
     let src_dir = Path::new("src");
     let metadata_dir = Path::new("metadata");
@@ -32,7 +32,6 @@ fn main() {
     let mut templates =
         String::from("use midnight_security_detectors_sdk::DetectorReportTemplate;\n");
 
-    // Map YAML metadata by id for quick lookup
     let mut metadata_map = std::collections::HashMap::new();
     if metadata_dir.exists() && metadata_dir.is_dir() {
         for entry in fs::read_dir(metadata_dir).expect("Failed to read metadata directory") {
@@ -50,15 +49,14 @@ fn main() {
         }
     }
 
-    // Main loop: process each detector file once
     for entry in fs::read_dir(src_dir).unwrap() {
         let entry = entry.unwrap();
         let path = entry.path();
-        if path.extension().and_then(|s| s.to_str()) != Some("rs") {
+        if !path.ends_with("rs") {
             continue;
         }
         let file_name = path.file_name().unwrap().to_str().unwrap();
-        if EXPLICITLY_NOT_DETECTORS.contains(&file_name) {
+        if EXPLICITLY_NOT_DETECTORS_FILE_NAMES.contains(&file_name) {
             continue;
         }
 
@@ -73,7 +71,6 @@ fn main() {
         let mod_name = file_name.trim_end_matches(".rs");
         let type_name = to_type_name(mod_name);
 
-        // mod_includes.rs
         mods.push_str(&format!(
             "pub mod {} {{ include!(concat!(env!(\"CARGO_MANIFEST_DIR\"), \"/src/{}.rs\")); }}\n",
             mod_name, mod_name
@@ -81,8 +78,6 @@ fn main() {
         mods.push_str(&format!("pub use {}::{};\n", mod_name, type_name));
         detector_type_names.push(type_name.clone());
 
-        // detector-report-templates.rs (if metadata exists)
-        // Try both dashed and underscored id
         let id_dash = mod_name.replace("_", "-");
         let id_underscore = mod_name.replace("-", "_");
         let yaml = metadata_map
@@ -147,7 +142,6 @@ impl DetectorReportTemplate for {type_name} {{
         }
     }
 
-    // Write files
     fs::write(&mod_file_path, mods).unwrap();
     let mut register_code = String::from(
         "pub fn all_detectors() -> Vec<midnight_security_detectors_sdk::MidnightDetector> {\n    vec![\n",
