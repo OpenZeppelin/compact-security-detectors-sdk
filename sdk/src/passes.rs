@@ -23,6 +23,90 @@ pub struct SymbolTable {
     pub parent: Option<Rc<SymbolTable>>,
     pub children: RefCell<Vec<Rc<SymbolTable>>>,
 }
+// Unit tests for SymbolTable and build_symbol_table
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ast::literal::{Nat, Bool, Str};
+    use crate::ast::node::Location;
+    use crate::ast::expression::Identifier;
+    use crate::ast::ty::{Type, TypeNat, TypeBool, TypeString, Vector, VectorSize};
+    use std::rc::Rc;
+
+    #[test]
+    fn test_symbol_table_insert_and_lookup() {
+        let parent = Rc::new(SymbolTable::new(None));
+        assert!(parent.is_empty());
+        // Test upsert
+        parent.upsert(1, "a".into(), None);
+        assert!(parent.lookup("a").is_none());
+        assert!(parent.lookup_by_id(1).is_none());
+        // Test insert
+        parent.insert("b".into(), Some(Type::Nat(Rc::new(TypeNat::new(&Rc::new(Nat { id: 2, location: Location::default(), value: 10 })))))).unwrap();
+        let tyb = parent.lookup("b").unwrap();
+        assert_eq!(tyb.to_string(), "nat");
+        // insert existing should error
+        assert!(parent.insert("b".into(), None).is_err());
+        // Test insert_by_id
+        parent.insert_by_id(3, Some(Type::Boolean(Rc::new(TypeBool::new(&Rc::new(Bool { id: 3, location: Location::default(), value: false })))))).unwrap();
+        assert!(parent.lookup_by_id(3).is_some());
+        assert!(parent.insert_by_id(3, None).is_err());
+    }
+
+    #[test]
+    fn test_lookup_parent_and_children() {
+        let root = Rc::new(SymbolTable::new(None));
+        let child = Rc::new(SymbolTable::new(Some(root.clone())));
+        root.children.borrow_mut().push(child.clone());
+        root.insert("r".into(), Some(Type::String(Rc::new(TypeString::new(&Rc::new(Str { id: 4, location: Location::default(), value: "hi".into() })))))).unwrap();
+        child.insert("c".into(), Some(Type::Boolean(Rc::new(TypeBool::new(&Rc::new(Bool { id: 5, location: Location::default(), value: true })))))).unwrap();
+        // lookup finds in parent
+        assert_eq!(child.lookup("r").unwrap().to_string(), "string");
+        // lookdown finds in children
+        assert_eq!(root.lookdown("c").unwrap().to_string(), "bool");
+    }
+
+    #[test]
+    fn test_lookdown_by_id() {
+        let root = Rc::new(SymbolTable::new(None));
+        let child = Rc::new(SymbolTable::new(Some(root.clone())));
+        root.children.borrow_mut().push(child.clone());
+        root.insert_by_id(10, Some(Type::Nat(Rc::new(TypeNat::new(&Rc::new(Nat { id: 10, location: Location::default(), value: 7 })))))).unwrap();
+        child.insert_by_id(20, Some(Type::Boolean(Rc::new(TypeBool::new(&Rc::new(Bool { id: 20, location: Location::default(), value: false })))))).unwrap();
+        // lookdown_by_id finds in root and child
+        assert_eq!(root.lookdown_by_id(20).unwrap().to_string(), "bool");
+        assert_eq!(child.lookdown_by_id(10).unwrap().to_string(), "nat");
+    }
+
+    #[test]
+    fn test_display_symbol_table() {
+        let root = Rc::new(SymbolTable::new(None));
+        root.insert("x".into(), Some(Type::Nat(Rc::new(TypeNat::new(&Rc::new(Nat { id: 30, location: Location::default(), value: 3 })))))).unwrap();
+        let disp = format!("{}", root);
+        assert!(disp.contains("Symbol Table"));
+        assert!(disp.contains("x"));
+        assert!(disp.contains("nat"));
+    }
+
+    #[test]
+    fn test_build_symbol_table_from_ast() {
+        use crate::ast::builder::build_ast;
+        use crate::codebase::{Codebase, OpenState};
+        use tree_sitter::Parser;
+        use tree_sitter_compact;
+        let src = "circuit foo() : Uint<8> { return 0; }";
+        let mut parser = Parser::new();
+        parser.set_language(&tree_sitter_compact::LANGUAGE.into()).unwrap();
+        let tree = parser.parse(src, None).unwrap();
+        let root = tree.root_node();
+        let mut cb = Codebase::<OpenState>::new();
+        let prog = build_ast(&mut cb, &root, src).unwrap();
+        // file-level symbol table
+        let symtab = crate::codebase::Codebase::<OpenState>::build_symbol_table_for_file_level_types(&prog);
+        // should contain circuit foo
+        assert!(symtab.lookup("foo").is_some());
+    }
+}
 
 impl SymbolTable {
     pub fn new(parent: Option<Rc<SymbolTable>>) -> Self {

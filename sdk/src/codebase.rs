@@ -260,7 +260,7 @@ impl Codebase<OpenState> {
         }
     }
 
-    fn build_symbol_table_for_file_level_types(program: &Rc<Program>) -> Rc<SymbolTable> {
+    pub(crate) fn build_symbol_table_for_file_level_types(program: &Rc<Program>) -> Rc<SymbolTable> {
         let rc_symbol_table = Rc::new(SymbolTable::new(None));
         for definition in &program.definitions {
             match definition {
