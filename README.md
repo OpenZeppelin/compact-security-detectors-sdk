@@ -40,9 +40,9 @@ Detailed developer guides for each crate:
 ## Architecture Overview
 
 ```mermaid
-graph TD
+graph TD;
   subgraph Parser Layer
-    P[parser (LALRPOP)] --> G[tree-sitter-compact]
+    I[Compact code] --> G[tree-sitter-compact]
   end
   subgraph Core SDK
     G --> C[sdk]
@@ -51,7 +51,7 @@ graph TD
     C --> D[detectors]
     C --> S[compact-scanner]
   end
-  S -->|Results| O[Output (JSON/Console)]
+  S -->|Results| O[Output JSON/Console]
 ```
 
 For detailed architecture, see `sdk/docs/architecture.md`.
