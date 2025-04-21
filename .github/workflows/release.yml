@@ -45,7 +45,7 @@ jobs:
 
           NEW="${MAJ}.${MIN}.${PAT}"
           sed -i -E "s/^version = \"${CUR}\"/version = \"${NEW}\"/" Cargo.toml
-          echo "new_version=$NEW" >> $GITHUB_OUTPUT
+          echo "new_version=$NEW" >> $GITHUB_OUTPUT  # uses environment file :contentReference[oaicite:4]{index=4}
 
       - name: Commit and tag
         run: |
@@ -77,18 +77,21 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Rust toolchain
-        uses: actions-rs/toolchain@v1
+      - name: Setup Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: stable
-          profile: minimal
           override: true
-          targets: ${{ matrix.target }}
+          profile: minimal
+          target: ${{ matrix.target }}
+          components: clippy, rustfmt
+          cache: true
 
       - name: Build release binary
         run: cargo build --release --target ${{ matrix.target }}
 
       - name: Package executable
+        id: package
         run: |
           BIN=target/${{ matrix.target }}/release/your_binary${{ matrix.ext }}
           FNAME=your_binary-${{ matrix.os }}-v${{ needs.bump_and_tag.outputs.new_version }}.zip
@@ -97,7 +100,7 @@ jobs:
           else
             zip -j "$FNAME" "$BIN"
           fi
-          echo "artifact=$FNAME" >> $GITHUB_OUTPUT
+          echo "artifact=$FNAME" >> $GITHUB_OUTPUT   # step output via env file :contentReference[oaicite:7]{index=7}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -112,7 +115,7 @@ jobs:
 
     steps:
       - name: Download build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v4 
         with:
           path: ./releases
 
