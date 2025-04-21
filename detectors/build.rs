@@ -29,8 +29,8 @@ fn main() {
 
     let mut mods = String::new();
     let mut detector_type_names = Vec::new();
-    let mut templates =
-        String::from("use midnight_security_detectors_sdk::DetectorReportTemplate;\n");
+    let mut templates = String::new();
+    // String::from("use midnight_security_detectors_sdk::DetectorReportTemplate;\n");
 
     let mut metadata_map = std::collections::HashMap::new();
     if metadata_dir.exists() && metadata_dir.is_dir() {

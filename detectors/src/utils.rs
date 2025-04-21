@@ -44,14 +44,6 @@ macro_rules! detectors {
                 $body
             }
         )*
-
-        pub fn all_detectors() -> Vec<midnight_security_detectors_sdk::MidnightDetector> {
-            vec![
-                $(
-                    Box::new($tname),
-                )*
-            ]
-        }
     };
     () => {};
 }
