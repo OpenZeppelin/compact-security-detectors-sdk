@@ -161,6 +161,7 @@ fn to_type_name(id: &str) -> String {
             let mut chars = s.chars();
             match chars.next() {
                 Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
+                #[allow(non_snake_case)]
                 None => String::new(),
             }
         })
