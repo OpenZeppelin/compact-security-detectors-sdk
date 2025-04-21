@@ -1,0 +1,7 @@
+[tarpaulin]
+ignore_tests = true
+exclude-files = [
+    "sdk/src/ast/*",
+    "sdk/src/builder_tests.rs"
+]
+fail_under = 80
