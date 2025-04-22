@@ -20,13 +20,13 @@
                 }
             },
             "args": [
-                "--metadata"
-                // "--scan",
-                // "${workspaceFolder}/corpus/subdir",
-                // "--project-root",
-                // "${workspaceFolder}/corpus",
-                // "--detectors",
-                // "assertion-error-message-consistency"
+                // "metadata"
+                "scan",
+                "${workspaceFolder}/corpus/subdir",
+                "--project-root",
+                "${workspaceFolder}/corpus",
+                "--detectors",
+                "all"
             ],
             "cwd": "${workspaceFolder}"
         },

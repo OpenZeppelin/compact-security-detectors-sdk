@@ -1,15 +1,20 @@
-use clap::Parser;
+use clap::{Parser, Subcommand};
 
-#[derive(Parser)]
+#[derive(Subcommand, Debug)]
+pub(crate) enum Commands {
+    Scan {
+        code: Vec<std::path::PathBuf>,
+        #[arg(long = "detectors", required = false, value_parser, num_args = 1..)]
+        detectors: Option<Vec<String>>,
+        #[arg(long = "project-root", required = false, value_parser)]
+        project_root: Option<std::path::PathBuf>,
+    },
+    Metadata,
+}
+
+#[derive(Parser, Debug)]
+#[command(name = "compact-scanner", about = "Compact Scanner")]
 pub(crate) struct Cli {
-    #[clap(short = 'm', long = "metadata", action = clap::ArgAction::SetTrue)]
-    pub(crate) metadata: bool,
-    #[clap(long = "code", required = false, value_parser, num_args = 1..)]
-    pub(crate) code: Option<Vec<std::path::PathBuf>>,
-    #[clap(long = "detectors", required = false, value_parser, num_args = 1..)]
-    pub(crate) detectors: Option<Vec<String>>,
-    #[clap(long = "project-root", required = false, value_parser)]
-    pub(crate) project_root: Option<std::path::PathBuf>,
-    #[clap(short = 'r', long = "recursive", action = clap::ArgAction::SetTrue)]
-    pub(crate) recursive: bool,
+    #[command(subcommand)]
+    pub(crate) command: Commands,
 }

@@ -10,69 +10,73 @@ mod parser;
 
 fn main() {
     let args = Cli::parse();
-    if args.metadata {
-        println!("{}", get_scanner_metadata());
-        return;
-    }
 
-    if args.code.is_some() {
-        let mut corpus = HashMap::new();
-        for path in &args.code.unwrap() {
-            if path.is_dir() {
-                let mut stack = vec![path.clone()];
-                while let Some(current_path) = stack.pop() {
-                    for entry in std::fs::read_dir(current_path).unwrap() {
-                        let entry = entry.unwrap();
-                        let p = entry.path();
-                        if p.is_dir() {
-                            stack.push(p);
-                        } else if p.is_file() && p.extension().unwrap_or_default() == "compact" {
-                            let file_content = std::fs::read_to_string(&p).unwrap();
-                            corpus.insert(p.to_string_lossy().to_string(), file_content);
+    match args.command {
+        parser::Commands::Scan {
+            code,
+            detectors,
+            project_root,
+        } => {
+            let mut corpus = HashMap::new();
+            for path in &code {
+                if path.is_dir() {
+                    let mut stack = vec![path.clone()];
+                    while let Some(current_path) = stack.pop() {
+                        for entry in std::fs::read_dir(current_path).unwrap() {
+                            let entry = entry.unwrap();
+                            let p = entry.path();
+                            if p.is_dir() {
+                                stack.push(p);
+                            } else if p.is_file() && p.extension().unwrap_or_default() == "compact"
+                            {
+                                let file_content = std::fs::read_to_string(&p).unwrap();
+                                corpus.insert(p.to_string_lossy().to_string(), file_content);
+                            }
                         }
                     }
+                } else if path.is_file() {
+                    if path.extension().unwrap_or_default() != "compact" {
+                        continue;
+                    }
+                    let file_content = std::fs::read_to_string(path).unwrap();
+                    corpus.insert(path.to_string_lossy().to_string(), file_content);
                 }
-            } else if path.is_file() {
-                if path.extension().unwrap_or_default() != "compact" {
-                    continue;
+            }
+            if !corpus.is_empty() {
+                let result = execute_rules(&corpus, detectors);
+
+                let files_scanned: Vec<String> = corpus
+                    .keys()
+                    .map(|k| relative_file_path(k, &project_root))
+                    .collect();
+
+                let mut detector_responses = Map::new();
+                for (detector_name, errors) in result {
+                    let instances = detector_result_to_json(errors, &project_root);
+
+                    let detector_response = json!({
+                        "findings": [
+                            {
+                                "instances": instances
+                            }
+                        ],
+                        "errors": [],
+                        "metadata": {}
+                    });
+                    detector_responses.insert(detector_name, detector_response);
                 }
-                let file_content = std::fs::read_to_string(path).unwrap();
-                corpus.insert(path.to_string_lossy().to_string(), file_content);
+
+                let res = json!({
+                    "errors": [],
+                    "scanned": files_scanned,
+                    "detector_responses": detector_responses,
+                });
+
+                println!("{}", serde_json::to_string_pretty(&res).unwrap());
             }
         }
-        if !corpus.is_empty() {
-            let result = execute_rules(&corpus, args.detectors);
-
-            let files_scanned: Vec<String> = corpus
-                .keys()
-                .map(|k| relative_file_path(k, &args.project_root))
-                .collect();
-
-            let project_root = &args.project_root;
-
-            let mut detector_responses = Map::new();
-            for (detector_name, errors) in result {
-                let instances = detector_result_to_json(errors, project_root);
-
-                let detector_response = json!({
-                    "findings": [
-                        {
-                            "instances": instances
-                        }
-                    ],
-                    "errors": [],
-                    "metadata": {}
-                });
-                detector_responses.insert(detector_name, detector_response);
-            }
-
-            let res = json!({
-                "errors": [],
-                "scanned": files_scanned,
-                "detector_responses": detector_responses,
-            });
-
-            println!("{}", serde_json::to_string_pretty(&res).unwrap());
+        parser::Commands::Metadata => {
+            println!("{}", get_scanner_metadata());
         }
     }
 }
@@ -87,6 +91,7 @@ fn execute_rules(
         .filter(|detector| {
             if let Some(ref rules) = rules {
                 rules.contains(&detector.id().to_string())
+                    || (rules.len() == 1 && rules[0].eq_ignore_ascii_case("all"))
             } else {
                 true
             }

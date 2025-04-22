@@ -29,8 +29,8 @@ fn main() {
 
     let mut mods = String::new();
     let mut detector_type_names = Vec::new();
-    let mut templates = String::new();
-    // String::from("use midnight_security_detectors_sdk::DetectorReportTemplate;\n");
+    let mut templates =
+        String::from("use midnight_security_detectors_sdk::DetectorReportTemplate;\n");
 
     let mut metadata_map = std::collections::HashMap::new();
     if metadata_dir.exists() && metadata_dir.is_dir() {
@@ -52,7 +52,7 @@ fn main() {
     for entry in fs::read_dir(src_dir).unwrap() {
         let entry = entry.unwrap();
         let path = entry.path();
-        if !path.ends_with("rs") {
+        if path.extension().unwrap() != "rs" {
             continue;
         }
         let file_name = path.file_name().unwrap().to_str().unwrap();
