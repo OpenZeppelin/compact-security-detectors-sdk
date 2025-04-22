@@ -1,4 +1,4 @@
- # midnight-security-detectors
+ # compact-security-detectors
 
  Security detectors library for the Midnight platform.
 
@@ -16,12 +16,12 @@
 
  Add to your `Cargo.toml`:
  ```toml
- midnight-security-detectors = { path = "../detectors", version = "0.0.1" }
+ compact-security-detectors = { path = "../detectors", version = "0.0.1" }
  ```
 
  Example:
  ```rust
- use midnight_security_detectors::all_detectors;
+ use compact_security_detectors::all_detectors;
  // build codebase with sdk...
  let detectors = all_detectors();
  for det in detectors {

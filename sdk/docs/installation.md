@@ -12,8 +12,8 @@
 ## Clone the Repository
 
 ```bash
-git clone https://github.com/your-org/midnight-security-detectors-sdk.git
-cd midnight-security-detectors-sdk
+git clone https://github.com/OpenZeppelin/compact-security-detectors-sdk.git
+cd compact-security-detectors-sdk
 ```
 
 ## Build
@@ -28,7 +28,7 @@ Add the following to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-midnight-security-detectors-sdk = { git = "https://github.com/your-org/midnight-security-detectors-sdk.git" }
+compact-security-detectors-sdk = { git = "https://github.com/OpenZeppelin/compact-security-detectors-sdk.git" }
 ```
 
 [Previous: Overview](overview.md)  

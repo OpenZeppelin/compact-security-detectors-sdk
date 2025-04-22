@@ -3,7 +3,7 @@
 
 # Overview
 
-The `midnight-security-detectors-sdk` is a Rust library that provides tooling to parse, analyze, and detect security-related issues in source code written in the Compact DSL using Tree-sitter.
+The `compact-security-detectors-sdk` is a Rust library that provides tooling to parse, analyze, and detect security-related issues in source code written in the Compact DSL using Tree-sitter.
 
 ## Key Components
 

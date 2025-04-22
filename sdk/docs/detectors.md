@@ -16,7 +16,7 @@ Custom detectors implement two traits:
 ## Example
 
 ```rust
-use midnight_security_detectors_sdk::{Detector, DetectorReportTemplate, DetectorResult};
+use compact_security_detectors_sdk::{Detector, DetectorReportTemplate, DetectorResult};
 use std::cell::RefCell;
 
 pub struct ExampleDetector;
@@ -45,7 +45,7 @@ impl DetectorReportTemplate for ExampleDetector {
     fn template(&self) -> String { "{{ name }}".into() }
 }
 
-let detectors: Vec<MidnightDetector> = vec![
+let detectors: Vec<CompactDetector> = vec![
     Box::new(ExampleDetector),
     // Add more detectors here
 ];

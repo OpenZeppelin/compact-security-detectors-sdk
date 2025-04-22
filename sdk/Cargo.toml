@@ -1,5 +1,5 @@
 [package]
-name = "midnight-security-detectors-sdk"
+name = "compact-security-detectors-sdk"
 version = { workspace = true }
 edition = { workspace = true }
 license = { workspace = true }

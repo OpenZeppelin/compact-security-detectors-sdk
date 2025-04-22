@@ -1,4 +1,4 @@
- # midnight-security-detectors-sdk
+ # compact-security-detectors-sdk
 
  Core SDK for building and running security detectors on `Compact` language circuits.
 
@@ -19,12 +19,12 @@
 
  Add to your `Cargo.toml`:
  ```toml
- midnight-security-detectors-sdk = { path = "../sdk", version = "0.0.1" }
+ compact-security-detectors-sdk = { path = "../sdk", version = "0.0.1" }
  ```
 
  Example:
  ```rust
- use midnight_security_detectors_sdk::{build_codebase, detector};
+ use compact_security_detectors_sdk::{build_codebase, detector};
  let codebase = build_codebase(data)?;
  ```
 

@@ -17,11 +17,11 @@ homepage = "https://www.openzeppelin.com/"
 repository = "https://github.com/OpenZeppelin/midnight-security-detectors-sdk"
 
 [workspace.dependencies]
-midnight-security-detectors-sdk = { path = "./sdk" }
-midnight-security-detectors = { path = "./detectors" }
+compact-security-detectors-sdk = { path = "./sdk" }
+compact-security-detectors = { path = "./detectors" }
 compact-scanner = { path = "./compact-scanner" }
 tree-sitter-compact = { path = "./tree-sitter-compact" }
 anyhow = "1.0.98"
 tree-sitter = "0.25.1"
 
-midnight-compact-parser = { path = "./parser" }
+compact-parser = { path = "./parser" }

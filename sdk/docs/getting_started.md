@@ -8,7 +8,7 @@ This section walks through a minimal example to build a codebase and run a detec
 ## Build a Codebase
 
 ```rust
-use midnight_security_detectors_sdk::{build_codebase, DetectorResult};
+use compact_security_detectors_sdk::{build_codebase, DetectorResult};
 
 let mut files = std::collections::HashMap::new();
 files.insert("example.comp".to_string(), r#"

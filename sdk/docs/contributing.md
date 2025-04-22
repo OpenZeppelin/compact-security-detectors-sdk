@@ -3,7 +3,7 @@
 
 # Contributing
 
-Thank you for considering contributing to the `midnight-security-detectors-sdk`!
+Thank you for considering contributing to the `compact-security-detectors-sdk`!
 
 ## How to Contribute
 

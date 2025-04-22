@@ -1,6 +1,6 @@
  # compact-scanner
 
- CLI tool for scanning `.compact` files using Midnight security detectors.
+ CLI tool for scanning `.compact` files using Compact security detectors.
 
  **Version:** 0.0.1
 

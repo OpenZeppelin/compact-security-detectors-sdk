@@ -1,4 +1,4 @@
- # midnight-compact-parser
+ # compact-parser
 
  LALRPOP-based parser for the `Compact` language.
 

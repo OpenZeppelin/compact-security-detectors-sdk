@@ -10,8 +10,8 @@ repository = { workspace = true }
 clap = { version = "4.5.32", features = ["derive"] }
 serde_json = { version = "1.0", features = ["preserve_order"] }
 serde_yaml = "0.9.17"
-midnight-security-detectors.workspace = true
-midnight-security-detectors-sdk.workspace = true
+compact-security-detectors.workspace = true
+compact-security-detectors-sdk.workspace = true
 
 [[bin]]
 name = "compact-scanner"
