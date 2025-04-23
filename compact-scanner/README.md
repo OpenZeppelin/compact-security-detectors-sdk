@@ -123,5 +123,5 @@ When scanning code files, the JSON structure is:
 
  ## License
 
- [MIT](../LICENSE)
+ [AGPLv3](../LICENSE)
  
