@@ -12,8 +12,6 @@ This workspace includes the following crates:
 - `sdk`: Core SDK for building the AST, codebase, and writing custom security detectors.
 - `detectors`: Built-in security detectors for common vulnerability patterns.
 - `compact-scanner`: CLI tool to scan `.compact` files and run detectors.
-- `parser`: LALRPOP parser definitions for the Compact language.
-- `tree-sitter-compact`: Tree-sitter grammar crate for the Compact language.
 
 ## Quickstart
 
