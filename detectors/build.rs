@@ -30,7 +30,7 @@ fn main() {
     let mut mods = String::new();
     let mut detector_type_names = Vec::new();
     let mut templates =
-        String::from("use midnight_security_detectors_sdk::DetectorReportTemplate;\n");
+        String::from("use compact_security_detectors_sdk::detector::DetectorReportTemplate;\n");
 
     let mut metadata_map = std::collections::HashMap::new();
     if metadata_dir.exists() && metadata_dir.is_dir() {
@@ -144,7 +144,7 @@ impl DetectorReportTemplate for {type_name} {{
 
     fs::write(&mod_file_path, mods).unwrap();
     let mut register_code = String::from(
-        "pub fn all_detectors() -> Vec<midnight_security_detectors_sdk::MidnightDetector> {\n    vec![\n",
+        "pub fn all_detectors() -> Vec<compact_security_detectors_sdk::detector::CompactDetector> {\n    vec![\n",
     );
     for type_name in &detector_type_names {
         register_code.push_str(&format!("        Box::new({}),\n", type_name));

@@ -1,14 +1,12 @@
 use std::{cell::RefCell, collections::HashMap};
 
-use midnight_security_detectors_sdk::{
+use compact_security_detectors_sdk::{
     ast::{declaration::Declaration, definition::Definition, node_type::NodeType},
     codebase::{Codebase, SealedState},
-    DetectorResult,
+    detector::DetectorResult,
 };
 
-use crate::detector;
-
-detector! {
+compact_security_detectors_sdk::detector! {
     #[type_name = AssertionErrorMessageVerbose]
     fn assertion_error_message_verbose(
         codebase: &RefCell<Codebase<SealedState>>,
@@ -54,7 +52,7 @@ detector! {
 
 #[cfg(test)]
 mod tests {
-    use midnight_security_detectors_sdk::{build_codebase, Detector};
+    use compact_security_detectors_sdk::build_codebase;
 
     use super::*;
 

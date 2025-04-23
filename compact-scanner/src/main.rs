@@ -1,8 +1,11 @@
 use std::collections::HashMap;
 
 use clap::Parser;
-use midnight_security_detectors::all_detectors;
-use midnight_security_detectors_sdk::{build_codebase, DetectorResult, MidnightDetector};
+use compact_security_detectors::all_detectors;
+use compact_security_detectors_sdk::{
+    build_codebase,
+    detector::{CompactDetector, DetectorResult},
+};
 use parser::Cli;
 use serde_json::{json, Map};
 
@@ -140,7 +143,7 @@ fn relative_file_path(file_path: &str, project_root: &Option<std::path::PathBuf>
     }
 }
 
-fn available_detectors() -> Vec<MidnightDetector> {
+fn available_detectors() -> Vec<CompactDetector> {
     all_detectors()
         .into_iter()
         .chain(custom_detectors())
@@ -148,11 +151,11 @@ fn available_detectors() -> Vec<MidnightDetector> {
 }
 
 #[allow(clippy::let_and_return, unused_mut)]
-fn custom_detectors() -> Vec<MidnightDetector> {
-    let mut detectors: Vec<MidnightDetector> = Vec::new();
+fn custom_detectors() -> Vec<CompactDetector> {
+    let mut detectors: Vec<CompactDetector> = Vec::new();
     detectors
         .into_iter()
-        .map(|detector| detector as MidnightDetector)
+        .map(|detector| detector as CompactDetector)
         .collect()
 }
 

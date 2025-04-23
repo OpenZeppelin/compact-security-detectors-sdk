@@ -6,7 +6,7 @@
 
 Located in `src/main.rs`, the function:
 ```rust
-fn available_detectors() -> Vec<MidnightDetector> {
+fn available_detectors() -> Vec<CompactDetector> {
     all_detectors()
         .into_iter()
         .chain(custom_detectors())
@@ -15,7 +15,7 @@ fn available_detectors() -> Vec<MidnightDetector> {
 ```
 
 ## Built-in vs. Custom Detectors
-- **Built-in**: Provided by `midnight-security-detectors::all_detectors()`.
+- **Built-in**: Provided by `compact-security-detectors::all_detectors()`.
 - **Custom**: Placeholder via `custom_detectors()` (currently returns empty).
 
 ## Selecting Detectors

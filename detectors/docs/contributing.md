@@ -1,6 +1,6 @@
  # Contributing
 
- Thank you for your interest in contributing to Midnight Security Detectors!
+ Thank you for your interest in contributing to Compact Security Detectors!
 
  ## Code Style
 
