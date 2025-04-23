@@ -4,31 +4,30 @@
 
 > Description of command-line interface options and flags.
 
-## Flags
+## Modes
 
-- `-m`, `--metadata` : Print scanner metadata as JSON and exit.
-- `-r`, `--recursive` : (Currently unused) Intended for recursive directory scanning.
+- `metadata` : Print scanner metadata as JSON and exit.
+- `scan <PATH>` : Scan files in the specified directory or file. The scanner will recursively scan all files in the directory and its subdirectories.
 
 ## Options
 
-- `--code <PATH>...` : One or more file or directory paths to scan. Only files with `.compact` extension are processed.
-- `--detectors <NAME>...` : Optional list of detector names to run. If omitted, all available detectors will run.
+- `--detectors <NAME>...` : Optional list of detector names to run. If omitted, all available detectors will run. You can use `all` to run all detectors.
 - `--project-root <PATH>` : Optional project root path to calculate relative file paths in output.
 
 ## Examples
 
 ```bash
 # Print metadata
-compact-scanner --metadata
+compact-scanner metadata
 
 # Scan files in a directory
-compact-scanner --code src/compact_files
+compact-scanner scan src/compact_files
 
 # Run specific detectors
-compact-scanner --code src/file.compact --detectors DetectorA DetectorB
+compact-scanner scan src/file.compact --detectors DetectorA DetectorB
 
 # Specify project root for relative paths
-compact-scanner --code src --project-root .
+compact-scanner scan src --project-root .
 ```
 
 For output format details, see [JSON Output Format](json_output_format.md).
