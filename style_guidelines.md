@@ -1,6 +1,3 @@
-<!-- docs/style_guidelines.md -->
-[← Back to Index](index.md)
-
 # Style Guidelines
 
 ## Rust
@@ -19,5 +16,3 @@
 ## Branching
 
 - Use feature branches named `feature/...` or `bugfix/...`.
-
-[Previous: Contributing](contributing.md)

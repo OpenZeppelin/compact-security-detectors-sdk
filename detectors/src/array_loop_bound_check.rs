@@ -1,7 +1,10 @@
-use std::{cell::RefCell, collections::HashMap};
+use std::collections::HashMap;
 
 use compact_security_detectors_sdk::{
-    ast::{declaration::Declaration, definition::Definition, node_type::NodeType, expression::Expression, ty::Type},
+    ast::{
+        declaration::Declaration, definition::Definition, expression::Expression,
+        node_type::NodeType, ty::Type,
+    },
     codebase::{Codebase, SealedState},
     detector::DetectorResult,
 };
@@ -10,9 +13,8 @@ compact_security_detectors_sdk::detector! {
 
     #[type_name = ArrayLoopBoundCheck]
     fn array_loop_bound_check(
-        codebase: &RefCell<Codebase<SealedState>>,
+        codebase: &Codebase<SealedState>,
     ) -> Option<Vec<DetectorResult>> {
-        let codebase = codebase.borrow();
         let mut errors = Vec::new();
         for for_stmt in codebase.list_for_statement_nodes() {
             let index_access_expressions = codebase.get_children_cmp(for_stmt.id, |n| {
@@ -69,7 +71,7 @@ compact_security_detectors_sdk::detector! {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use compact_security_detectors_sdk::{build_codebase};
+    use compact_security_detectors_sdk::build_codebase;
     use std::collections::HashMap;
 
     #[test]
@@ -86,7 +88,7 @@ mod tests {
         let mut data = HashMap::new();
         data.insert("test.compact".to_string(), src.to_string());
         let codebase = build_codebase(&data).unwrap();
-        let result = detector.check(&codebase);
+        let result = detector.check(codebase.as_ref());
         assert!(result.is_some());
         assert_eq!(result.as_ref().unwrap().len(), 1, "{result:?}");
         let detector_result = result.as_ref().unwrap().first().unwrap();

@@ -13,16 +13,12 @@
 
  - **src/**  
    - `lib.rs`  
-     Main library file containing detector definitions using the `detectors!` macro.  
-   - `utils.rs`  
-     Contains the `detector!` and `detectors!` macros for defining and registering detectors.  
+     Main library file containing detector definitions using the `detectors!` macro.
    - `detector-report-templates.rs` (generated)  
      Generated code with templates for detector reports, included via `include!` in `lib.rs`.
 
  - **docs/**  
    Developer documentation (this directory).
 
- - **target/**  
-   Build output directory (created after running `cargo build`).
-
  Refer to [Writing Detectors](writing-detectors.md) for how to add new security detectors, and [Testing](testing.md) for details on writing and running tests.
+ 

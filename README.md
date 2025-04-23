@@ -34,9 +34,9 @@ This workspace includes the following crates:
 
 Detailed developer guides for each crate:
 
-- SDK: `sdk/docs/index.md`
-- Detectors: `detectors/docs/index.md`
-- CLI Scanner: `compact-scanner/docs/index.md`
+- SDK: [README](./sdk/README.md)
+- Detectors: [README](./detectors/README.md)
+- CLI Scanner: [README](./compact-scanner/README.md)
 
 ## Architecture Overview
 
