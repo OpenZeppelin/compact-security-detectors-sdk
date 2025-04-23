@@ -88,6 +88,9 @@ jobs:
           components: clippy, rustfmt
           cache: true
 
+      - name: Init submodules
+        run: git submodule update --init --recursive
+
       - name: Build release binary
         run: cargo build --release --target ${{ matrix.target }}
 
