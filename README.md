@@ -54,5 +54,3 @@ graph TD;
   end
   S -->|Results| O[Output JSON/Console]
 ```
-
-For detailed architecture, see `sdk/docs/architecture.md`.

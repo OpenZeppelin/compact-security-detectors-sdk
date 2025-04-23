@@ -67,11 +67,9 @@ let codebase = build_codebase(&files).unwrap();
 Implement the `Detector` and `DetectorReportTemplate` traits and register your detectors. The `check` method returns a list of `DetectorResult`.
 
 ```rust
-for detector in detectors.iter() {
-    if let Some(results) = detector.check(&codebase) {
-        for result in results {
-            println!("{:?}", result);
-        }
+if let Some(results) = detector.check(&codebase) {
+    for result in results {
+        println!("{:?}", result);
     }
 }
 ```
@@ -81,7 +79,7 @@ for detector in detectors.iter() {
 Custom detectors implement two traits:
 
 1. `Detector`:
-   - Defines the `check(&self, codebase: &RefCell<Codebase<SealedState>>) -> Option<Vec<DetectorResult>>` method.
+   - Defines the `check(&self, codebase: &Codebase<SealedState>) -> Option<Vec<DetectorResult>>` method.
    - Analysis logic goes here.
 
 2. `DetectorReportTemplate`:
@@ -92,12 +90,11 @@ Custom detectors implement two traits:
 
 ```rust
 use compact_security_detectors_sdk::{Detector, DetectorReportTemplate, DetectorResult};
-use std::cell::RefCell;
 
 pub struct ExampleDetector;
 
 impl Detector for ExampleDetector {
-    fn check(&self, codebase: &RefCell<_>) -> Option<Vec<DetectorResult>> {
+    fn check(&self, codebase: &Codebase<SealedState>) -> Option<Vec<DetectorResult>> {
         // analysis logic...
         None
     }
@@ -199,3 +196,12 @@ Add the following to your `Cargo.toml`:
 [dependencies]
 compact-security-detectors-sdk = { git = "https://github.com/OpenZeppelin/compact-security-detectors-sdk.git" }
 ```
+
+ ## Contributing
+
+ See [contributing.md](../contributing.md) for guidelines.
+
+ ## License
+
+ [MIT](../LICENSE)
+ 
