@@ -17,19 +17,19 @@ This workspace includes the following crates:
 
 ## Quickstart
 
-1. Build the project:
+1. Restore submodules:
    ```sh
-   cargo build --workspace
+   git submodule update --init --recursive
    ```
 
-2. Install the CLI scanner:
+2. Build the project:
    ```sh
-   cargo install --path compact-scanner
+   cargo build
    ```
 
 3. Scan a directory of `.compact` files:
    ```sh
-   compact-scanner scan ./corpus --output-format json
+   compact-scanner scan ./path/to/compact/files
    ```
 
 ## Documentation
