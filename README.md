@@ -1,5 +1,5 @@
-[![Build](https://github.com/OpenZeppelin/midnight-security-detectors-sdk/actions/workflows/build.yml/badge.svg)](https://github.com/OpenZeppelin/midnight-security-detectors-sdk/actions/workflows/build.yml)
-[![Release](https://github.com/OpenZeppelin/midnight-security-detectors-sdk/actions/workflows/release.yml/badge.svg)](https://github.com/OpenZeppelin/midnight-security-detectors-sdk/actions/workflows/release.yml)
+[![Build](https://github.com/OpenZeppelin/compact-security-detectors-sdk/actions/workflows/build.yml/badge.svg)](https://github.com/OpenZeppelin/compact-security-detectors-sdk/actions/workflows/build.yml)
+[![Release](https://github.com/OpenZeppelin/compact-security-detectors-sdk/actions/workflows/release.yml/badge.svg)](https://github.com/OpenZeppelin/compact-security-detectors-sdk/actions/workflows/release.yml)
 
 # Compact Security Detectors
 

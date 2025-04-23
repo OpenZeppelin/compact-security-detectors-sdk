@@ -14,7 +14,7 @@ version = "0.1.30"
 edition = "2021"
 license = "MIT"
 homepage = "https://www.openzeppelin.com/"
-repository = "https://github.com/OpenZeppelin/midnight-security-detectors-sdk"
+repository = "https://github.com/OpenZeppelin/compact-security-detectors-sdk"
 
 [workspace.dependencies]
 compact-security-detectors-sdk = { path = "./sdk" }
@@ -24,4 +24,3 @@ tree-sitter-compact = { path = "./tree-sitter-compact" }
 anyhow = "1.0.98"
 tree-sitter = "0.25.1"
 
-compact-parser = { path = "./parser" }
