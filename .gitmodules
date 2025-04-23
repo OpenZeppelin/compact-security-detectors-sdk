@@ -1,0 +1,5 @@
+[submodule "tree-sitter-compact"]
+	path = tree-sitter-compact
+	url = https://github.com/midnight-ntwrk/tree-sitter-compact
+[tree-sitter-compact "lib"]
+	branch = make-grammar-more-verbose
