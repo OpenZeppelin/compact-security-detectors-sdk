@@ -1,13 +1,13 @@
-use std::collections::HashMap;
-
 use clap::Parser;
 use compact_security_detectors::all_detectors;
 use compact_security_detectors_sdk::{
     build_codebase,
     detector::{CompactDetector, DetectorResult},
 };
+use libloading::{Library, Symbol};
 use parser::Cli;
 use serde_json::{json, Map};
+use std::collections::HashMap;
 
 mod parser;
 
@@ -19,6 +19,7 @@ fn main() {
             code,
             detectors,
             project_root,
+            load_lib,
         } => {
             let mut corpus = HashMap::new();
             for path in &code {
@@ -46,7 +47,7 @@ fn main() {
                 }
             }
             if !corpus.is_empty() {
-                let result = execute_rules(&corpus, detectors);
+                let result = execute_detectors(&corpus, detectors, load_lib);
 
                 let files_scanned: Vec<String> = corpus
                     .keys()
@@ -84,11 +85,25 @@ fn main() {
     }
 }
 
-fn execute_rules(
+fn execute_detectors(
     files: &HashMap<String, String>,
     rules: Option<Vec<String>>,
+    load_lib: Option<std::path::PathBuf>,
 ) -> HashMap<String, Vec<DetectorResult>> {
     let codebase = build_codebase(files).unwrap();
+    let mut results = HashMap::new();
+    if let Some(load_lib) = load_lib {
+        unsafe {
+            let lib = Library::new(load_lib).unwrap();
+            let constructor: Symbol<unsafe extern "C" fn() -> CompactDetector> =
+                lib.get(b"external_detector").unwrap();
+            let detector = constructor();
+            let detector_result = detector.check(codebase.as_ref());
+            if let Some(errors) = detector_result {
+                results.insert(detector.id().to_string(), errors);
+            }
+        }
+    }
     let selected_detectors: Vec<_> = available_detectors()
         .into_iter()
         .filter(|detector| {
@@ -101,7 +116,6 @@ fn execute_rules(
         })
         .collect();
 
-    let mut results = HashMap::new();
     for detector in selected_detectors {
         let detector_result = detector.check(codebase.as_ref());
         if let Some(errors) = detector_result {
