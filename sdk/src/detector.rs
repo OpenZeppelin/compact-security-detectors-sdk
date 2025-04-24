@@ -1,5 +1,5 @@
 #![warn(clippy::pedantic)]
-use std::{cell::RefCell, collections::HashMap, fmt::Display};
+use std::{collections::HashMap, fmt::Display};
 
 use crate::codebase::{Codebase, SealedState};
 
@@ -69,7 +69,7 @@ pub struct DetectorResult {
 }
 
 pub trait Detector {
-    fn check(&self, codebase: &RefCell<Codebase<SealedState>>) -> Option<Vec<DetectorResult>>;
+    fn check(&self, codebase: &Codebase<SealedState>) -> Option<Vec<DetectorResult>>;
 }
 
 pub trait DetectorReportTemplate {
@@ -99,17 +99,13 @@ impl Display for dyn CombinedDetector {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::cell::RefCell;
 
     #[test]
     fn test_combined_detector_display() {
         // Dummy detector implementing both traits
         struct Dummy;
         impl Detector for Dummy {
-            fn check(
-                &self,
-                _codebase: &RefCell<Codebase<SealedState>>,
-            ) -> Option<Vec<DetectorResult>> {
+            fn check(&self, _codebase: &Codebase<SealedState>) -> Option<Vec<DetectorResult>> {
                 Some(vec![DetectorResult {
                     file_path: "f".into(),
                     offset_start: 0,

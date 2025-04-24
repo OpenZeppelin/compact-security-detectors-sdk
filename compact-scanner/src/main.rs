@@ -103,7 +103,7 @@ fn execute_rules(
 
     let mut results = HashMap::new();
     for detector in selected_detectors {
-        let detector_result = detector.check(&codebase);
+        let detector_result = detector.check(codebase.as_ref());
         if let Some(errors) = detector_result {
             results.insert(detector.id().to_string(), errors);
         }

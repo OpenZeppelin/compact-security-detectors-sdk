@@ -3,7 +3,7 @@
 
 use anyhow::Result;
 use codebase::{Codebase, SealedState};
-use std::{cell::RefCell, collections::HashMap};
+use std::collections::HashMap;
 pub mod ast;
 mod builder_tests;
 pub mod codebase;
@@ -22,12 +22,12 @@ mod storage;
 /// This function will panic if there is an error loading the Inference grammar.
 pub fn build_codebase<H: std::hash::BuildHasher>(
     files: &HashMap<String, String, H>,
-) -> Result<RefCell<Codebase<SealedState>>> {
+) -> Result<Box<Codebase<SealedState>>> {
     let mut codebase = Codebase::new();
     for (fname, source_code) in files {
         codebase.add_file(fname, source_code);
     }
-    Ok(RefCell::new(codebase.seal()?))
+    Ok(Box::new(codebase.seal()?))
 }
 
 #[cfg(test)]
@@ -60,8 +60,7 @@ mod tests {
         // simple circuit definition
         let src = "circuit foo() : Uint<8> { return 0; }";
         files.insert("a.compact".to_string(), src.to_string());
-        let cb_ref = build_codebase(&files).expect("build_codebase failed");
-        let cb = cb_ref.borrow();
+        let cb = build_codebase(&files).expect("build_codebase failed");
         // one file and one symbol table
         assert_eq!(cb.fname_ast_map.len(), 1);
         assert_eq!(cb.symbol_tables.len(), 1);
@@ -81,8 +80,7 @@ mod tests {
         // Use DSL grammar for for-loop
         let src = r"circuit foo(x: Uint<8>) : Uint<8> { for (const i of 0 .. 1) { } return x; }";
         files.insert("t.compact".to_string(), src.to_string());
-        let cb_ref = build_codebase(&files).unwrap();
-        let cb = cb_ref.borrow();
+        let cb = build_codebase(&files).unwrap();
         // Only test for-loop detection; assert statements may vary by grammar
         let fors: Vec<_> = cb.list_for_statement_nodes().collect();
         assert_eq!(fors.len(), 1);
@@ -96,8 +94,7 @@ mod tests {
         let mut files = HashMap::new();
         let src = "circuit foo() : Uint<8> { return 1; }";
         files.insert("a.compact".to_string(), src.to_string());
-        let cb_ref = build_codebase(&files).unwrap();
-        let cb = cb_ref.borrow();
+        let cb = build_codebase(&files).unwrap();
         // files() yields one SourceCodeFile
         let fs: Vec<_> = cb.files().collect();
         assert_eq!(fs.len(), 1);
@@ -178,8 +175,7 @@ mod tests {
         let mut files = HashMap::new();
         let src = "circuit foo(x: Uint<8>) : Uint<8> { return x; }";
         files.insert("a.compact".to_string(), src.to_string());
-        let cb_ref = build_codebase(&files).unwrap();
-        let cb = cb_ref.borrow();
+        let cb = build_codebase(&files).unwrap();
         // find identifier for 'x'
         let x_id = cb
             .storage

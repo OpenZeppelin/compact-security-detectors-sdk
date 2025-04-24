@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::HashMap};
+use std::collections::HashMap;
 
 use crate::{
     ast::ty::Type,
@@ -7,7 +7,7 @@ use crate::{
 };
 
 #[allow(dead_code)]
-fn build_codebase_wrapper(src: &str) -> RefCell<Codebase<SealedState>> {
+fn build_codebase_wrapper(src: &str) -> Box<Codebase<SealedState>> {
     let mut files = HashMap::new();
     files.insert("dummy".to_string(), src.to_string());
     build_codebase(&files).unwrap()
@@ -43,7 +43,6 @@ mod circuit_parsing_tests {
         let codebase = build_codebase_wrapper(
             "circuit add (x: Uint<8>, y: Uint<8>) : Uint<8> { return x + y; }",
         );
-        let codebase = codebase.borrow();
         assert_eq!(codebase.fname_ast_map.len(), 1);
         assert_eq!(codebase.symbol_tables.len(), 1);
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
@@ -144,7 +143,6 @@ mod circuit_parsing_tests {
         let codebase = build_codebase_wrapper(
             "export pure circuit add (x: Uint<8>, y: Uint<8>) : Uint<8> { return x * y; }",
         );
-        let codebase = codebase.borrow();
         assert_eq!(codebase.fname_ast_map.len(), 1);
         assert_eq!(codebase.symbol_tables.len(), 1);
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
@@ -244,7 +242,6 @@ mod circuit_parsing_tests {
     fn circuit_with_generic_parameters() {
         let codebase =
             build_codebase_wrapper("circuit process<T> (data: Field) : Field {return data;}");
-        let codebase = codebase.borrow();
         assert_eq!(codebase.fname_ast_map.len(), 1);
         assert_eq!(codebase.symbol_tables.len(), 1);
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
@@ -326,7 +323,6 @@ mod constructor_parsing_tests {
     #[test]
     fn empty_constructor() {
         let codebase = build_codebase_wrapper("constructor() { }");
-        let codebase = codebase.borrow();
         assert_eq!(codebase.fname_ast_map.len(), 1);
         assert_eq!(codebase.symbol_tables.len(), 1);
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
@@ -342,7 +338,6 @@ mod constructor_parsing_tests {
     #[test]
     fn constructor_wth_one_parameter() {
         let codebase = build_codebase_wrapper("constructor(x: Field) { }");
-        let codebase = codebase.borrow();
         assert_eq!(codebase.fname_ast_map.len(), 1);
         assert_eq!(codebase.symbol_tables.len(), 1);
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
@@ -361,7 +356,6 @@ mod constructor_parsing_tests {
     #[test]
     fn constructor_with_two_parameters_and_a_block_with_a_simple_statement() {
         let codebase = build_codebase_wrapper("constructor(x: Field, y: Uint<32>) { x = 0; }");
-        let codebase = codebase.borrow();
         assert_eq!(codebase.fname_ast_map.len(), 1);
         assert_eq!(codebase.symbol_tables.len(), 1);
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
@@ -421,7 +415,6 @@ mod constructor_parsing_tests {
         let codebase = build_codebase_wrapper(
             "constructor (x: Field, y: Uint<32>) { if (x == 0) { return; } else { y += 1; } }",
         );
-        let codebase = codebase.borrow();
         assert_eq!(codebase.fname_ast_map.len(), 1);
         assert_eq!(codebase.symbol_tables.len(), 1);
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
@@ -539,7 +532,6 @@ mod enum_parsing_tests {
     #[test]
     fn simple_enum() {
         let codebase = build_codebase_wrapper("enum Color { red }");
-        let codebase = codebase.borrow();
         assert_eq!(codebase.fname_ast_map.len(), 1);
         assert_eq!(codebase.symbol_tables.len(), 1);
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
@@ -559,7 +551,6 @@ mod enum_parsing_tests {
     #[test]
     fn multiple_enum_options() {
         let codebase = build_codebase_wrapper("export enum Days { Monday, Tuesday, Wednesday }");
-        let codebase = codebase.borrow();
         assert_eq!(codebase.fname_ast_map.len(), 1);
         assert_eq!(codebase.symbol_tables.len(), 1);
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
@@ -586,7 +577,6 @@ mod export_parsing_tests {
     #[test]
     fn simple_export() {
         let codebase = build_codebase_wrapper("export { foo }");
-        let codebase = codebase.borrow();
         assert_eq!(codebase.fname_ast_map.len(), 1);
         assert_eq!(codebase.symbol_tables.len(), 1);
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
@@ -604,7 +594,6 @@ mod export_parsing_tests {
     #[test]
     fn multiple_exports() {
         let codebase = build_codebase_wrapper("export { foo, bar, baz, };");
-        let codebase = codebase.borrow();
         assert_eq!(codebase.fname_ast_map.len(), 1);
         assert_eq!(codebase.symbol_tables.len(), 1);
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
@@ -636,7 +625,6 @@ mod external_contract_parsing_tests {
                 circuit foo (x: Field) : Field;
             }",
         );
-        let codebase = codebase.borrow();
         assert_eq!(codebase.fname_ast_map.len(), 1);
         assert_eq!(codebase.symbol_tables.len(), 1);
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
@@ -666,7 +654,6 @@ mod external_contract_parsing_tests {
                 circuit foo (x: Field) : Field;
             }",
         );
-        let codebase = codebase.borrow();
         assert_eq!(codebase.fname_ast_map.len(), 1);
         assert_eq!(codebase.symbol_tables.len(), 1);
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
@@ -697,7 +684,6 @@ mod external_contract_parsing_tests {
                 pure circuit bar (a: Field, b: Uint<32>) : Field;
             };",
         );
-        let codebase = codebase.borrow();
         assert_eq!(codebase.fname_ast_map.len(), 1);
         assert_eq!(codebase.symbol_tables.len(), 1);
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
@@ -746,7 +732,6 @@ mod external_parsing_tests {
     #[test]
     fn simple_circuit() {
         let codebase = build_codebase_wrapper("circuit add (x: Field) : Field;");
-        let codebase = codebase.borrow();
         assert_eq!(codebase.fname_ast_map.len(), 1);
         assert_eq!(codebase.symbol_tables.len(), 1);
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
@@ -770,7 +755,6 @@ mod external_parsing_tests {
     fn export_circuit() {
         let codebase =
             build_codebase_wrapper("export circuit multiply (a: Field, b: Field) : Field;");
-        let codebase = codebase.borrow();
         assert_eq!(codebase.fname_ast_map.len(), 1);
         assert_eq!(codebase.symbol_tables.len(), 1);
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
@@ -796,7 +780,6 @@ mod external_parsing_tests {
     #[test]
     fn circuit_with_generic_parameters() {
         let codebase = build_codebase_wrapper("circuit process<T> (data: Field) : Field;");
-        let codebase = codebase.borrow();
         assert_eq!(codebase.fname_ast_map.len(), 1);
         assert_eq!(codebase.symbol_tables.len(), 1);
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
@@ -833,7 +816,6 @@ mod external_parsing_tests {
     fn circuit_with_multiple_parameters() {
         let codebase =
             build_codebase_wrapper("circuit compute (x: Field, y: Field, z: Uint<32>) : Uint<32>;");
-        let codebase = codebase.borrow();
         assert_eq!(codebase.fname_ast_map.len(), 1);
         assert_eq!(codebase.symbol_tables.len(), 1);
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
@@ -875,7 +857,6 @@ mod external_parsing_tests {
     #[test]
     fn circuit_with_vector_return_type() {
         let codebase = build_codebase_wrapper("circuit build (a: Field) : Vector<10, Field>;");
-        let codebase = codebase.borrow();
         assert_eq!(codebase.fname_ast_map.len(), 1);
         assert_eq!(codebase.symbol_tables.len(), 1);
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
@@ -919,7 +900,6 @@ mod import_parsing_tests {
     #[test]
     fn import_with_string_literal() {
         let codebase = build_codebase_wrapper(r#"import "test/corpus/import.txt";"#);
-        let codebase = codebase.borrow();
         assert_eq!(codebase.fname_ast_map.len(), 1);
         assert_eq!(codebase.symbol_tables.len(), 1);
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
@@ -938,7 +918,6 @@ mod import_parsing_tests {
     #[test]
     fn import_with_identifier() {
         let codebase = build_codebase_wrapper("import id;");
-        let codebase = codebase.borrow();
         assert_eq!(codebase.fname_ast_map.len(), 1);
         assert_eq!(codebase.symbol_tables.len(), 1);
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
@@ -957,7 +936,6 @@ mod import_parsing_tests {
     #[test]
     fn import_with_identifier_and_parameter() {
         let codebase = build_codebase_wrapper("import id<1>;");
-        let codebase = codebase.borrow();
         assert_eq!(codebase.fname_ast_map.len(), 1);
         assert_eq!(codebase.symbol_tables.len(), 1);
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
@@ -985,7 +963,6 @@ mod import_parsing_tests {
     #[test]
     fn import_with_module_and_parameters() {
         let codebase = build_codebase_wrapper("import myModule<42, Boolean>;");
-        let codebase = codebase.borrow();
         assert_eq!(codebase.fname_ast_map.len(), 1);
         assert_eq!(codebase.symbol_tables.len(), 1);
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
@@ -1013,7 +990,6 @@ mod import_parsing_tests {
     #[test]
     fn import_with_module_and_prefix() {
         let codebase = build_codebase_wrapper("import myModule prefix helper;");
-        let codebase = codebase.borrow();
         assert_eq!(codebase.fname_ast_map.len(), 1);
         assert_eq!(codebase.symbol_tables.len(), 1);
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
@@ -1033,7 +1009,6 @@ mod import_parsing_tests {
     #[test]
     fn import_with_module_parameters_and_prefix() {
         let codebase = build_codebase_wrapper("import myModule<42, Field> prefix helper;");
-        let codebase = codebase.borrow();
         assert_eq!(codebase.fname_ast_map.len(), 1);
         assert_eq!(codebase.symbol_tables.len(), 1);
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
@@ -1054,7 +1029,6 @@ mod import_parsing_tests {
     #[test]
     fn import_with_string_literal_and_prefix() {
         let codebase = build_codebase_wrapper(r#"import "module/file" prefix myHelper;"#);
-        let codebase = codebase.borrow();
         assert_eq!(codebase.fname_ast_map.len(), 1);
         assert_eq!(codebase.symbol_tables.len(), 1);
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
@@ -1079,7 +1053,6 @@ mod include_parsing_tests {
     #[test]
     fn include_with_string_literal() {
         let codebase = build_codebase_wrapper(r#"include "test/corpus/include.txt";"#);
-        let codebase = codebase.borrow();
         assert_eq!(codebase.fname_ast_map.len(), 1);
         assert_eq!(codebase.symbol_tables.len(), 1);
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
@@ -1104,7 +1077,6 @@ mod ledger_parsing_tests {
     #[test]
     fn simple_ledger() {
         let codebase = build_codebase_wrapper("ledger myLedger : Field;");
-        let codebase = codebase.borrow();
         assert_eq!(codebase.fname_ast_map.len(), 1);
         assert_eq!(codebase.symbol_tables.len(), 1);
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
@@ -1124,7 +1096,6 @@ mod ledger_parsing_tests {
     #[test]
     fn export_ledger() {
         let codebase = build_codebase_wrapper("export ledger myLedger : Boolean;");
-        let codebase = codebase.borrow();
         assert_eq!(codebase.fname_ast_map.len(), 1);
         assert_eq!(codebase.symbol_tables.len(), 1);
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
@@ -1144,7 +1115,6 @@ mod ledger_parsing_tests {
     #[test]
     fn sealed_ledger() {
         let codebase = build_codebase_wrapper("sealed ledger myLedger : Uint<32>;");
-        let codebase = codebase.borrow();
         assert_eq!(codebase.fname_ast_map.len(), 1);
         assert_eq!(codebase.symbol_tables.len(), 1);
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
@@ -1170,7 +1140,6 @@ mod ledger_parsing_tests {
     #[test]
     fn export_sealed_ledger() {
         let codebase = build_codebase_wrapper("export sealed ledger myLedger : Field;");
-        let codebase = codebase.borrow();
         assert_eq!(codebase.fname_ast_map.len(), 1);
         assert_eq!(codebase.symbol_tables.len(), 1);
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
@@ -1190,7 +1159,6 @@ mod ledger_parsing_tests {
     #[test]
     fn ledger_with_vector_type() {
         let codebase = build_codebase_wrapper("ledger myLedger : Vector<10, Boolean>;");
-        let codebase = codebase.borrow();
         assert_eq!(codebase.fname_ast_map.len(), 1);
         assert_eq!(codebase.symbol_tables.len(), 1);
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
@@ -1223,7 +1191,6 @@ mod ledger_parsing_tests {
     #[test]
     fn ledger_with_generic_type() {
         let codebase = build_codebase_wrapper("ledger myLedger : MyType<42, Field>;");
-        let codebase = codebase.borrow();
         assert_eq!(codebase.fname_ast_map.len(), 1);
         assert_eq!(codebase.symbol_tables.len(), 1);
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
@@ -1269,7 +1236,6 @@ mod pragma_parsing_tests {
     #[test]
     fn pragma_language_version_eq() {
         let codebase = build_codebase_wrapper("pragma language_version 0.14.0;");
-        let codebase = codebase.borrow();
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
         let ast = &source_file.ast;
         // Expect one pragma directive.
@@ -1294,7 +1260,6 @@ mod pragma_parsing_tests {
     #[test]
     fn pragma_language_version_neq() {
         let codebase = build_codebase_wrapper("pragma language_version !0.14.0;");
-        let codebase = codebase.borrow();
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
         let ast = &source_file.ast;
         assert_eq!(ast.directives.len(), 1);
@@ -1318,7 +1283,6 @@ mod pragma_parsing_tests {
     #[test]
     fn pragma_language_version_lt() {
         let codebase = build_codebase_wrapper("pragma language_version <0.14.0;");
-        let codebase = codebase.borrow();
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
         let ast = &source_file.ast;
         assert_eq!(ast.directives.len(), 1);
@@ -1341,7 +1305,6 @@ mod pragma_parsing_tests {
     #[test]
     fn pragma_language_version_lte() {
         let codebase = build_codebase_wrapper("pragma language_version <=0.14.0;");
-        let codebase = codebase.borrow();
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
         let ast = &source_file.ast;
         assert_eq!(ast.directives.len(), 1);
@@ -1364,7 +1327,6 @@ mod pragma_parsing_tests {
     #[test]
     fn pragma_language_version_gt() {
         let codebase = build_codebase_wrapper("pragma language_version >0.14.0;");
-        let codebase = codebase.borrow();
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
         let ast = &source_file.ast;
         assert_eq!(ast.directives.len(), 1);
@@ -1387,7 +1349,6 @@ mod pragma_parsing_tests {
     #[test]
     fn pragma_language_version_gte() {
         let codebase = build_codebase_wrapper("pragma language_version >=0.14.0;");
-        let codebase = codebase.borrow();
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
         let ast = &source_file.ast;
         assert_eq!(ast.directives.len(), 1);
@@ -1410,7 +1371,6 @@ mod pragma_parsing_tests {
     #[test]
     fn pragma_language_version_parenthesized() {
         let codebase = build_codebase_wrapper("pragma language_version (0.14.0);");
-        let codebase = codebase.borrow();
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
         let ast = &source_file.ast;
         assert_eq!(ast.directives.len(), 1);
@@ -1434,7 +1394,6 @@ mod pragma_parsing_tests {
     #[test]
     fn pragma_language_version_parenthesized_not() {
         let codebase = build_codebase_wrapper("pragma language_version (!0.14.0);");
-        let codebase = codebase.borrow();
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
         let ast = &source_file.ast;
         assert_eq!(ast.directives.len(), 1);
@@ -1457,7 +1416,6 @@ mod pragma_parsing_tests {
     #[test]
     fn pragma_language_version_and() {
         let codebase = build_codebase_wrapper("pragma language_version 0.14.0 && 0.15.0;");
-        let codebase = codebase.borrow();
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
         let ast = &source_file.ast;
         assert_eq!(ast.directives.len(), 1);
@@ -1496,7 +1454,6 @@ mod pragma_parsing_tests {
     #[test]
     fn pragma_language_version_or() {
         let codebase = build_codebase_wrapper("pragma language_version 0.14.0 || 0.15.0;");
-        let codebase = codebase.borrow();
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
         let ast = &source_file.ast;
         assert_eq!(ast.directives.len(), 1);
@@ -1534,7 +1491,6 @@ mod pragma_parsing_tests {
     fn pragma_language_version_and_or() {
         let codebase =
             build_codebase_wrapper("pragma language_version 0.14.0 && 0.15.0 || 0.16.0;");
-        let codebase = codebase.borrow();
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
         let ast = &source_file.ast;
         assert_eq!(ast.directives.len(), 1);
@@ -1606,7 +1562,6 @@ mod statements_parsing_tests {
     #[test]
     fn assign_statement_simple() {
         let codebase = build_codebase_wrapper("circuit foo(): Bool { x = 42; }");
-        let codebase = codebase.borrow();
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
         let ast = &source_file.ast;
         let circuits = ast.circuits();
@@ -1642,7 +1597,6 @@ mod statements_parsing_tests {
     #[test]
     fn assign_statement_add() {
         let codebase = build_codebase_wrapper("circuit foo(): Bool { x += y; }");
-        let codebase = codebase.borrow();
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
         let ast = &source_file.ast;
         let circuits = ast.circuits();
@@ -1678,7 +1632,6 @@ mod statements_parsing_tests {
     #[test]
     fn expression_statement_add() {
         let codebase = build_codebase_wrapper("circuit foo(): Bool { x + y; }");
-        let codebase = codebase.borrow();
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
         let ast = &source_file.ast;
         let circuits = ast.circuits();
@@ -1717,7 +1670,6 @@ mod statements_parsing_tests {
     #[test]
     fn return_statement() {
         let codebase = build_codebase_wrapper("circuit foo(): Bool { return; }");
-        let codebase = codebase.borrow();
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
         let ast = &source_file.ast;
         let circuits = ast.circuits();
@@ -1741,7 +1693,6 @@ mod statements_parsing_tests {
     #[test]
     fn return_statement_with_expression() {
         let codebase = build_codebase_wrapper("circuit foo(): Bool { return x * y; }");
-        let codebase = codebase.borrow();
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
         let ast = &source_file.ast;
         let circuits = ast.circuits();
@@ -1789,7 +1740,6 @@ mod statements_parsing_tests {
     #[test]
     fn if_statement() {
         let codebase = build_codebase_wrapper("circuit foo(): Bool { if (x > 0) x = 1; }");
-        let codebase = codebase.borrow();
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
         let ast = &source_file.ast;
         let circuits = ast.circuits();
@@ -1860,7 +1810,6 @@ mod statements_parsing_tests {
         let codebase = build_codebase_wrapper(
             "circuit foo(): Bool { if (x > 0) { return x + 1; } else { x = 21; } }",
         );
-        let codebase = codebase.borrow();
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
         let ast = &source_file.ast;
         let circuits = ast.circuits();
@@ -1966,7 +1915,6 @@ mod statements_parsing_tests {
     fn for_loop_statement() {
         let codebase =
             build_codebase_wrapper("circuit foo(): Bool { for (const i of 0 .. 10) { x = i; } }");
-        let codebase = codebase.borrow();
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
         let ast = &source_file.ast;
         let circuits = ast.circuits();
@@ -2017,7 +1965,6 @@ mod statements_parsing_tests {
         let codebase = build_codebase_wrapper(
             r#"circuit foo(): Bool { assert x != 0 "Division by zero error"; }"#,
         );
-        let codebase = codebase.borrow();
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
         let ast = &source_file.ast;
         let circuits = ast.circuits();
@@ -2060,7 +2007,6 @@ mod statements_parsing_tests {
     #[test]
     fn assert_statement_with_message() {
         let codebase = build_codebase_wrapper(r#"circuit foo(): Bool { assert x > 0 "fail!"; }"#);
-        let codebase = codebase.borrow();
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
         let ast = &source_file.ast;
         let circuits = ast.circuits();
@@ -2103,7 +2049,6 @@ mod statements_parsing_tests {
     #[test]
     fn const_declaration_statement() {
         let codebase = build_codebase_wrapper("circuit foo(): Bool { const y: Field = x + 1; }");
-        let codebase = codebase.borrow();
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
         let ast = &source_file.ast;
         let circuits = ast.circuits();
@@ -2153,7 +2098,6 @@ mod statements_parsing_tests {
     #[test]
     fn const_declaration_with_destructuring() {
         let codebase = build_codebase_wrapper("circuit foo(): Bool { const [a, b] = getPair(); }");
-        let codebase = codebase.borrow();
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
         let ast = &source_file.ast;
         let circuits = ast.circuits();
@@ -2208,7 +2152,6 @@ mod statements_parsing_tests {
     #[test]
     fn block_statement() {
         let codebase = build_codebase_wrapper("circuit foo(): Bool { { x = 1; return; } }");
-        let codebase = codebase.borrow();
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
         let ast = &source_file.ast;
         let circuits = ast.circuits();
@@ -2257,7 +2200,6 @@ mod statements_parsing_tests {
     #[test]
     fn expression_statement_true() {
         let codebase = build_codebase_wrapper("circuit foo(): Bool { true; }");
-        let codebase = codebase.borrow();
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
         let ast = &source_file.ast;
         let circuits = ast.circuits();
@@ -2285,7 +2227,6 @@ mod statements_parsing_tests {
     #[test]
     fn expression_statement_literal() {
         let codebase = build_codebase_wrapper("circuit foo(): Bool { 42; }");
-        let codebase = codebase.borrow();
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
         let ast = &source_file.ast;
         let circuits = ast.circuits();
@@ -2313,7 +2254,6 @@ mod statements_parsing_tests {
     #[test]
     fn expression_statement_string_literal() {
         let codebase = build_codebase_wrapper(r#"circuit foo(): Bool { "hello"; }"#);
-        let codebase = codebase.borrow();
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
         let ast = &source_file.ast;
         let circuits = ast.circuits();
@@ -2341,7 +2281,6 @@ mod statements_parsing_tests {
     #[test]
     fn expression_statement_function_call() {
         let codebase = build_codebase_wrapper(r#"circuit foo(): Bool { pad(5, "hi"); }"#);
-        let codebase = codebase.borrow();
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
         let ast = &source_file.ast;
         let circuits = ast.circuits();
@@ -2370,7 +2309,6 @@ mod statements_parsing_tests {
     #[test]
     fn expression_statement_default() {
         let codebase = build_codebase_wrapper("circuit foo(): Bool { default<Field>; }");
-        let codebase = codebase.borrow();
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
         let ast = &source_file.ast;
         let circuits = ast.circuits();
@@ -2398,7 +2336,6 @@ mod statements_parsing_tests {
     #[test]
     fn expression_statement_function_call_with_multiple_arguments() {
         let codebase = build_codebase_wrapper("circuit foo(): Bool { map(f, x, y); }");
-        let codebase = codebase.borrow();
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
         let ast = &source_file.ast;
         let circuits = ast.circuits();
@@ -2444,7 +2381,6 @@ mod statements_parsing_tests {
     #[test]
     fn expression_statement_fold() {
         let codebase = build_codebase_wrapper("circuit foo(): Bool { fold(g, 0, x, y, z); }");
-        let codebase = codebase.borrow();
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
         let ast = &source_file.ast;
         let circuits = ast.circuits();
@@ -2502,7 +2438,6 @@ mod statements_parsing_tests {
     #[test]
     fn expression_statement_function_call_with_two_arguments() {
         let codebase = build_codebase_wrapper("circuit foo(): Bool { myFunction(a, b); }");
-        let codebase = codebase.borrow();
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
         let ast = &source_file.ast;
         let circuits = ast.circuits();
@@ -2548,7 +2483,6 @@ mod statements_parsing_tests {
     #[test]
     fn expression_statement_function_call_no_arguments() {
         let codebase = build_codebase_wrapper("circuit foo(): Bool { myFunction(); }");
-        let codebase = codebase.borrow();
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
         let ast = &source_file.ast;
         let circuits = ast.circuits();
@@ -2582,7 +2516,6 @@ mod statements_parsing_tests {
     #[test]
     fn expression_statement_disclose() {
         let codebase = build_codebase_wrapper("circuit foo(): Bool { disclose(x); }");
-        let codebase = codebase.borrow();
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
         let ast = &source_file.ast;
         let circuits = ast.circuits();
@@ -2613,7 +2546,6 @@ mod statements_parsing_tests {
     #[test]
     fn struct_initialization_statement() {
         let codebase = build_codebase_wrapper("circuit foo(): Bool { MyStruct { a: x, b: y }; }");
-        let codebase = codebase.borrow();
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
         let ast = &source_file.ast;
         let circuits = ast.circuits();
@@ -2673,7 +2605,6 @@ mod statements_parsing_tests {
     #[test]
     fn expression_statement_array() {
         let codebase = build_codebase_wrapper("circuit foo(): Bool { [x, y, z]; }");
-        let codebase = codebase.borrow();
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
         let ast = &source_file.ast;
         let circuits = ast.circuits();
@@ -2719,7 +2650,6 @@ mod statements_parsing_tests {
     #[test]
     fn expression_statement_tuple() {
         let codebase = build_codebase_wrapper("circuit foo(): Bool { ((x + 1), y, z); }");
-        let codebase = codebase.borrow();
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
         let ast = &source_file.ast;
         let circuits = ast.circuits();
@@ -2777,7 +2707,6 @@ mod statements_parsing_tests {
     #[test]
     fn conditional_expression() {
         let codebase = build_codebase_wrapper("circuit foo(): Bool { x > 0 ? x : 10 * x; }");
-        let codebase = codebase.borrow();
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
         let ast = &source_file.ast;
         let circuits = ast.circuits();
@@ -2846,7 +2775,6 @@ mod statements_parsing_tests {
     #[test]
     fn expression_statement_logical_or() {
         let codebase = build_codebase_wrapper("circuit foo(): Bool { x || y; }");
-        let codebase = codebase.borrow();
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
         let ast = &source_file.ast;
         let circuits = ast.circuits();
@@ -2886,7 +2814,6 @@ mod statements_parsing_tests {
     #[test]
     fn expression_statement_logical_and() {
         let codebase = build_codebase_wrapper("circuit foo(): Bool { x && y; }");
-        let codebase = codebase.borrow();
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
         let ast = &source_file.ast;
         let circuits = ast.circuits();
@@ -2926,7 +2853,6 @@ mod statements_parsing_tests {
     #[test]
     fn expression_statement_equality() {
         let codebase = build_codebase_wrapper("circuit foo(): Bool { x == y; }");
-        let codebase = codebase.borrow();
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
         let ast = &source_file.ast;
         let circuits = ast.circuits();
@@ -2966,7 +2892,6 @@ mod statements_parsing_tests {
     #[test]
     fn expression_statement_add_1() {
         let codebase = build_codebase_wrapper("circuit foo(): Bool { x + y; }");
-        let codebase = codebase.borrow();
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
         let ast = &source_file.ast;
         let circuits = ast.circuits();
@@ -3005,7 +2930,6 @@ mod statements_parsing_tests {
     #[test]
     fn expression_statement_subtract() {
         let codebase = build_codebase_wrapper("circuit foo(): Bool { x - y; }");
-        let codebase = codebase.borrow();
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
         let ast = &source_file.ast;
         let circuits = ast.circuits();
@@ -3045,7 +2969,6 @@ mod statements_parsing_tests {
     #[test]
     fn expression_statement_multiply() {
         let codebase = build_codebase_wrapper("circuit foo(): Bool { x * y; }");
-        let codebase = codebase.borrow();
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
         let ast = &source_file.ast;
         let circuits = ast.circuits();
@@ -3085,7 +3008,6 @@ mod statements_parsing_tests {
     #[test]
     fn expression_statement_not() {
         let codebase = build_codebase_wrapper("circuit foo(): Bool { !x; }");
-        let codebase = codebase.borrow();
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
         let ast = &source_file.ast;
         let circuits = ast.circuits();
@@ -3119,7 +3041,6 @@ mod statements_parsing_tests {
     #[test]
     fn expression_statement_member_access() {
         let codebase = build_codebase_wrapper("circuit foo(): Bool { x.y; }");
-        let codebase = codebase.borrow();
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
         let ast = &source_file.ast;
         let circuits = ast.circuits();
@@ -3153,7 +3074,6 @@ mod statements_parsing_tests {
     #[test]
     fn expression_statement_array_access() {
         let codebase = build_codebase_wrapper("circuit foo(): Bool { x[0]; }");
-        let codebase = codebase.borrow();
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
         let ast = &source_file.ast;
         let circuits = ast.circuits();
@@ -3187,7 +3107,6 @@ mod statements_parsing_tests {
     #[test]
     fn expression_statement_cast() {
         let codebase = build_codebase_wrapper("circuit foo(): Bool { x as Field; }");
-        let codebase = codebase.borrow();
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
         let ast = &source_file.ast;
         let circuits = ast.circuits();
@@ -3229,7 +3148,6 @@ mod struct_parsing_tests {
     #[test]
     fn simple_struct() {
         let codebase = build_codebase_wrapper("struct MyStruct { a: Field; b: Uint<32>; }");
-        let codebase = codebase.borrow();
         assert_eq!(codebase.fname_ast_map.len(), 1);
         assert_eq!(codebase.symbol_tables.len(), 1);
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
@@ -3257,7 +3175,6 @@ mod struct_parsing_tests {
     #[test]
     fn generic_struct() {
         let codebase = build_codebase_wrapper("struct MyStruct<T> { a: Field; b: Uint<32>; }");
-        let codebase = codebase.borrow();
         assert_eq!(codebase.fname_ast_map.len(), 1);
         assert_eq!(codebase.symbol_tables.len(), 1);
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
@@ -3287,7 +3204,6 @@ mod struct_parsing_tests {
     #[test]
     fn exported_struct() {
         let codebase = build_codebase_wrapper("export struct MyStruct { a: Field; b: Field; }");
-        let codebase = codebase.borrow();
         assert_eq!(codebase.fname_ast_map.len(), 1);
         assert_eq!(codebase.symbol_tables.len(), 1);
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
@@ -3323,7 +3239,6 @@ mod witness_parsing_tests {
     #[test]
     fn simple_witness() {
         let codebase = build_codebase_wrapper("witness myWitness (x: Field) : Field;");
-        let codebase = codebase.borrow();
         assert_eq!(codebase.fname_ast_map.len(), 1);
         assert_eq!(codebase.symbol_tables.len(), 1);
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
@@ -3348,7 +3263,6 @@ mod witness_parsing_tests {
     fn exported_witness() {
         let codebase =
             build_codebase_wrapper("export witness myWitness (x: Field, y: Uint<32>) : Field;");
-        let codebase = codebase.borrow();
         assert_eq!(codebase.fname_ast_map.len(), 1);
         assert_eq!(codebase.symbol_tables.len(), 1);
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
@@ -3378,7 +3292,6 @@ mod witness_parsing_tests {
     #[test]
     fn generic_witness() {
         let codebase = build_codebase_wrapper("witness myWitness<T> (a: Field) : Field;");
-        let codebase = codebase.borrow();
         assert_eq!(codebase.fname_ast_map.len(), 1);
         assert_eq!(codebase.symbol_tables.len(), 1);
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
@@ -3408,7 +3321,6 @@ mod witness_parsing_tests {
     fn witness_with_multiple_parameters() {
         let codebase =
             build_codebase_wrapper("witness myWitness (a: Field, b: Field, c: Boolean) : Boolean;");
-        let codebase = codebase.borrow();
         assert_eq!(codebase.fname_ast_map.len(), 1);
         assert_eq!(codebase.symbol_tables.len(), 1);
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
@@ -3438,7 +3350,6 @@ mod witness_parsing_tests {
     #[test]
     fn witness_with_no_parameters() {
         let codebase = build_codebase_wrapper("witness myWitness () : Field;");
-        let codebase = codebase.borrow();
         assert_eq!(codebase.fname_ast_map.len(), 1);
         assert_eq!(codebase.symbol_tables.len(), 1);
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
@@ -3460,7 +3371,6 @@ mod witness_parsing_tests {
     fn witness_with_vector_return_type() {
         let codebase =
             build_codebase_wrapper("witness myWitness (data: Field) : Vector<10, Field>;");
-        let codebase = codebase.borrow();
         assert_eq!(codebase.fname_ast_map.len(), 1);
         assert_eq!(codebase.symbol_tables.len(), 1);
         let source_file = codebase.fname_ast_map.get("dummy").unwrap();
