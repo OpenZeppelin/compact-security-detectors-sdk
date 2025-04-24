@@ -8,6 +8,8 @@ pub(crate) enum Commands {
         detectors: Option<Vec<String>>,
         #[arg(long = "project-root", required = false, value_parser)]
         project_root: Option<std::path::PathBuf>,
+        #[arg(long = "load", required = false, value_parser)]
+        load_lib: Option<std::path::PathBuf>,
     },
     Metadata,
 }

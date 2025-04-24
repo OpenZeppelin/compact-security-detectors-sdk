@@ -54,6 +54,11 @@ macro_rules! detectors {
     () => {};
 }
 
+#[repr(C)]
+pub struct DetectorOpaque {
+    _private: [u8; 0],
+}
+
 pub trait CombinedDetector: Detector + DetectorReportTemplate {}
 
 impl<T: Detector + DetectorReportTemplate> CombinedDetector for T {}

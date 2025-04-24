@@ -132,3 +132,18 @@ See [style guidelines](../style_guidelines.md) for coding standards and best pra
 ## License
 
 [AGPLv3](../LICENSE)
+
+## WARNING: UNSAFE, DON'T USE
+
+For those who do not want to re-compile the `scanner` or `detectors` crates, the dynamic library loading is available with the `--load` flag.
+
+Usage:
+```bash
+compact-scanner scan <PATH> --load <PATH_TO_DETECTOR_LIBRARY>
+```
+
+This will load the dynamic library at runtime. The library must contain the `CompactDetector` trait implementation and be compiled with the same Rust and `sdk` versions as the scanner.
+External detector must export the "external_detector" symbol.
+External detector must implement `DetectorReportTemplate` trait. 
+
+See the example [external detector](../examples/external-detector/src/lib.rs) for more details.

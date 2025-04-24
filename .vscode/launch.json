@@ -23,10 +23,12 @@
                 // "metadata"
                 "scan",
                 "${workspaceFolder}/corpus/subdir",
-                "--project-root",
-                "${workspaceFolder}/corpus",
-                "--detectors",
-                "all"
+                // "--project-root",
+                // "${workspaceFolder}/corpus",
+                // "--detectors",
+                // "all"
+                "--load",
+                "/home/georgii/GitHub/midnight-security-rules-sdk/target/debug/libexternal_detector_example.so"
             ],
             "cwd": "${workspaceFolder}"
         },
