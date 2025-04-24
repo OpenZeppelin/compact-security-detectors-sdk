@@ -46,15 +46,16 @@ fn main() {
                     corpus.insert(path.to_string_lossy().to_string(), file_content);
                 }
             }
+            let mut files_scanned = Vec::new();
+            let mut detector_responses = Map::new();
             if !corpus.is_empty() {
                 let result = execute_detectors(&corpus, detectors, load_lib);
 
-                let files_scanned: Vec<String> = corpus
+                files_scanned = corpus
                     .keys()
                     .map(|k| relative_file_path(k, &project_root))
                     .collect();
 
-                let mut detector_responses = Map::new();
                 for (detector_name, errors) in result {
                     let instances = detector_result_to_json(errors, &project_root);
 
@@ -69,15 +70,14 @@ fn main() {
                     });
                     detector_responses.insert(detector_name, detector_response);
                 }
-
-                let res = json!({
-                    "errors": [],
-                    "scanned": files_scanned,
-                    "detector_responses": detector_responses,
-                });
-
-                println!("{}", serde_json::to_string_pretty(&res).unwrap());
             }
+            let res = json!({
+                "errors": [],
+                "scanned": files_scanned,
+                "detector_responses": detector_responses,
+            });
+
+            println!("{}", serde_json::to_string_pretty(&res).unwrap());
         }
         parser::Commands::Metadata => {
             println!("{}", get_scanner_metadata());
