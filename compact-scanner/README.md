@@ -1,6 +1,10 @@
- # Compact Scanner
+# Compact Scanner
 
- CLI tool for scanning `.compact` files using Compact security detectors.
+CLI tool for scanning `.compact` files using Compact security detectors.
+
+## Overview
+
+The **compact-scanner** is a command-line tool designed to scan `.compact` files for security vulnerabilities using the Compact security detectors. It provides a simple interface to run various detectors and output results in JSON format.
 
 ## CLI Usage
 
@@ -117,11 +121,14 @@ When scanning code files, the JSON structure is:
 - `files_scanned`: Array of scanned file paths relative to `--project-root` if provided.
 - `detector_responses`: Map of detector IDs to their individual output.
 
- ## Contributing
+## Contributing
 
- See [contributing.md](../contributing.md) for guidelines.
+See [contributing.md](../contributing.md) for guidelines.
 
- ## License
+## Style Guidelines
 
- [AGPLv3](../LICENSE)
- 
+See [style guidelines](../style_guidelines.md) for coding standards and best practices.
+
+## License
+
+[AGPLv3](../LICENSE)

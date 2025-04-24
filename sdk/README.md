@@ -1,8 +1,8 @@
- # Compact Security Detectors SDK
+# Compact Security Detectors SDK
 
- Core SDK for building and running security detectors on `Compact` language.
+Core SDK for building and running security detectors on `Compact` language.
 
- ## Overview
+## Overview
 
 The `compact-security-detectors-sdk` is a Rust library that provides tooling to parse, analyze, and detect security-related issues in source code written in the Compact DSL.
 
@@ -12,39 +12,34 @@ The `compact-security-detectors-sdk` is a Rust library that provides tooling to 
 - Codebase representation with symbol tables (`codebase` module)
 - Generic detector framework (`Detector` and `DetectorReportTemplate` traits)
 
- ## Installation
+## Installation
 
- Add to your `Cargo.toml`:
- ```sh
- cargo add compact-security-detectors-sdk
- ```
+Add to your `Cargo.toml`:
+```sh
+cargo add compact-security-detectors-sdk
+```
 
 And then in the `rs` file:
  ```rust
 use compact_security_detectors_sdk::{
-    ast::{declaration::Declaration, definition::Definition, node_type::NodeType},
     codebase::{Codebase, SealedState},
     detector::DetectorResult,
 };
  ```
 
- See detector examples in [`detectors`](../detectors/docs/index.md) directory.
+See detector examples in [`detectors`](../detectors/docs/index.md) directory.
 
- ## Testing
+## Testing
 
- Run tests:
- ```sh
- cargo test
- ```
+Run tests:
+```sh
+cargo test
+```
 
- or with coverage:
- ```sh
- cargo tarpaulin
- ```
-
-# Getting Started
-
-This section walks through a minimal example to build a codebase and run a detector.
+or with coverage:
+```sh
+cargo tarpaulin
+```
 
 ## Build a Codebase
 
@@ -81,46 +76,30 @@ Custom detectors implement two traits:
 1. `Detector`:
    - Defines the `check(&self, codebase: &Codebase<SealedState>) -> Option<Vec<DetectorResult>>` method.
    - Analysis logic goes here.
-
 2. `DetectorReportTemplate`:
    - Provides metadata: name, description, severity, tags.
    - Template methods for report formatting.
+2. `detector!` macro:
+   - Simplifies detector creation.
+   - Generates a struct implementing `Detector` and `DetectorReportTemplate`.
 
 ### Example
 
 ```rust
-use compact_security_detectors_sdk::{Detector, DetectorReportTemplate, DetectorResult};
+use compact_security_detectors_sdk::{
+    codebase::{Codebase, SealedState},
+    detector::DetectorResult,
+};
 
-pub struct ExampleDetector;
-
-impl Detector for ExampleDetector {
-    fn check(&self, codebase: &Codebase<SealedState>) -> Option<Vec<DetectorResult>> {
-        // analysis logic...
-        None
+compact_security_detectors_sdk::detector! {
+    #[type_name = ExampleDetector]
+    pub fn example_detector(
+        codebase: &Codebase<SealedState>
+    ) -> Option<Vec<DetectorResult>> {
+        // Detector logic here
+        Some(vec![])
     }
 }
-
-impl DetectorReportTemplate for ExampleDetector {
-    fn name(&self) -> String { "ExampleDetector".into() }
-    fn description(&self) -> String { "An example detector".into() }
-    fn severity(&self) -> String { "LOW".into() }
-    fn tags(&self) -> Vec<String> { vec!["example".into()] }
-    fn title_single_instance(&self) -> String { "Found issue".into() }
-    fn title_multiple_instance(&self) -> String { "Found multiple issues".into() }
-    fn opening(&self) -> String { "Opening message".into() }
-    fn body_single_file_single_instance(&self) -> String { "Detailed message".into() }
-    fn body_single_file_multiple_instance(&self) -> String { "Detailed multiple message".into() }
-    fn body_multiple_file_multiple_instance(&self) -> String { "Multi-file message".into() }
-    fn body_list_item_single_file(&self) -> String { "- List item".into() }
-    fn body_list_item_multiple_file(&self) -> String { "- Multi-file list item".into() }
-    fn closing(&self) -> String { "Closing message".into() }
-    fn template(&self) -> String { "{{ name }}".into() }
-}
-
-let detectors: Vec<CompactDetector> = vec![
-    Box::new(ExampleDetector),
-    // Add more detectors here
-];
 ```
 
 ## Architecture
@@ -152,7 +131,7 @@ This section provides a brief overview of the main modules in the SDK:
 - **ast**: AST definitions and builder
   - `builder.rs`: Constructs AST from Tree-sitter parse tree.
   - `node.rs`, `node_type.rs`: Definitions of AST nodes.
-  - Other submodules: declarations, expressions, statements.
+  - Other submodules: `declarations`, `expressions`, `statements`...
 - **codebase**: Core `Codebase` struct and APIs
   - `Codebase<OpenState>`: Add files and build AST.
   - `Codebase<SealedState>`: Seal codebase, build symbol tables, link imports and calls.
@@ -167,41 +146,14 @@ This section provides a brief overview of the main modules in the SDK:
 - **builder_tests.rs**: Internal tests for AST builder.
 - **storage.rs**: Low-level storage implementation.
 
-## Installation
+## Contributing
 
-### Prerequisites
+See [contributing.md](../contributing.md) for guidelines.
 
-- Rust toolchain (1.60+)
-- `cargo` package manager
-- C toolchain (for Tree-sitter if building from source)
+## Style Guidelines
 
-### Clone the Repository
+See [style guidelines](../style_guidelines.md) for coding standards and best practices.
 
-```bash
-git clone https://github.com/OpenZeppelin/compact-security-detectors-sdk.git
-cd compact-security-detectors-sdk
-```
+## License
 
-### Build
-
-```bash
-cargo build --release
-```
-
-### Add to Your Project
-
-Add the following to your `Cargo.toml`:
-
-```toml
-[dependencies]
-compact-security-detectors-sdk = { git = "https://github.com/OpenZeppelin/compact-security-detectors-sdk.git" }
-```
-
- ## Contributing
-
- See [contributing.md](../contributing.md) for guidelines.
-
- ## License
-
- [MIT](../LICENSE)
- 
+[AGPLv3](../LICENSE)

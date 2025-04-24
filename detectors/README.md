@@ -1,53 +1,39 @@
- # Compact Security Detectors
+# Compact Security Detectors
 
- Security detectors library for the Midnight platform.
+Compact security detectors library for the Midnight platform.
 
- ## Overview
+## Overview
 
- This crate provides a set of built-in security detectors for the `Compact` language, enabling analysis of on-chain circuits for common vulnerability patterns.
+This crate provides a set of built-in security detectors for the `Compact` language, enabling analysis for vulnerabilities.
 
 ### High-Level Workflow
 
-1. Define new detectors in `src/` (or separate modules).
+1. Define new detectors in `src/`.
 2. Use the `detector!` and `detectors!` macros from `compact_security_detectors_sdk`.
 3. Add tests in the `#[cfg(test)]` section.
 4. Update `metadata/` if your detectors require new configuration.
 
 ## Project Structure
 
-This section describes the layout of the repository and key files.
-
-- **Cargo.toml**  
-Project metadata, dependencies, and build settings.
-
-- **build.rs**  
+- **build.rs**
 Build script that generates Rust code for detector report templates. The generated file is included in `src/lib.rs` via `include!`.
-
-- **metadata/**  
-YAML configuration files for detectors. See [Writing Detectors](writing-detectors.md#metadata-configuration) for details.
-
-- **src/**  
-  - `lib.rs`  
-      Main library file containing detector definitions using the `detectors!` macro.
-  - `detector-report-templates.rs` (generated)  
-    Generated code with templates for detector reports, included via `include!` in `lib.rs`.
+- **metadata/**
+YAML configuration files for detectors.
+- **src/**
+  - `lib.rs` Main library file containing detector definitions using the `detectors!` macro.
+  - `detector-report-templates.rs` (generated) Generated code with templates for detector reports, included via `include!` in `lib.rs`.
  
- ## Usage
+## Usage
 
- Add to your `Cargo.toml`:
- ```toml
- compact-security-detectors = { path = "../detectors", version = "0.0.1" }
- ```
-
- Example:
- ```rust
- use compact_security_detectors::all_detectors;
- // build codebase with sdk...
- let detectors = all_detectors();
- for det in detectors {
-     // run det.check(&codebase)
- }
- ```
+Example:
+```rust
+use compact_security_detectors::all_detectors;
+// build codebase with sdk...
+let detectors = all_detectors();
+for det in detectors {
+    // run det.check(&codebase)
+}
+```
 
 ## Writing Detectors
 
@@ -55,13 +41,10 @@ This guide covers how to implement new security detectors in the codebase.
 
 ## Detector Macros
 
-Two macros are provided in `src/utils.rs`:
+Two macros are provided by `compact_security_detectors_sdk` crate:
 
-- `detector!`  
-    Defines a single detector by implementing the `Detector` trait.
-
-- `detectors!`  
-   Wraps multiple `detector!` invocations and generates an `all_detectors()` function returning all detectors.
+- `detector!`  Defines a single detector by implementing the `Detector` trait.
+- `detectors!` Wraps multiple `detector!` invocations.
 
 ## Defining a Detector
 
@@ -95,7 +78,7 @@ compact_security_detectors_sdk::detectors! {
 }
 ```
 
-This expands to multiple `detector!` definitions and an `all_detectors()` factory.
+This expands to multiple `detector!` definitions and include to the `all_detectors()` factory.
 
 ### Metadata Configuration
 
@@ -125,6 +108,10 @@ fn test_my_detector() {
 
 See [contributing.md](../contributing.md) for guidelines.
 
+## Style Guidelines
+
+See [style guidelines](../style_guidelines.md) for coding standards and best practices.
+
 ## License
 
-[MIT](../LICENSE)
+[AGPLv3](../LICENSE)

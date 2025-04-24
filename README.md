@@ -3,7 +3,7 @@
 
 # Compact Security Detectors
 
-A suite of tools and libraries for analyzing `Compact` language circuits for security vulnerabilities within the Midnight platform.
+A suite of tools and libraries for analyzing `Compact` language for security vulnerabilities within the Midnight platform.
 
 ## Repository Structure
 
@@ -15,17 +15,22 @@ This workspace includes the following crates:
 
 ## Quickstart
 
-1. Restore submodules:
+1. Clone the repository:
+   ```sh
+   git clone https://github.com/OpenZeppelin/compact-security-detectors-sdk.git
+   ```
+
+2. Restore submodules:
    ```sh
    git submodule update --init --recursive
    ```
 
-2. Build the project:
+3. Build the project:
    ```sh
    cargo build
    ```
 
-3. Scan a directory of `.compact` files:
+4. Scan a directory of `.compact` files:
    ```sh
    compact-scanner scan ./path/to/compact/files
    ```
@@ -54,3 +59,15 @@ graph TD;
   end
   S -->|Results| O[Output JSON/Console]
 ```
+
+## Contributing
+
+See [contributing.md](./contributing.md) for guidelines.
+
+## Style Guidelines
+
+See [style guidelines](./style_guidelines.md) for coding standards and best practices.
+
+## License
+
+[AGPLv3](./LICENSE)
