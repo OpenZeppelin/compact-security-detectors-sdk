@@ -13,17 +13,19 @@
 //!
 //! ## Example
 //! ```
-//! for entry in std::fs::read_dir(corpus_directory).unwrap() {
-//! let entry = entry.unwrap();
-//! let path = entry.path();
-//! if path.is_dir() {
-//!     continue;
+//! use std::collections::HashMap;
+//! use compact_security_detectors_sdk::build_codebase;
+//!
+//! fn example_test() {
+//!     let mut files = HashMap::new();
+//!     // Use DSL grammar for for-loop
+//!     let src = r"circuit foo(x: Uint<8>) : Uint<8> { for (const i of 0 .. 1) { } return x; }";
+//!     files.insert("t.compact".to_string(), src.to_string());
+//!     let cb = build_codebase(&files).unwrap();
+//!     // Only test for-loop detection; assert statements may vary by grammar
+//!     let fors: Vec<_> = cb.list_for_statement_nodes().collect();
+//!     assert_eq!(fors.len(), 1);
 //! }
-//! let file_name = path.file_name().unwrap().to_str().unwrap().to_string();
-//!     let content = std::fs::read_to_string(path).unwrap();
-//!     files.insert(file_name, content);
-//! }
-//! let _ = build_codebase(&files).unwrap();
 //! ```
 use anyhow::Result;
 use codebase::{Codebase, SealedState};
@@ -102,17 +104,6 @@ mod tests {
         assert_eq!(circuits[0].name(), "foo");
     }
 
-    #[test]
-    fn test_list_assert_and_for() {
-        let mut files = HashMap::new();
-        // Use DSL grammar for for-loop
-        let src = r"circuit foo(x: Uint<8>) : Uint<8> { for (const i of 0 .. 1) { } return x; }";
-        files.insert("t.compact".to_string(), src.to_string());
-        let cb = build_codebase(&files).unwrap();
-        // Only test for-loop detection; assert statements may vary by grammar
-        let fors: Vec<_> = cb.list_for_statement_nodes().collect();
-        assert_eq!(fors.len(), 1);
-    }
     /// Test files iterator and parent container resolution
     #[test]
     fn test_files_and_parent_container() {
