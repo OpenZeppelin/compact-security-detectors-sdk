@@ -1,6 +1,30 @@
 #![warn(clippy::pedantic)]
 #![recursion_limit = "1024"]
-
+//! # Compact Security Detectors SDK root module
+//! This module provides the main entry point for building a codebase and exposing SDK API.
+//!
+//! ## Public members:
+//! - `ast` module contains the abstract syntax tree (AST) representation of the codebase.
+//! - `detector` module contrains Detector trait framework and macro for implementing detectors.
+//! - `codebase` module contains the Codebase struct and its methods for managing the codebase.
+//!
+//! The function `build_codebase` is the main entry point for building a codebase from source files.
+//! It takes a map of file paths to source code strings and returns a `Result` containing a boxed `Codebase` in the `SealedState`.
+//!
+//! ## Example
+//! ```
+//! for entry in std::fs::read_dir(corpus_directory).unwrap() {
+//! let entry = entry.unwrap();
+//! let path = entry.path();
+//! if path.is_dir() {
+//!     continue;
+//! }
+//! let file_name = path.file_name().unwrap().to_str().unwrap().to_string();
+//!     let content = std::fs::read_to_string(path).unwrap();
+//!     files.insert(file_name, content);
+//! }
+//! let _ = build_codebase(&files).unwrap();
+//! ```
 use anyhow::Result;
 use codebase::{Codebase, SealedState};
 use std::collections::HashMap;
@@ -12,6 +36,10 @@ mod passes;
 mod storage;
 
 /// Builds a codebase from the provided source files.
+///
+/// # Arguments
+///
+/// * `files` - A map where the keys are file paths (absolute) and the values are the corresponding source code strings.
 ///
 /// # Errors
 ///

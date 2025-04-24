@@ -3,7 +3,7 @@ use crate::{
     ast::{
         builder::build_ast,
         declaration::Declaration,
-        definition::Definition,
+        definition::{Circuit, Definition, Module},
         expression::Expression,
         function::Function,
         node::NodeKind,
@@ -260,7 +260,9 @@ impl Codebase<OpenState> {
         }
     }
 
-    pub(crate) fn build_symbol_table_for_file_level_types(program: &Rc<Program>) -> Rc<SymbolTable> {
+    pub(crate) fn build_symbol_table_for_file_level_types(
+        program: &Rc<Program>,
+    ) -> Rc<SymbolTable> {
         let rc_symbol_table = Rc::new(SymbolTable::new(None));
         for definition in &program.definitions {
             match definition {
@@ -314,6 +316,67 @@ impl Codebase<SealedState> {
                 None
             }
         })
+    }
+
+    #[must_use = "Use this function to get a list of all exported circuits in the file"]
+    pub fn list_exported_circuits_from_program(&self, program: &Rc<Program>) -> Vec<Rc<Circuit>> {
+        self.list_exported_circuits(program.id)
+    }
+
+    #[must_use = "Use this function to get a list of all exported circuits from the module"]
+    pub fn list_exported_circuits_from_module(&self, module: &Rc<Module>) -> Vec<Rc<Circuit>> {
+        self.list_exported_circuits(module.id)
+    }
+
+    fn list_exported_circuits(&self, id: u32) -> Vec<Rc<Circuit>> {
+        self.get_children_cmp(id, |node| {
+            if let NodeType::Definition(Definition::Circuit(circuit)) = node {
+                circuit.is_exported
+            } else {
+                false
+            }
+        })
+        .into_iter()
+        .filter_map(|node| {
+            if let NodeType::Definition(Definition::Circuit(circuit)) = node {
+                Some(circuit)
+            } else {
+                None
+            }
+        })
+        .collect()
+    }
+
+    #[must_use = "Use this function to get a list of all non-exported circuits in the file"]
+    pub fn list_non_exported_circuits_from_program(
+        &self,
+        program: &Rc<Program>,
+    ) -> Vec<Rc<Circuit>> {
+        self.list_non_exported_circuits(program.id)
+    }
+
+    #[must_use = "Use this function to get a list of all non-exported circuits from the module"]
+    pub fn list_non_exported_circuits_from_module(&self, module: &Rc<Module>) -> Vec<Rc<Circuit>> {
+        self.list_non_exported_circuits(module.id)
+    }
+
+    fn list_non_exported_circuits(&self, id: u32) -> Vec<Rc<Circuit>> {
+        self.get_children_cmp(id, |node| {
+            if let NodeType::Definition(Definition::Circuit(circuit)) = node {
+                !circuit.is_exported
+            } else {
+                false
+            }
+        })
+        .into_iter()
+        .filter_map(|node| {
+            if let NodeType::Definition(Definition::Circuit(circuit)) = node {
+                Some(circuit)
+            } else {
+                None
+            }
+        })
+        .collect()
     }
 
     #[must_use]
