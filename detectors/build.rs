@@ -61,10 +61,7 @@ fn main() {
         }
 
         if detector_is_skipped(&path) {
-            println!(
-                "cargo:warning=Skipping detector {} due to skip marker.",
-                file_name
-            );
+            println!("cargo:warning=Skipping detector {file_name} due to skip marker.",);
             continue;
         }
 
@@ -72,10 +69,9 @@ fn main() {
         let type_name = to_type_name(mod_name);
 
         mods.push_str(&format!(
-            "pub mod {} {{ include!(concat!(env!(\"CARGO_MANIFEST_DIR\"), \"/src/{}.rs\")); }}\n",
-            mod_name, mod_name
+            "pub mod {mod_name} {{ include!(concat!(env!(\"CARGO_MANIFEST_DIR\"), \"/src/{mod_name}.rs\")); }}\n",
         ));
-        mods.push_str(&format!("pub use {}::{};\n", mod_name, type_name));
+        mods.push_str(&format!("pub use {mod_name}::{type_name};\n"));
         detector_type_names.push(type_name.clone());
 
         let id_dash = mod_name.replace("_", "-");
@@ -94,7 +90,7 @@ fn main() {
                 .as_sequence()
                 .unwrap_or(&Vec::new())
                 .iter()
-                .filter_map(|tag| tag.as_str().map(|s| format!("\"{}\".to_string()", s)))
+                .filter_map(|tag| tag.as_str().map(|s| format!("\"{s}\".to_string()")))
                 .collect::<Vec<_>>()
                 .join(",");
             let template = &metadata["report"]["template"];
@@ -147,7 +143,7 @@ impl DetectorReportTemplate for {type_name} {{
         "pub fn all_detectors() -> Vec<compact_security_detectors_sdk::detector::CompactDetector> {\n    vec![\n",
     );
     for type_name in &detector_type_names {
-        register_code.push_str(&format!("        Box::new({}),\n", type_name));
+        register_code.push_str(&format!("        Box::new({type_name}),\n",));
     }
     register_code.push_str("    ]\n}\n");
     fs::write(&register_path, register_code).unwrap();
