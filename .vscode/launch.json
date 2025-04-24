@@ -28,7 +28,7 @@
                 // "--detectors",
                 // "all"
                 "--load",
-                "/home/georgii/GitHub/midnight-security-rules-sdk/target/debug/libexternal_detector_example.so"
+                "${workspaceFolder}/target/debug/libexternal_detector_example.so"
             ],
             "cwd": "${workspaceFolder}"
         },
