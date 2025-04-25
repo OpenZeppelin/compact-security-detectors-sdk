@@ -1,3 +1,4 @@
+#![warn(clippy::pedantic)]
 use clap::Parser;
 use compact_security_detectors::all_detectors;
 use compact_security_detectors_sdk::{
@@ -7,7 +8,7 @@ use compact_security_detectors_sdk::{
 use libloading::{Library, Symbol};
 use parser::Cli;
 use serde_json::{json, Map};
-use std::collections::HashMap;
+use std::{collections::HashMap, path::PathBuf};
 
 mod parser;
 
@@ -46,17 +47,18 @@ fn main() {
                     corpus.insert(path.to_string_lossy().to_string(), file_content);
                 }
             }
+            let mut files_scanned = Vec::new();
+            let mut detector_responses = Map::new();
             if !corpus.is_empty() {
-                let result = execute_detectors(&corpus, detectors, load_lib);
+                let result = execute_detectors(&corpus, detectors.as_ref(), load_lib);
 
-                let files_scanned: Vec<String> = corpus
+                files_scanned = corpus
                     .keys()
-                    .map(|k| relative_file_path(k, &project_root))
+                    .map(|k| relative_file_path(k, project_root.as_ref()))
                     .collect();
 
-                let mut detector_responses = Map::new();
                 for (detector_name, errors) in result {
-                    let instances = detector_result_to_json(errors, &project_root);
+                    let instances = detector_result_to_json(errors, project_root.as_ref());
 
                     let detector_response = json!({
                         "findings": [
@@ -69,15 +71,14 @@ fn main() {
                     });
                     detector_responses.insert(detector_name, detector_response);
                 }
-
-                let res = json!({
-                    "errors": [],
-                    "scanned": files_scanned,
-                    "detector_responses": detector_responses,
-                });
-
-                println!("{}", serde_json::to_string_pretty(&res).unwrap());
             }
+            let res = json!({
+                "errors": [],
+                "scanned": files_scanned,
+                "detector_responses": detector_responses,
+            });
+
+            println!("{}", serde_json::to_string_pretty(&res).unwrap());
         }
         parser::Commands::Metadata => {
             println!("{}", get_scanner_metadata());
@@ -87,7 +88,7 @@ fn main() {
 
 fn execute_detectors(
     files: &HashMap<String, String>,
-    rules: Option<Vec<String>>,
+    rules: Option<&Vec<String>>,
     load_lib: Option<std::path::PathBuf>,
 ) -> HashMap<String, Vec<DetectorResult>> {
     let codebase = build_codebase(files).unwrap();
@@ -107,7 +108,7 @@ fn execute_detectors(
     let selected_detectors: Vec<_> = available_detectors()
         .into_iter()
         .filter(|detector| {
-            if let Some(ref rules) = rules {
+            if let Some(rules) = rules {
                 rules.contains(&detector.id().to_string())
                     || (rules.len() == 1 && rules[0].eq_ignore_ascii_case("all"))
             } else {
@@ -127,7 +128,7 @@ fn execute_detectors(
 
 fn detector_result_to_json(
     errors: Vec<DetectorResult>,
-    project_root: &Option<std::path::PathBuf>,
+    project_root: Option<&PathBuf>,
 ) -> serde_json::Value {
     let mut json_errors = Vec::new();
     for error in errors {
@@ -145,7 +146,7 @@ fn detector_result_to_json(
     json!(json_errors)
 }
 
-fn relative_file_path(file_path: &str, project_root: &Option<std::path::PathBuf>) -> String {
+fn relative_file_path(file_path: &str, project_root: Option<&PathBuf>) -> String {
     if let Some(root) = project_root {
         if let Ok(relative_path) = std::path::Path::new(file_path).strip_prefix(root) {
             relative_path.to_string_lossy().to_string()
@@ -186,7 +187,7 @@ fn get_scanner_metadata() -> String {
             "report": {
                 "severity": detector.severity(),
                 "tags": detector.tags(),
-                "template": yml_string_to_json(detector.template())
+                "template": yml_string_to_json(&detector.template())
             }
         });
         detectors.push(json_detector);
@@ -202,6 +203,6 @@ fn get_scanner_metadata() -> String {
     serde_json::to_string_pretty(&scanner_json).unwrap()
 }
 
-fn yml_string_to_json(yml_string: String) -> Option<serde_json::Value> {
-    serde_yaml::from_str::<serde_json::Value>(&yml_string).ok()
+fn yml_string_to_json(yml_string: &str) -> Option<serde_json::Value> {
+    serde_yaml::from_str::<serde_json::Value>(yml_string).ok()
 }

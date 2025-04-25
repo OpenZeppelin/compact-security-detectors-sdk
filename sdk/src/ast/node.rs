@@ -1,5 +1,3 @@
-#![warn(clippy::pedantic)]
-
 use std::{any::Any, cmp::Reverse, rc::Rc};
 
 use super::expression::Expression;

@@ -104,6 +104,7 @@ fn main() {
             let closing = template["closing"].as_str().unwrap_or_default();
             let type_def = format!(
                 r#"
+#[allow(clippy::manual_string_new)]
 impl DetectorReportTemplate for {type_name} {{
     fn id(&self) -> String {{ "{id}".to_string() }}
     fn uid(&self) -> String {{ "{uid}".to_string() }}
@@ -140,7 +141,7 @@ impl DetectorReportTemplate for {type_name} {{
 
     fs::write(&mod_file_path, mods).unwrap();
     let mut register_code = String::from(
-        "pub fn all_detectors() -> Vec<compact_security_detectors_sdk::detector::CompactDetector> {\n    vec![\n",
+        "#[must_use] pub fn all_detectors() -> Vec<compact_security_detectors_sdk::detector::CompactDetector> {\n    vec![\n",
     );
     for type_name in &detector_type_names {
         register_code.push_str(&format!("        Box::new({type_name}),\n",));

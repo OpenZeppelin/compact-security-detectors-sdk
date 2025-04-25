@@ -1,4 +1,3 @@
-#![warn(clippy::pedantic)]
 use std::rc::Rc;
 
 use crate::{ast::expression::Expression, ast_enum, ast_nodes, ast_nodes_impl};
@@ -23,7 +22,6 @@ ast_enum! {
         @symbol Ledger(Rc<Ledger>),
         @scope Constructor(Rc<Constructor>),
         @scope Contract(Rc<Contract>),
-        @raw Definition(Definition), //TODO: why is it here?
         @symbol PatternArgument(Rc<PatternArgument>),
         StructPatternField(Rc<StructPatternField>),
     }

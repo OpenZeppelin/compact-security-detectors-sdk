@@ -1,9 +1,59 @@
-#![warn(clippy::pedantic)]
+/// The `Codebase` module provides functionality for managing and interacting with a codebase
+/// represented as Abstract Syntax Trees (ASTs). It includes mechanisms for parsing source code,
+/// building symbol tables, linking imports, resolving function calls, and managing the state of
+/// the codebase (open or sealed).
+///
+/// # Overview
+///
+/// The `Codebase` struct is a generic container that operates in two states:
+/// - `OpenState`: Allows modifications such as adding files and nodes.
+/// - `SealedState`: Prevents further modifications and provides read-only access to the codebase.
+///
+/// The module also defines traits (`CodebaseOpen` and `CodebaseSealed`) to enforce state-specific
+/// behavior.
+///
+/// # Key Components
+///
+/// - `SourceCodeFile`: Represents a source code file and its associated AST.
+/// - `NodesStorage`: Manages the storage of AST nodes.
+/// - `SymbolTable`: Represents a symbol table for resolving identifiers and types.
+///
+/// # Public API
+///
+/// ## Codebase<OpenState>
+/// - `new`: Creates a new `Codebase` in the open state.
+/// - `add_file`: Parses and adds a source code file to the codebase.
+/// - `add_node`: Adds a node to the codebase's storage.
+/// - `seal`: Seals the codebase, preventing further modifications and building symbol tables.
+///
+/// ## Codebase<SealedState>
+/// - `files`: Returns an iterator over all source code files in the codebase.
+/// - `get_symbol_type_by_id`: Retrieves the type of a symbol by its ID.
+/// - `list_assert_nodes`: Lists all `Assert` statement nodes in the codebase.
+/// - `list_for_statement_nodes`: Lists all `For` statement nodes in the codebase.
+/// - `list_exported_circuits_from_program`: Lists all exported circuits in a program.
+/// - `list_non_exported_circuits_from_program`: Lists all non-exported circuits in a program.
+/// - `get_parent_container`: Retrieves the parent container (e.g., module or circuit) of a node.
+///
+/// # Internal Functionality
+///
+/// - **Linking Imports**: The `link_imports` function resolves import declarations and propagates
+///   types from imported files.
+/// - **Resolving Function Calls**: The `link_function_calls` function resolves references for
+///   function call nodes, including those imported from other files.
+/// - **Building Symbol Tables**: The `build_symbol_table_for_file_level_types` function constructs
+///   symbol tables for file-level types such as circuits, structures, and enums.
+///
+/// # Error Handling
+///
+/// - Functions like `add_file` and `seal` return `Result` to handle errors during parsing or
+///   symbol table construction.
+/// - Panics are used in cases where critical errors occur, such as failing to load the grammar.
 use crate::{
     ast::{
         builder::build_ast,
         declaration::Declaration,
-        definition::Definition,
+        definition::{Circuit, Definition, Module},
         expression::Expression,
         function::Function,
         node::NodeKind,
@@ -12,8 +62,8 @@ use crate::{
         statement::{Assert, For, Statement},
         ty::Type,
     },
-    passes::{build_symbol_table, SymbolTable},
     storage::NodesStorage,
+    symbol_table::{build_symbol_table, SymbolTable},
 };
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -24,22 +74,38 @@ trait CodebaseOpen {}
 #[allow(dead_code)]
 trait CodebaseSealed {}
 
+/// Represents the open state of the codebase, allowing modifications.
 pub struct OpenState;
 impl CodebaseOpen for OpenState {}
 
+/// Represents the sealed state of the codebase, preventing modifications.
 pub struct SealedState;
 impl CodebaseSealed for SealedState {}
 
+/// `SoourceCodeFile` represents a source code file and its associated AST.
+///
+/// # Fields
+///
+/// - `file_path`: a path to the source code file.
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct SourceCodeFile {
-    pub fname: String,
+    pub file_path: String,
     pub(crate) ast: Rc<Program>,
 }
+
+/// `Codebase` represents a collection of source code files and their associated ASTs with API access functions
+///
+/// # Fields
+///
+/// - `storage`: a storage for AST nodes.
+/// - `files`: a vector of `SourceCodeFile`
+/// - `symbol_tables`: a map <file path: `Rc<SymbolTable>>`
+/// - `_state`: A phantom data marker for the state
 
 #[derive(Serialize, Deserialize, Default)]
 pub struct Codebase<S> {
     pub(crate) storage: NodesStorage,
-    pub(crate) fname_ast_map: HashMap<String, SourceCodeFile>,
+    pub(crate) files: Vec<SourceCodeFile>,
     pub(crate) symbol_tables: HashMap<String, Rc<SymbolTable>>,
     pub(crate) _state: PhantomData<S>,
 }
@@ -49,7 +115,7 @@ impl Codebase<OpenState> {
     pub fn new() -> Self {
         Self {
             storage: NodesStorage::default(),
-            fname_ast_map: HashMap::new(),
+            files: Vec::new(),
             symbol_tables: HashMap::new(),
             _state: PhantomData,
         }
@@ -74,11 +140,10 @@ impl Codebase<OpenState> {
         let root_node = tree.root_node();
         let ast = build_ast(self, &root_node, source_code).unwrap();
         let source_code_file = SourceCodeFile {
-            fname: fname.to_string(),
+            file_path: fname.to_string(),
             ast,
         };
-        self.fname_ast_map
-            .insert(source_code_file.fname.clone(), source_code_file);
+        self.files.push(source_code_file);
     }
 
     pub(crate) fn add_node(&mut self, node: NodeType, parent: u32) {
@@ -96,31 +161,24 @@ impl Codebase<OpenState> {
     /// This function will panic if the symbol table for a file path is not found.
     pub fn seal(mut self) -> Result<Codebase<SealedState>> {
         self.link_imports();
-        // First, build a mapping of each file to its local file-level symbol table.
         let mut local_symbol_tables = HashMap::new();
-        for (file_path, source_code_file) in &self.fname_ast_map {
-            let local_symtab =
-                Codebase::build_symbol_table_for_file_level_types(&source_code_file.ast.clone());
-            local_symbol_tables.insert(file_path.clone(), local_symtab);
+        for file in &self.files {
+            let local_symtab = Codebase::build_symbol_table_for_file_level_types(&file.ast.clone());
+            local_symbol_tables.insert(file.file_path.clone(), local_symtab);
         }
         let mut symbol_tables = HashMap::new();
-        // Now, build the full symbol table for each file.
-        for (file_path, source_code_file) in &self.fname_ast_map {
-            // Look for an import declaration belonging to this file that has been linked.
+        for file in &self.files {
             let mut parent_symtab = None;
             for node in &self.storage.nodes {
                 if let NodeType::Declaration(Declaration::Import(import)) = node {
                     if let Some(node_file) = self.find_node_file(node.id()) {
-                        if node_file.fname == *file_path {
-                            // Use the import reference (an id of the imported file) to look up the imported file's local symbol table.
+                        if node_file.file_path == *file.file_path {
                             if let Some(imported) = &import.reference {
-                                if let Some((imported_fname, _)) = self
-                                    .fname_ast_map
-                                    .iter()
-                                    .find(|(_, file)| file.ast.id == imported.id)
+                                if let Some(imported_fname) =
+                                    self.files.iter().find(|f| f.ast.id == imported.id)
                                 {
                                     if let Some(imported_symtab) =
-                                        local_symbol_tables.get(imported_fname)
+                                        local_symbol_tables.get(&imported_fname.file_path)
                                     {
                                         parent_symtab = Some(imported_symtab.clone());
                                         break;
@@ -131,21 +189,17 @@ impl Codebase<OpenState> {
                     }
                 }
             }
-            // If no parent was found through an import, use the file's own local symbol table.
             let effective_parent =
-                parent_symtab.or_else(|| local_symbol_tables.get(file_path).cloned());
-            let symbol_table = build_symbol_table(
-                Rc::new(NodeKind::from(&source_code_file.ast)),
-                effective_parent,
-            )?;
-            // println!("{}\n{}", &file_path, &symbol_table);
-            symbol_tables.insert(file_path.clone(), symbol_table);
+                parent_symtab.or_else(|| local_symbol_tables.get(&file.file_path).cloned());
+            let symbol_table =
+                build_symbol_table(Rc::new(NodeKind::from(&file.ast)), effective_parent)?;
+            symbol_tables.insert(file.file_path.clone(), symbol_table);
         }
         self.link_function_calls();
         self.storage.seal();
         Ok(Codebase {
             storage: self.storage,
-            fname_ast_map: self.fname_ast_map,
+            files: self.files,
             symbol_tables,
             _state: PhantomData,
         })
@@ -155,11 +209,9 @@ impl Codebase<OpenState> {
         for node in &mut self.storage.nodes {
             if let NodeType::Declaration(Declaration::Import(ref mut import)) = node {
                 let import_mut = Rc::make_mut(import);
-                if let Some(file) = self.fname_ast_map.get(import_mut.name().as_str()) {
+                if let Some(file) = self.files.iter().find(|f| f.file_path == import_mut.name()) {
                     import_mut.reference = Some(file.ast.clone());
-
-                    // Propagate types from the imported file's symbol table
-                    if let Some(imported_symtab) = self.symbol_tables.get(&file.fname) {
+                    if let Some(imported_symtab) = self.symbol_tables.get(&file.file_path) {
                         let symbols_to_add: Vec<_> = imported_symtab
                             .symbols
                             .borrow()
@@ -168,7 +220,6 @@ impl Codebase<OpenState> {
                                 ty.as_ref().map(|ty| (name.clone(), ty.clone()))
                             })
                             .collect();
-
                         for (name, ty) in symbols_to_add {
                             self.symbol_tables
                                 .entry(import_mut.name().to_string())
@@ -182,7 +233,6 @@ impl Codebase<OpenState> {
     }
 
     fn link_function_calls(&mut self) {
-        // Collect all function call nodes (their id and the target function name)
         let function_calls: Vec<(u32, String)> = self
             .storage
             .nodes
@@ -203,18 +253,14 @@ impl Codebase<OpenState> {
             .collect();
 
         for (call_id, function_name) in function_calls {
-            // Get the source file for this function call node.
             if let Some(file) = self.find_node_file(call_id) {
-                // First, try to find a matching circuit in the current file.
                 let mut circuit_opt = file
                     .ast
                     .circuits()
                     .iter()
                     .find(|c| c.name() == function_name)
                     .cloned();
-                // If not found locally, search among the imports for this file.
                 if circuit_opt.is_none() {
-                    // List all import nodes that originate from this file.
                     let import_nodes: Vec<_> = self
                         .storage
                         .nodes
@@ -223,7 +269,7 @@ impl Codebase<OpenState> {
                             if let NodeType::Declaration(Declaration::Import(import)) = node {
                                 // Only consider imports that belong to the same file.
                                 if let Some(import_file) = self.find_node_file(node.id()) {
-                                    if import_file.fname == file.fname {
+                                    if import_file.file_path == file.file_path {
                                         return Some(import);
                                     }
                                 }
@@ -231,7 +277,6 @@ impl Codebase<OpenState> {
                             None
                         })
                         .collect();
-                    // Look in each import's referenced program (if set) for the required circuit.
                     for import in import_nodes {
                         if let Some(imported_program) = &import.reference {
                             if let Some(circuit) = imported_program
@@ -245,13 +290,11 @@ impl Codebase<OpenState> {
                         }
                     }
                 }
-                // If a matching circuit was found, update the function call node.
                 if let Some(circuit) = circuit_opt {
                     if let Some(NodeType::Expression(Expression::FunctionCall(
                         ref mut function_call_node,
                     ))) = self.storage.find_node_mut(call_id)
                     {
-                        // Use Rc::make_mut to get a mutable reference from the Rc.
                         let function_call_mut = Rc::make_mut(function_call_node);
                         function_call_mut.reference = Some(circuit);
                     }
@@ -260,7 +303,9 @@ impl Codebase<OpenState> {
         }
     }
 
-    pub(crate) fn build_symbol_table_for_file_level_types(program: &Rc<Program>) -> Rc<SymbolTable> {
+    pub(crate) fn build_symbol_table_for_file_level_types(
+        program: &Rc<Program>,
+    ) -> Rc<SymbolTable> {
         let rc_symbol_table = Rc::new(SymbolTable::new(None));
         for definition in &program.definitions {
             match definition {
@@ -282,14 +327,14 @@ impl Codebase<OpenState> {
 
 impl Codebase<SealedState> {
     pub fn files(&self) -> impl Iterator<Item = SourceCodeFile> + '_ {
-        self.fname_ast_map.values().cloned()
+        self.files.iter().cloned()
     }
 
     #[must_use = "Use this function to get a type for a symbol (Identifier)"]
     pub fn get_symbol_type_by_id(&self, id: u32) -> Option<Type> {
         if let Some(file) = self.find_node_file(id) {
             self.symbol_tables
-                .get(&file.fname)
+                .get(&file.file_path)
                 .and_then(|table| table.lookdown_by_id(id))
         } else {
             None
@@ -314,6 +359,67 @@ impl Codebase<SealedState> {
                 None
             }
         })
+    }
+
+    #[must_use = "Use this function to get a list of all exported circuits in the file"]
+    pub fn list_exported_circuits_from_program(&self, program: &Rc<Program>) -> Vec<Rc<Circuit>> {
+        self.list_exported_circuits(program.id)
+    }
+
+    #[must_use = "Use this function to get a list of all exported circuits from the module"]
+    pub fn list_exported_circuits_from_module(&self, module: &Rc<Module>) -> Vec<Rc<Circuit>> {
+        self.list_exported_circuits(module.id)
+    }
+
+    fn list_exported_circuits(&self, id: u32) -> Vec<Rc<Circuit>> {
+        self.get_children_cmp(id, |node| {
+            if let NodeType::Definition(Definition::Circuit(circuit)) = node {
+                circuit.is_exported
+            } else {
+                false
+            }
+        })
+        .into_iter()
+        .filter_map(|node| {
+            if let NodeType::Definition(Definition::Circuit(circuit)) = node {
+                Some(circuit)
+            } else {
+                None
+            }
+        })
+        .collect()
+    }
+
+    #[must_use = "Use this function to get a list of all non-exported circuits in the file"]
+    pub fn list_non_exported_circuits_from_program(
+        &self,
+        program: &Rc<Program>,
+    ) -> Vec<Rc<Circuit>> {
+        self.list_non_exported_circuits(program.id)
+    }
+
+    #[must_use = "Use this function to get a list of all non-exported circuits from the module"]
+    pub fn list_non_exported_circuits_from_module(&self, module: &Rc<Module>) -> Vec<Rc<Circuit>> {
+        self.list_non_exported_circuits(module.id)
+    }
+
+    fn list_non_exported_circuits(&self, id: u32) -> Vec<Rc<Circuit>> {
+        self.get_children_cmp(id, |node| {
+            if let NodeType::Definition(Definition::Circuit(circuit)) = node {
+                !circuit.is_exported
+            } else {
+                false
+            }
+        })
+        .into_iter()
+        .filter_map(|node| {
+            if let NodeType::Definition(Definition::Circuit(circuit)) = node {
+                Some(circuit)
+            } else {
+                None
+            }
+        })
+        .collect()
     }
 
     #[must_use]
@@ -363,11 +469,7 @@ impl Codebase<SealedState> {
 impl<T> Codebase<T> {
     #[must_use = "Use this function to get a Node's source file"]
     pub fn find_node_file(&self, id: u32) -> Option<SourceCodeFile> {
-        if let Some((_, file)) = self
-            .fname_ast_map
-            .iter()
-            .find(|(_, file)| file.ast.id == id)
-        {
+        if let Some(file) = self.files.iter().find(|file| file.ast.id == id) {
             Some(file.clone())
         } else {
             let mut node_id = id;
@@ -376,13 +478,11 @@ impl<T> Codebase<T> {
                     if let Some(file) = self.storage.find_node(node_id) {
                         match file {
                             NodeType::Program(f) => {
-                                if let Some((fname, _)) = self
-                                    .fname_ast_map
-                                    .iter()
-                                    .find(|(_, file)| Rc::ptr_eq(&file.ast, &f))
+                                if let Some(sf) =
+                                    self.files.iter().find(|file| Rc::ptr_eq(&file.ast, &f))
                                 {
                                     return Some(SourceCodeFile {
-                                        fname: fname.clone(),
+                                        file_path: sf.file_path.clone(),
                                         ast: f.clone(),
                                     });
                                 }

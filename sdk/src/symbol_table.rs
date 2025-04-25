@@ -1,4 +1,33 @@
-#![allow(dead_code)]
+/// Represents a symbol table used for managing symbols and their associated types
+/// in a scoped environment. The `SymbolTable` supports hierarchical scoping with
+/// parent-child relationships and provides methods for symbol insertion, lookup,
+/// and traversal.
+///
+/// # Fields
+/// - `symbols`: A `RefCell` containing a `HashMap` that maps symbol names to their
+///   associated types. The type is wrapped in an `Option` to allow for unknown types.
+/// - `id_type_map`: A `RefCell` containing a `HashMap` that maps unique IDs to their
+///   associated types. This is useful for looking up symbols by their unique identifier.
+/// - `parent`: An optional reference to the parent `SymbolTable`, allowing for hierarchical
+///   scoping.
+/// - `children`: A `RefCell` containing a vector of child `SymbolTable` references, enabling
+///   traversal of nested scopes.
+///
+/// # Methods
+/// - `new`: Creates a new `SymbolTable` with an optional parent.
+/// - `upsert`: Inserts or updates a symbol and its type in the table.
+/// - `insert`: Inserts a new symbol and its type, returning an error if the symbol already exists.
+/// - `insert_by_id`: Inserts a new symbol by its unique ID, returning an error if the ID already exists.
+/// - `lookup`: Searches for a symbol by name, traversing up the parent hierarchy if necessary.
+/// - `lookup_by_id`: Searches for a symbol by its unique ID, traversing up the parent hierarchy if necessary.
+/// - `lookdown`: Searches for a symbol by name in the current scope and all child scopes.
+/// - `lookdown_by_id`: Searches for a symbol by its unique ID in the current scope and all child scopes.
+/// - `is_empty`: Checks if the symbol table is empty.
+///
+/// # Usage
+/// This struct is primarily used in the context of building and managing symbol tables
+/// for programming language compilers or interpreters. It supports hierarchical scoping
+/// and type inference for expressions.
 use anyhow::{anyhow, Ok, Result};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -23,11 +52,13 @@ pub struct SymbolTable {
     pub parent: Option<Rc<SymbolTable>>,
     pub children: RefCell<Vec<Rc<SymbolTable>>>,
 }
-// Unit tests for SymbolTable and build_symbol_table
-#[cfg(test)]
-mod tests {}
 
 impl SymbolTable {
+    ///Creates a new `SymbolTable` with an optional parent.
+    ///
+    /// # Arguments
+    ///
+    /// - `parent`: Optional reference to the parent `SymbolTable`
     pub fn new(parent: Option<Rc<SymbolTable>>) -> Self {
         Self {
             symbols: RefCell::new(HashMap::new()),
@@ -37,22 +68,42 @@ impl SymbolTable {
         }
     }
 
+    /// Inserts or updates a symbol and its type in the table.
+    ///
+    /// # Arguments
+    ///
+    /// - `id`: node ID
+    /// - `symbol`: a symbol (identifier) appeared in the code
+    /// - `ty`: an optional type of the symbol
     pub(crate) fn upsert(&self, id: u32, symbol: String, ty: Option<Type>) {
         self.symbols.borrow_mut().insert(symbol, ty.clone());
         self.id_type_map.borrow_mut().insert(id, ty);
     }
 
-    #[allow(clippy::map_entry)]
-    pub fn insert(&self, name: String, ty: Option<Type>) -> Result<()> {
+    /// Inserts a new symbol and its type, returning an error if the symbol already exists.
+    ///
+    /// # Arguments
+    ///
+    /// - `symbol`: a symbol (identifier) appeared in the code
+    /// - `ty`: an optional type of the symbol
+    #[allow(clippy::map_entry, dead_code)]
+    pub fn insert(&self, symbol: String, ty: Option<Type>) -> Result<()> {
         let mut syms = self.symbols.borrow_mut();
-        if syms.contains_key(&name) {
-            Err(anyhow!("Symbol {name} already exists"))
+        if syms.contains_key(&symbol) {
+            Err(anyhow!("Symbol {symbol} already exists"))
         } else {
-            syms.insert(name, ty);
+            syms.insert(symbol, ty);
             Ok(())
         }
     }
 
+    /// Inserts a new symbol by its unique ID, returning an error if the ID already exists.
+    ///
+    /// # Arguments
+    ///
+    /// - `id`: node ID
+    /// - `ty`: an optional type of the symbol
+    #[allow(dead_code)]
     pub fn insert_by_id(&self, id: u32, ty: Option<Type>) -> Result<()> {
         let mut id_type_map = self.id_type_map.borrow_mut();
         if let std::collections::hash_map::Entry::Vacant(e) = id_type_map.entry(id) {
@@ -63,17 +114,27 @@ impl SymbolTable {
         }
     }
 
-    pub fn lookup(&self, name: &str) -> Option<Type> {
+    /// Searches for a symbol by name, traversing up the parent hierarchy if necessary.
+    ///
+    /// # Arguments
+    ///
+    /// - `symbol`: a symbol (identifier) appeared in the code
+    pub fn lookup(&self, symbol: &str) -> Option<Type> {
         let syms = self.symbols.borrow();
-        if let Some(sym) = syms.get(name) {
+        if let Some(sym) = syms.get(symbol) {
             sym.clone()
         } else if let Some(ref parent) = self.parent {
-            parent.lookup(name)
+            parent.lookup(symbol)
         } else {
             None
         }
     }
 
+    /// Searches for a symbol by its unique ID, traversing up the parent hierarchy if necessary.
+    ///
+    /// # Arguments
+    ///
+    /// - `id`: node ID
     pub fn lookup_by_id(&self, id: u32) -> Option<Type> {
         let id_type_map = self.id_type_map.borrow();
         if let Some(sym) = id_type_map.get(&id) {
@@ -85,13 +146,19 @@ impl SymbolTable {
         }
     }
 
-    pub fn lookdown(&self, name: &str) -> Option<Type> {
+    /// Searches for a symbol by name in the current scope and all child scopes.
+    ///
+    /// # Arguments
+    ///
+    /// - `symbol`: a symbol (identifier) appeared in the code
+    #[allow(dead_code)]
+    pub fn lookdown(&self, symbol: &str) -> Option<Type> {
         let syms = self.symbols.borrow();
-        if let Some(sym) = syms.get(name) {
+        if let Some(sym) = syms.get(symbol) {
             sym.clone()
         } else {
             for child in self.children.borrow().iter() {
-                if let Some(sym) = child.lookdown(name) {
+                if let Some(sym) = child.lookdown(symbol) {
                     return Some(sym);
                 }
             }
@@ -99,6 +166,11 @@ impl SymbolTable {
         }
     }
 
+    /// Searches for a symbol by its unique ID in the current scope and all child scopes.
+    ///
+    /// # Arguments
+    ///
+    /// - `id`: node ID
     pub fn lookdown_by_id(&self, id: u32) -> Option<Type> {
         let mut symbol_tables: Vec<Rc<SymbolTable>> = vec![Rc::new(self.clone())];
         loop {
@@ -178,6 +250,12 @@ impl Display for SymbolTable {
     }
 }
 
+/// Recursively builds symbol tables by traversing AST from the given `node_kind`
+///
+/// # Arguments
+///
+/// - `node_kind`: a reference to the node representation as `NodeKind`
+/// - `parent`: optionally parent `SymbolTable`
 #[allow(clippy::map_entry)]
 pub fn build_symbol_table(
     node_kind: Rc<NodeKind>,
@@ -856,7 +934,7 @@ mod test {
             statements: vec![var_a.clone(), var_b.clone()],
         }));
         let symbol_table =
-            build_symbol_table(Rc::new(crate::passes::NodeKind::from(&block)), None)?;
+            build_symbol_table(Rc::new(crate::symbol_table::NodeKind::from(&block)), None)?;
         println!("{symbol_table}");
         let sym_a = symbol_table.lookdown("a").unwrap();
         let sym_b = symbol_table.lookdown("b").unwrap();
@@ -913,7 +991,7 @@ mod test {
             statements: vec![if_stmt],
         }));
         let symbol_table =
-            build_symbol_table(Rc::new(crate::passes::NodeKind::from(&block)), None)?;
+            build_symbol_table(Rc::new(crate::symbol_table::NodeKind::from(&block)), None)?;
         println!("Symbol table: {symbol_table}\n");
         assert!(symbol_table.lookdown("a").is_some());
         assert!(symbol_table.lookdown("b").is_some());
@@ -966,7 +1044,7 @@ mod test {
             statements: vec![var_a, var_b, ret_stmt],
         }));
         let symbol_table =
-            build_symbol_table(Rc::new(crate::passes::NodeKind::from(&block)), None)?;
+            build_symbol_table(Rc::new(crate::symbol_table::NodeKind::from(&block)), None)?;
         // Ensure "a" and "b" are present.
         assert!(symbol_table.lookup("a").is_some());
         assert!(symbol_table.lookup("b").is_some());
@@ -980,6 +1058,7 @@ mod test {
         Ok(())
     }
 
+    #[allow(dead_code)]
     fn test_definition_nodes() {
         let module = crate::ast::definition::Module {
             id: 55,
