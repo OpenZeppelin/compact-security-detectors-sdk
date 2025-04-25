@@ -2514,7 +2514,7 @@ mod tests {
         let mut codebase = Codebase::new();
         let ast = build_ast(&mut codebase, &root_node, content)?;
         let source_code_file = SourceCodeFile {
-            fname: fname.to_string(),
+            file_path: fname.to_string(),
             ast,
         };
         Ok(source_code_file)

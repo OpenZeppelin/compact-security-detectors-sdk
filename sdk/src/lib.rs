@@ -3,7 +3,8 @@
 //! # Compact Security Detectors SDK root module
 //! This module provides the main entry point for building a codebase and exposing SDK API.
 //!
-//! ## Public members:
+//! ## Public members
+//!
 //! - `ast` module contains the abstract syntax tree (AST) representation of the codebase.
 //! - `detector` module contrains Detector trait framework and macro for implementing detectors.
 //! - `codebase` module contains the Codebase struct and its methods for managing the codebase.
@@ -54,16 +55,26 @@ pub fn build_codebase<H: std::hash::BuildHasher>(
     files: &HashMap<String, String, H>,
 ) -> Result<Box<Codebase<SealedState>>> {
     let mut codebase = Codebase::new();
-    for (fname, source_code) in files {
-        codebase.add_file(fname, source_code);
+    for (file_path, source_code) in files {
+        codebase.add_file(file_path, source_code);
     }
     Ok(Box::new(codebase.seal()?))
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::ast::{
+        definition::Definition,
+        expression::Expression,
+        literal::{Bool, Nat, Str},
+        node::Location,
+        node_type::NodeType,
+        statement::Statement,
+        ty::{Type, TypeBool, TypeNat, TypeString, Vector, VectorSize},
+    };
+
     use super::*;
-    use std::collections::HashMap;
+    use std::{collections::HashMap, rc::Rc};
 
     #[test]
     #[ignore] // Skip this test in CI workflows
@@ -87,18 +98,18 @@ mod tests {
     #[test]
     fn test_build_codebase_simple() {
         let mut files = HashMap::new();
-        // simple circuit definition
         let src = "circuit foo() : Uint<8> { return 0; }";
         files.insert("a.compact".to_string(), src.to_string());
         let cb = build_codebase(&files).expect("build_codebase failed");
-        // one file and one symbol table
-        assert_eq!(cb.fname_ast_map.len(), 1);
+        assert_eq!(cb.files.len(), 1);
         assert_eq!(cb.symbol_tables.len(), 1);
-        // AST contains one definition
-        let scf = cb.fname_ast_map.get("a.compact").unwrap();
+        let scf = cb
+            .files
+            .iter()
+            .find(|f| f.file_path == "a.compact")
+            .unwrap();
         let ast = &scf.ast;
         assert_eq!(ast.definitions.len(), 1);
-        // circuit named foo
         let circuits = ast.circuits();
         assert_eq!(circuits.len(), 1);
         assert_eq!(circuits[0].name(), "foo");
@@ -107,18 +118,13 @@ mod tests {
     /// Test files iterator and parent container resolution
     #[test]
     fn test_files_and_parent_container() {
-        use crate::ast::definition::Definition;
-        use crate::ast::node_type::NodeType;
-        use crate::ast::statement::Statement;
         let mut files = HashMap::new();
         let src = "circuit foo() : Uint<8> { return 1; }";
         files.insert("a.compact".to_string(), src.to_string());
         let cb = build_codebase(&files).unwrap();
-        // files() yields one SourceCodeFile
         let fs: Vec<_> = cb.files().collect();
         assert_eq!(fs.len(), 1);
-        assert_eq!(fs[0].fname, "a.compact");
-        // find a return statement node id
+        assert_eq!(fs[0].file_path, "a.compact");
         let ret_id = cb
             .storage
             .nodes
@@ -140,14 +146,9 @@ mod tests {
             panic!("Expected circuit definition as parent");
         }
     }
-    /// Test Type matching and Display, plus Vector size extraction
+
     #[test]
     fn test_type_matches_and_display() {
-        use crate::ast::literal::{Bool, Nat, Str};
-        use crate::ast::node::Location;
-        use crate::ast::ty::{Type, TypeBool, TypeNat, TypeString, Vector, VectorSize};
-        use std::rc::Rc;
-        // Nat type
         let nat_lit = Rc::new(Nat {
             id: 1,
             location: Location::default(),
@@ -188,9 +189,6 @@ mod tests {
 
     #[test]
     fn test_get_symbol_type_by_id() {
-        use crate::ast::expression::Expression;
-        use crate::ast::node_type::NodeType;
-        use crate::ast::ty::Type;
         let mut files = HashMap::new();
         let src = "circuit foo(x: Uint<8>) : Uint<8> { return x; }";
         files.insert("a.compact".to_string(), src.to_string());

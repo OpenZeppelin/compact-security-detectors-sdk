@@ -43,7 +43,7 @@ compact_security_detectors_sdk::detector! {
                             };
                             errors.push(
                                 DetectorResult {
-                                    file_path: codebase.find_node_file(index_access.id).unwrap().fname,
+                                    file_path: codebase.find_node_file(index_access.id).unwrap().file_path,
                                     offset_start: index_access.location.offset_start,
                                     offset_end: index_access.location.offset_end,
                                     extra: {

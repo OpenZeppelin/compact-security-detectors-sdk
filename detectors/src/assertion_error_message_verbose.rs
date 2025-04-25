@@ -29,7 +29,7 @@ compact_security_detectors_sdk::detector! {
                     _ => String::new(),
                 };
                 errors.push(DetectorResult {
-                    file_path: codebase.find_node_file(assert_node.id).unwrap().fname,
+                    file_path: codebase.find_node_file(assert_node.id).unwrap().file_path,
                     offset_start: assert_node.location.offset_start,
                     offset_end: assert_node.location.offset_end,
                     extra: {

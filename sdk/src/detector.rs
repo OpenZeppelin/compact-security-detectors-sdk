@@ -2,7 +2,8 @@
 //! Detector module
 //! This module provides the Detector trait and macros for implementing detectors.
 //!
-//! Public members:
+//! # Public members
+//!
 //! - `detector!` macro for defining a detector. It automatically creates the structure for the provided `type_name` in the arrtibute and implements `Detector` trait. It can be applied to a single function with `type_name` attribute and follows `check` function signature.
 //! - `detectors!` macro for defining multiple detectors at once. It can be applied to a list of functions with `type_name` attribute and follows `check` function signature.
 //! - `Detector` trait for implementing a detector. It has a single method `check` that takes a `Codebase` and returns an optional vector of `DetectorResult`.
@@ -46,6 +47,9 @@ macro_rules! detector {
     () => {};
 }
 
+/// Detectors macro
+/// This macro is used to define multiple detectors at once.
+/// It accepts a list of functions (signature and body) with a `type_name` attribute similar to the `detector!` macro.
 #[macro_export]
 macro_rules! detectors {
     (
@@ -72,17 +76,32 @@ macro_rules! detectors {
     () => {};
 }
 
+/// WARNING: This struct is used to wrap a raw pointer to a detector.
+/// In you write detectors in a separate library, you should not use this struct to cast the pointer to `Detector`.
 #[repr(C)]
 pub struct DetectorOpaque {
     _private: [u8; 0],
 }
 
+/// `CombinedDetector` trait
+/// A union trait to force a `Detector` implementation to implement both `Detector` and `DetectorReportTemplate` traits.
 pub trait CombinedDetector: Detector + DetectorReportTemplate {}
 
 impl<T: Detector + DetectorReportTemplate> CombinedDetector for T {}
 
+/// `CompactDetector` type
+/// An alias for a boxed version of `CombinedDetector`.
 pub type CompactDetector = Box<dyn CombinedDetector>;
 
+/// `DetectorResult` struct
+/// Represents the result of a detector.
+///
+/// # Fields
+///
+/// - `file_path`: The path to the file where the detector found an issue.
+/// - `offset_start`: The start offset of the issue in the file.
+/// - `offset_end`: The end offset of the issue in the file.
+/// - `extra`: An optional map of extra information. This can be used to store symbol replacements for the report template substitution.
 #[derive(Debug, Clone)]
 pub struct DetectorResult {
     pub file_path: String,
@@ -91,10 +110,59 @@ pub struct DetectorResult {
     pub extra: Option<HashMap<String, String>>,
 }
 
+/// `Detector` trait
+/// The base `Detector` functional interface.
+///
+/// # Functions
+/// - `check`: The main function that takes a `Codebase` and returns an optional vector of `DetectorResult`.
 pub trait Detector {
     fn check(&self, codebase: &Codebase<SealedState>) -> Option<Vec<DetectorResult>>;
 }
 
+/// `DetectorReportTemplate` trait
+/// The `DetectorReportTemplate` trait is used to define the report template for a detector.
+/// This trait exposes the `Detector` metadata used for generating the report.
+///
+/// # Functions
+/// - `id`: Returns the unique identifier of the detector.
+/// - `uid`: Returns the short detector identifier.
+/// - `description`: Returns a description of the detector.
+/// - `severity`: Returns the severity of the issue found by a detector.
+/// - `tags`: Returns a list of tags associated with the detector. Compact detectorrs always have the `compact` tag.
+/// - `title_single_instance`: Returns the title for a single instance of the issue.
+/// - `title_multiple_instance`: Returns the title for multiple instances of the issue.
+/// - `opening`: Returns the opening message for the report.
+/// - `body_single_file_single_instance`: Returns the body of the report for a single file with a single issue instance.
+/// - `body_single_file_multiple_instance`: Returns the body of the report for a single file with multiple issue instances.
+/// - `body_multiple_file_multiple_instance`: Returns the body of the report for multiple files with multiple issue instances.
+/// - `body_list_item_single_file`: Returns the body of the report for a single file with a single issue instance.
+/// - `body_list_item_multiple_file`: Returns the body of the report for multiple files with a single issue instance.
+/// - `closing`: Returns the closing message for the report.
+/// - `template`: Returns the template string for the report in `yml` format.
+///
+/// # Metadata Example
+/// ```yml
+/// metadata:
+///  id: assertion-error-message-verbose
+///  uid: 3HgyHb
+///  description: Detects assert statements that expose overly verbose or technical error messages directly to users, which can leak sensitive implementation details or confuse end users. Ensuring concise, user-friendly error messages helps maintain security and usability.
+///  report:
+///    severity: low
+///    tags:
+///      - audit
+///      - reportable
+///      - compact
+///    template:
+///      title: Verbose Assertion Error Message Exposed
+///      opening: Assert statements should provide clear and user-friendly error messages. Verbose or technical error messages may inadvertently reveal internal logic or sensitive information, and can be confusing for end users.
+///      body-single-file-single-instance: In `$file_name`, an assert statement in the `$PARENT_NAME` $PARENT_TYPE on line $instance_line exposes a verbose or technical error message directly to users.
+///      body-single-file-multiple-instance: In `$file_name`, multiple assert statements expose verbose or technical error messages directly to users.
+///      body-multiple-file-multiple-instance: Across $total_files files, multiple assert statements expose verbose or technical error messages directly to users.
+///      body-list-item-intro: 'The following assert statements were found with verbose or technical error messages:'
+///      body-list-item-single-file: '- In `$PARENT_NAME` $PARENT_TYPE on line $instance_line of [`$file_name`]($instance_line_link)'
+///      body-list-item-multiple-file: '- In `$PARENT_NAME` $PARENT_TYPE on line $instance_line of [`$file_name`]($instance_line_link)'
+///      closing: To improve security and user experience, use concise and human-readable error messages in assert statements. Avoid exposing internal details or technical jargon, as this may confuse users or leak sensitive information.
+///```
 pub trait DetectorReportTemplate {
     fn id(&self) -> String;
     fn uid(&self) -> String;
