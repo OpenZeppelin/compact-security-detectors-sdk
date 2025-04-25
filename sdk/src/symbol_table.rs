@@ -23,7 +23,6 @@
 /// - `lookdown`: Searches for a symbol by name in the current scope and all child scopes.
 /// - `lookdown_by_id`: Searches for a symbol by its unique ID in the current scope and all child scopes.
 /// - `is_empty`: Checks if the symbol table is empty.
-/// - `fmt`: Implements the `Display` trait to provide a formatted string representation of the symbol table.
 ///
 /// # Usage
 /// This struct is primarily used in the context of building and managing symbol tables
@@ -55,6 +54,11 @@ pub struct SymbolTable {
 }
 
 impl SymbolTable {
+    ///Creates a new `SymbolTable` with an optional parent.
+    ///
+    /// # Arguments
+    ///
+    /// - `parent`: Optional reference to the parent `SymbolTable`
     pub fn new(parent: Option<Rc<SymbolTable>>) -> Self {
         Self {
             symbols: RefCell::new(HashMap::new()),
@@ -64,22 +68,41 @@ impl SymbolTable {
         }
     }
 
+    /// Inserts or updates a symbol and its type in the table.
+    ///
+    /// # Arguments
+    ///
+    /// - `id`: node ID
+    /// - `symbol`: a symbol (identifier) appeared in the code
+    /// - `ty`: an optional type of the symbol
     pub(crate) fn upsert(&self, id: u32, symbol: String, ty: Option<Type>) {
         self.symbols.borrow_mut().insert(symbol, ty.clone());
         self.id_type_map.borrow_mut().insert(id, ty);
     }
 
+    /// Inserts a new symbol and its type, returning an error if the symbol already exists.
+    ///
+    /// # Arguments
+    ///
+    /// - `symbol`: a symbol (identifier) appeared in the code
+    /// - `ty`: an optional type of the symbol
     #[allow(clippy::map_entry, dead_code)]
-    pub fn insert(&self, name: String, ty: Option<Type>) -> Result<()> {
+    pub fn insert(&self, symbol: String, ty: Option<Type>) -> Result<()> {
         let mut syms = self.symbols.borrow_mut();
-        if syms.contains_key(&name) {
-            Err(anyhow!("Symbol {name} already exists"))
+        if syms.contains_key(&symbol) {
+            Err(anyhow!("Symbol {symbol} already exists"))
         } else {
-            syms.insert(name, ty);
+            syms.insert(symbol, ty);
             Ok(())
         }
     }
 
+    /// Inserts a new symbol by its unique ID, returning an error if the ID already exists.
+    ///
+    /// # Arguments
+    ///
+    /// - `id`: node ID
+    /// - `ty`: an optional type of the symbol
     #[allow(dead_code)]
     pub fn insert_by_id(&self, id: u32, ty: Option<Type>) -> Result<()> {
         let mut id_type_map = self.id_type_map.borrow_mut();
@@ -91,17 +114,27 @@ impl SymbolTable {
         }
     }
 
-    pub fn lookup(&self, name: &str) -> Option<Type> {
+    /// Searches for a symbol by name, traversing up the parent hierarchy if necessary.
+    ///
+    /// # Arguments
+    ///
+    /// - `symbol`: a symbol (identifier) appeared in the code
+    pub fn lookup(&self, symbol: &str) -> Option<Type> {
         let syms = self.symbols.borrow();
-        if let Some(sym) = syms.get(name) {
+        if let Some(sym) = syms.get(symbol) {
             sym.clone()
         } else if let Some(ref parent) = self.parent {
-            parent.lookup(name)
+            parent.lookup(symbol)
         } else {
             None
         }
     }
 
+    /// Searches for a symbol by its unique ID, traversing up the parent hierarchy if necessary.
+    ///
+    /// # Arguments
+    ///
+    /// - `id`: node ID
     pub fn lookup_by_id(&self, id: u32) -> Option<Type> {
         let id_type_map = self.id_type_map.borrow();
         if let Some(sym) = id_type_map.get(&id) {
@@ -113,14 +146,19 @@ impl SymbolTable {
         }
     }
 
+    /// Searches for a symbol by name in the current scope and all child scopes.
+    ///
+    /// # Arguments
+    ///
+    /// - `symbol`: a symbol (identifier) appeared in the code
     #[allow(dead_code)]
-    pub fn lookdown(&self, name: &str) -> Option<Type> {
+    pub fn lookdown(&self, symbol: &str) -> Option<Type> {
         let syms = self.symbols.borrow();
-        if let Some(sym) = syms.get(name) {
+        if let Some(sym) = syms.get(symbol) {
             sym.clone()
         } else {
             for child in self.children.borrow().iter() {
-                if let Some(sym) = child.lookdown(name) {
+                if let Some(sym) = child.lookdown(symbol) {
                     return Some(sym);
                 }
             }
@@ -128,6 +166,11 @@ impl SymbolTable {
         }
     }
 
+    /// Searches for a symbol by its unique ID in the current scope and all child scopes.
+    ///
+    /// # Arguments
+    ///
+    /// - `id`: node ID
     pub fn lookdown_by_id(&self, id: u32) -> Option<Type> {
         let mut symbol_tables: Vec<Rc<SymbolTable>> = vec![Rc::new(self.clone())];
         loop {
@@ -207,6 +250,12 @@ impl Display for SymbolTable {
     }
 }
 
+/// Recursively builds symbol tables by traversing AST from the given `node_kind`
+///
+/// # Arguments
+///
+/// - `node_kind`: a reference to the node representation as `NodeKind`
+/// - `parent`: optionally parent `SymbolTable`
 #[allow(clippy::map_entry)]
 pub fn build_symbol_table(
     node_kind: Rc<NodeKind>,
