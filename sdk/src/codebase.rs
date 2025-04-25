@@ -1,4 +1,3 @@
-#![warn(clippy::pedantic)]
 /// The `Codebase` module provides functionality for managing and interacting with a codebase
 /// represented as Abstract Syntax Trees (ASTs). It includes mechanisms for parsing source code,
 /// building symbol tables, linking imports, resolving function calls, and managing the state of
@@ -63,8 +62,8 @@ use crate::{
         statement::{Assert, For, Statement},
         ty::Type,
     },
-    passes::{build_symbol_table, SymbolTable},
     storage::NodesStorage,
+    symbol_table::{build_symbol_table, SymbolTable},
 };
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -87,7 +86,7 @@ impl CodebaseSealed for SealedState {}
 ///
 /// # Fields
 ///
-/// - `fname`: a path to the source code file.
+/// - `file_path`: a path to the source code file.
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct SourceCodeFile {
     pub file_path: String,
@@ -99,7 +98,7 @@ pub struct SourceCodeFile {
 /// # Fields
 ///
 /// - `storage`: a storage for AST nodes.
-/// - `fname_ast_map`: a vector of `SourceCodeFile`
+/// - `files`: a vector of `SourceCodeFile`
 /// - `symbol_tables`: a map <file path: `Rc<SymbolTable>>`
 /// - `_state`: A phantom data marker for the state
 
@@ -162,22 +161,18 @@ impl Codebase<OpenState> {
     /// This function will panic if the symbol table for a file path is not found.
     pub fn seal(mut self) -> Result<Codebase<SealedState>> {
         self.link_imports();
-        // First, build a mapping of each file to its local file-level symbol table.
         let mut local_symbol_tables = HashMap::new();
         for file in &self.files {
             let local_symtab = Codebase::build_symbol_table_for_file_level_types(&file.ast.clone());
             local_symbol_tables.insert(file.file_path.clone(), local_symtab);
         }
         let mut symbol_tables = HashMap::new();
-        // Now, build the full symbol table for each file.
         for file in &self.files {
-            // Look for an import declaration belonging to this file that has been linked.
             let mut parent_symtab = None;
             for node in &self.storage.nodes {
                 if let NodeType::Declaration(Declaration::Import(import)) = node {
                     if let Some(node_file) = self.find_node_file(node.id()) {
                         if node_file.file_path == *file.file_path {
-                            // Use the import reference (an id of the imported file) to look up the imported file's local symbol table.
                             if let Some(imported) = &import.reference {
                                 if let Some(imported_fname) =
                                     self.files.iter().find(|f| f.ast.id == imported.id)
@@ -194,12 +189,10 @@ impl Codebase<OpenState> {
                     }
                 }
             }
-            // If no parent was found through an import, use the file's own local symbol table.
             let effective_parent =
                 parent_symtab.or_else(|| local_symbol_tables.get(&file.file_path).cloned());
             let symbol_table =
                 build_symbol_table(Rc::new(NodeKind::from(&file.ast)), effective_parent)?;
-            // println!("{}\n{}", &file_path, &symbol_table);
             symbol_tables.insert(file.file_path.clone(), symbol_table);
         }
         self.link_function_calls();
@@ -218,8 +211,6 @@ impl Codebase<OpenState> {
                 let import_mut = Rc::make_mut(import);
                 if let Some(file) = self.files.iter().find(|f| f.file_path == import_mut.name()) {
                     import_mut.reference = Some(file.ast.clone());
-
-                    // Propagate types from the imported file's symbol table
                     if let Some(imported_symtab) = self.symbol_tables.get(&file.file_path) {
                         let symbols_to_add: Vec<_> = imported_symtab
                             .symbols
@@ -229,7 +220,6 @@ impl Codebase<OpenState> {
                                 ty.as_ref().map(|ty| (name.clone(), ty.clone()))
                             })
                             .collect();
-
                         for (name, ty) in symbols_to_add {
                             self.symbol_tables
                                 .entry(import_mut.name().to_string())
@@ -243,7 +233,6 @@ impl Codebase<OpenState> {
     }
 
     fn link_function_calls(&mut self) {
-        // Collect all function call nodes (their id and the target function name)
         let function_calls: Vec<(u32, String)> = self
             .storage
             .nodes
@@ -264,18 +253,14 @@ impl Codebase<OpenState> {
             .collect();
 
         for (call_id, function_name) in function_calls {
-            // Get the source file for this function call node.
             if let Some(file) = self.find_node_file(call_id) {
-                // First, try to find a matching circuit in the current file.
                 let mut circuit_opt = file
                     .ast
                     .circuits()
                     .iter()
                     .find(|c| c.name() == function_name)
                     .cloned();
-                // If not found locally, search among the imports for this file.
                 if circuit_opt.is_none() {
-                    // List all import nodes that originate from this file.
                     let import_nodes: Vec<_> = self
                         .storage
                         .nodes
@@ -292,7 +277,6 @@ impl Codebase<OpenState> {
                             None
                         })
                         .collect();
-                    // Look in each import's referenced program (if set) for the required circuit.
                     for import in import_nodes {
                         if let Some(imported_program) = &import.reference {
                             if let Some(circuit) = imported_program
@@ -306,13 +290,11 @@ impl Codebase<OpenState> {
                         }
                     }
                 }
-                // If a matching circuit was found, update the function call node.
                 if let Some(circuit) = circuit_opt {
                     if let Some(NodeType::Expression(Expression::FunctionCall(
                         ref mut function_call_node,
                     ))) = self.storage.find_node_mut(call_id)
                     {
-                        // Use Rc::make_mut to get a mutable reference from the Rc.
                         let function_call_mut = Rc::make_mut(function_call_node);
                         function_call_mut.reference = Some(circuit);
                     }

@@ -35,8 +35,8 @@ pub mod ast;
 mod builder_tests;
 pub mod codebase;
 pub mod detector;
-mod passes;
 mod storage;
+mod symbol_table;
 
 /// Builds a codebase from the provided source files.
 ///

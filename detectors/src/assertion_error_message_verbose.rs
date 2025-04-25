@@ -15,8 +15,7 @@ compact_security_detectors_sdk::detector! {
         for assert_node in codebase.list_assert_nodes() {
             if assert_node
                 .message()
-                .map(|msg| msg.trim().is_empty() || msg.len() < 3)
-                .unwrap_or(true)
+                .is_none_or(|msg| msg.trim().is_empty() || msg.len() < 3)
             {
                 let parent = codebase.get_parent_container(assert_node.id);
                 let mut parent_type = "circuit";

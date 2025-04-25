@@ -1,4 +1,3 @@
-#![warn(clippy::pedantic)]
 use serde::{Deserialize, Serialize};
 use std::rc::Rc;
 

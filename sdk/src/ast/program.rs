@@ -1,4 +1,3 @@
-#![warn(clippy::pedantic)]
 use std::rc::Rc;
 
 use crate::{ast_node, ast_node_impl};

@@ -1,4 +1,3 @@
-#![warn(clippy::pedantic)]
 use anyhow::{anyhow, bail, Ok, Result};
 use std::rc::Rc;
 use tree_sitter::Node;

@@ -1,4 +1,3 @@
-#![warn(clippy::pedantic)]
 //! Detector module
 //! This module provides the Detector trait and macros for implementing detectors.
 //!
