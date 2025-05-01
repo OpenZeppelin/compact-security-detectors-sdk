@@ -31,10 +31,17 @@
 use anyhow::Result;
 use codebase::{Codebase, SealedState};
 use std::collections::HashMap;
-pub mod ast;
+
 mod builder_tests;
+
+pub mod ast;
+pub use ast::*;
+
 pub mod codebase;
+
 pub mod detector;
+pub use detector::*;
+
 mod storage;
 mod symbol_table;
 
